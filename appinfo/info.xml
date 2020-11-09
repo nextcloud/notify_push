@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<info xmlns:xsi= "http://www.w3.org/2001/XMLSchema-instance"
+	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+	<id>push_ws</id>
+	<name>Socket Push</name>
+	<summary>Push update support for desktop app</summary>
+	<description><![CDATA[Push update support for desktop app]]></description>
+	<version>0.1.0</version>
+	<licence>agpl</licence>
+	<author>Robin Appelman</author>
+	<namespace>PushWS</namespace>
+	<default_enable/>
+
+	<bugs>https://github.com/nextcloud/push_ws/issues</bugs>
+
+	<dependencies>
+		<nextcloud min-version="21" max-version="21"/>
+	</dependencies>
+</info>
