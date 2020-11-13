@@ -23,20 +23,29 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush;
 
+use OC\Cache\CappedMemoryCache;
 use OCA\NotifyPush\Queue\IQueue;
 use OCP\Files\Cache\ICacheEvent;
 
 class Listener {
 	private $queue;
 
+	private $sendUpdates;
+
 	public function __construct(IQueue $queue) {
 		$this->queue = $queue;
+		$this->sendUpdates = new CappedMemoryCache();
 	}
 
 	public function cacheListener(ICacheEvent $event) {
-		$this->queue->push('notify_file_update', [
+		$storage = $event->getStorageId();
+		if ($this->sendUpdates[$storage]) {
+			return;
+		}
+		$this->sendUpdates[$storage] = true;
+
+		$this->queue->push('notify_storage_update', [
 			'storage' => $event->getStorageId(),
-			'id' => $event->getFileId(),
 		]);
 	}
 }
