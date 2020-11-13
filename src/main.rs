@@ -3,7 +3,7 @@ use crate::event::StorageUpdate;
 use crate::storage_mapping::StorageMapping;
 use futures::{FutureExt, StreamExt};
 use main_error::MainError;
-use redis::RedisError;
+use redis::{Client, RedisError};
 use tokio::sync::mpsc;
 use warp::ws::WebSocket;
 use warp::Filter;
@@ -19,6 +19,7 @@ async fn main() -> Result<(), MainError> {
 
     let connections = ActiveConnections::default();
     let mapping = StorageMapping::new(&std::env::var("DATABASE_URL")?).await?;
+    let client = redis::Client::open(std::env::var("REDIS_URL")?)?;
     let active_connections = connections.clone();
     let connections = warp::any().map(move || connections.clone());
 
@@ -31,7 +32,7 @@ async fn main() -> Result<(), MainError> {
 
     let routes = socket;
 
-    tokio::task::spawn(listen(active_connections, mapping));
+    tokio::task::spawn(listen(client, active_connections, mapping));
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
     Ok(())
@@ -78,8 +79,11 @@ async fn user_connected(ws: WebSocket, connections: ActiveConnections) {
     }
 }
 
-async fn listen(connections: ActiveConnections, mapping: StorageMapping) -> Result<(), RedisError> {
-    let client = redis::Client::open("redis://127.0.0.1/")?;
+async fn listen(
+    client: Client,
+    connections: ActiveConnections,
+    mapping: StorageMapping,
+) -> Result<(), RedisError> {
     let mut event_stream = event::subscribe(client).await?;
     while let Some(event) = event_stream.next().await {
         match event {
