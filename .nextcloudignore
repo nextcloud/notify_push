@@ -5,6 +5,9 @@
 .scrutinizer.yml
 .travis.yml
 .tx
+.env
 krankerl.toml
 screenshots
 .nextcloudignore
+target
+src
