@@ -18,3 +18,4 @@ futures = "0.3"
 pretty_env_logger = "0.4.0"
 sqlx = { version = "0.4.1", features = ["runtime-tokio-rustls", "any", "macros", "mysql", "sqlite", "postgres"] }
 dotenv = "0.15.0"
+dashmap = "3.11"

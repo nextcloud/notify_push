@@ -42,11 +42,5 @@ pub async fn subscribe(client: Client) -> Result<impl Stream<Item = Event>, Redi
 
     Ok(pubsub
         .into_on_message()
-        .filter_map(|msg| match Event::try_from(msg) {
-            Ok(event) => Some(event),
-            Err(e) => {
-                eprintln!("Error while receiving message: {}", e);
-                None
-            }
-        }))
+        .filter_map(|msg| Event::try_from(msg).ok()))
 }

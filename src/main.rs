@@ -23,12 +23,15 @@ async fn main() -> Result<(), MainError> {
     let active_connections = connections.clone();
     let connections = warp::any().map(move || connections.clone());
 
+    let cors = warp::cors().allow_any_origin();
+
     // GET /ws -> websocket upgrade
     let socket = warp::path("ws")
         // The `ws()` filter will prepare Websocket handshake...
         .and(warp::ws())
         .and(connections)
-        .map(|ws: warp::ws::Ws, users| ws.on_upgrade(move |socket| user_connected(socket, users)));
+        .map(|ws: warp::ws::Ws, users| ws.on_upgrade(move |socket| user_connected(socket, users)))
+        .with(cors);
 
     let routes = socket;
 
@@ -54,8 +57,6 @@ async fn user_connected(ws: WebSocket, connections: ActiveConnections) {
     let mut connection_id = None;
     let mut user_id = None;
 
-    let connections2 = connections.clone();
-
     // Every time the user sends a message, broadcast it to
     // all other users...
     while let Some(result) = user_ws_rx.next().await {
@@ -75,7 +76,7 @@ async fn user_connected(ws: WebSocket, connections: ActiveConnections) {
 
     if let (Some(connection_id), Some(user_id)) = (connection_id, user_id) {
         // user_ws_rx stream will keep processing as long as the user stays connected
-        connections2.remove(&user_id, connection_id).await;
+        connections.remove(&user_id, connection_id).await;
     }
 }
 

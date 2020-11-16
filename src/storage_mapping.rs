@@ -1,11 +1,11 @@
+use dashmap::DashMap;
 use sqlx::any::AnyRow;
 use sqlx::{Any, AnyPool, Row};
-use std::collections::HashMap;
 use std::time::Instant;
-use tokio::sync::RwLock;
+use tokio::time::Duration;
 
 pub struct StorageMapping {
-    cache: RwLock<HashMap<u32, (Instant, Vec<String>)>>,
+    cache: DashMap<u32, (Instant, Vec<String>)>,
     connection: AnyPool,
 }
 
@@ -18,11 +18,29 @@ impl StorageMapping {
         })
     }
 
+    fn get_cached(&self, storage: u32) -> Option<Vec<String>> {
+        let pair = self.cache.get(&storage)?;
+        let (time, cache) = pair.value();
+        if time.elapsed() < Duration::from_secs(5 * 60) {
+            Some(cache.clone())
+        } else {
+            None
+        }
+    }
+
     pub async fn get_users_for_storage(&self, storage: u32) -> Result<Vec<String>, sqlx::Error> {
-        sqlx::query::<Any>("SELECT DISTINCT user_id FROM oc_mounts WHERE storage_id = $1")
-            .bind(storage as i32)
-            .map(|row: AnyRow| row.get(0))
-            .fetch_all(&self.connection)
-            .await
+        Ok(if let Some(cached) = self.get_cached(storage) {
+            cached
+        } else {
+            let users: Vec<String> =
+                sqlx::query::<Any>("SELECT DISTINCT user_id FROM oc_mounts WHERE storage_id = $1")
+                    .bind(storage as i32)
+                    .map(|row: AnyRow| row.get(0))
+                    .fetch_all(&self.connection)
+                    .await?;
+
+            self.cache.insert(storage, (Instant::now(), users.clone()));
+            users
+        })
     }
 }
