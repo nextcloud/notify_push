@@ -1,23 +1,42 @@
+use dashmap::DashMap;
+use once_cell::sync::Lazy;
 use sqlx::database::HasValueRef;
 use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Type};
+use std::collections::hash_map::DefaultHasher;
 use std::fmt;
+use std::hash::Hasher;
 
-// todo: pre-hash this and only save the hash since we never need to actually know the full user id, just match them
+static USER_NAMES: Lazy<DashMap<u64, String>> = Lazy::new(|| DashMap::new());
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UserId {
-    id: String,
+    hash: u64,
+}
+
+impl UserId {
+    pub fn new(user_id: &str) -> Self {
+        let mut hash = DefaultHasher::new();
+        hash.write(user_id.as_bytes());
+        let hash = hash.finish();
+
+        USER_NAMES
+            .entry(hash)
+            .or_insert_with(|| user_id.to_string());
+
+        UserId { hash }
+    }
 }
 
 impl From<String> for UserId {
     fn from(id: String) -> Self {
-        UserId { id }
+        UserId::new(&id)
     }
 }
 
 impl From<&str> for UserId {
     fn from(id: &str) -> Self {
-        UserId { id: id.to_string() }
+        UserId::new(id)
     }
 }
 
@@ -26,7 +45,7 @@ where
     &'r str: Decode<'r, DB>,
 {
     fn decode(value: <DB as HasValueRef<'r>>::ValueRef) -> Result<Self, BoxDynError> {
-        <&str as Decode<DB>>::decode(value).map(UserId::from)
+        <&str as Decode<DB>>::decode(value).map(UserId::new)
     }
 }
 
@@ -45,6 +64,10 @@ where
 
 impl fmt::Display for UserId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.id)
+        if let Some(user_name) = USER_NAMES.get(&self.hash) {
+            f.write_str(user_name.value())
+        } else {
+            f.write_str("unknown user")
+        }
     }
 }

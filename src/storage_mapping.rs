@@ -26,22 +26,20 @@ impl StorageMapping {
         })
     }
 
-    fn get_cached(&self, storage: u32) -> Option<Vec<UserStorageAccess>> {
-        let pair = self.cache.get(&storage)?;
-        let (time, cache) = pair.value();
-        if time.elapsed() < Duration::from_secs(5 * 60) {
-            Some(cache.clone())
-        } else {
-            None
-        }
-    }
-
-    async fn get_access_for_storage(
+    pub async fn get_users_for_storage_path<'a>(
         &self,
         storage: u32,
-    ) -> Result<impl Iterator<Item = UserStorageAccess>, sqlx::Error> {
-        Ok(if let Some(cached) = self.get_cached(storage) {
-            cached.into_iter()
+        path: &str,
+    ) -> Result<impl Iterator<Item = UserId>, sqlx::Error> {
+        let cached = if let Some(cached) = self.cache.get(&storage).and_then(|cached| {
+            let (time, _cache) = cached.value();
+            if time.elapsed() < Duration::from_secs(5 * 60) {
+                Some(cached)
+            } else {
+                None
+            }
+        }) {
+            cached
         } else {
             let users = sqlx::query_as::<Any, UserStorageAccess>(
                 "\
@@ -54,23 +52,20 @@ impl StorageMapping {
             .fetch_all(&self.connection)
             .await?;
 
-            self.cache.insert(storage, (Instant::now(), users.clone()));
-            users.into_iter()
-        })
-    }
-
-    pub async fn get_users_for_storage_path<'a>(
-        &self,
-        storage: u32,
-        path: &'a str,
-    ) -> Result<impl Iterator<Item = UserId> + 'a, sqlx::Error> {
-        let access = self.get_access_for_storage(storage).await?;
-        Ok(access.filter_map(move |access| {
-            if path.starts_with(&access.root) {
-                Some(access.user)
-            } else {
-                None
-            }
-        }))
+            self.cache.insert(storage, (Instant::now(), users));
+            self.cache.get(&storage).unwrap()
+        };
+        let (_, access) = cached.value();
+        Ok(access
+            .iter()
+            .filter_map(move |access| {
+                if path.starts_with(&access.root) {
+                    Some(access.user.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .into_iter())
     }
 }
