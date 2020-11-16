@@ -1,6 +1,7 @@
 use crate::connection::ActiveConnections;
 use crate::event::StorageUpdate;
 use crate::storage_mapping::StorageMapping;
+pub use crate::user::UserId;
 use futures::{FutureExt, StreamExt};
 use main_error::MainError;
 use redis::{Client, RedisError};
@@ -11,6 +12,7 @@ use warp::Filter;
 mod connection;
 mod event;
 mod storage_mapping;
+mod user;
 
 #[tokio::main]
 async fn main() -> Result<(), MainError> {
@@ -69,8 +71,8 @@ async fn user_connected(ws: WebSocket, connections: ActiveConnections) {
         };
         if let (Ok(message), None) = (msg.to_str(), connection_id) {
             println!("listing to changes for {}", message);
-            user_id = Some(message.to_string());
-            connection_id = Some(connections.add(message.to_string(), tx.clone()).await);
+            user_id = Some(message.into());
+            connection_id = Some(connections.add(message.into(), tx.clone()).await);
         }
     }
 
@@ -88,8 +90,14 @@ async fn listen(
     let mut event_stream = event::subscribe(client).await?;
     while let Some(event) = event_stream.next().await {
         match event {
-            event::Event::StorageUpdate(StorageUpdate { storage }) => {
-                match mapping.get_users_for_storage(storage).await {
+            event::Event::StorageUpdate(StorageUpdate { storage, path }) => {
+                log::debug!(
+                    target: "notify_push::receive",
+                    "Received storage update notification for storage {} and path {}",
+                    storage,
+                    path
+                );
+                match mapping.get_users_for_storage_path(storage, &path).await {
                     Ok(users) => {
                         for user in users {
                             connections

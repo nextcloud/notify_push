@@ -46,6 +46,7 @@ class Listener {
 
 		$this->queue->push('notify_storage_update', [
 			'storage' => $event->getStorageId(),
+			'path' => $event->getPath(),
 		]);
 	}
 }

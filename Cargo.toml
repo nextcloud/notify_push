@@ -16,6 +16,7 @@ warp = "0.2.5"
 tokio = { version = "0.2", features = ["macros", "rt-core"] }
 futures = "0.3"
 pretty_env_logger = "0.4.0"
+log = "0.4.11"
 sqlx = { version = "0.4.1", features = ["runtime-tokio-rustls", "any", "macros", "mysql", "sqlite", "postgres"] }
 dotenv = "0.15.0"
 dashmap = "3.11"
