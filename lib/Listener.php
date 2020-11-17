@@ -39,10 +39,11 @@ class Listener {
 
 	public function cacheListener(ICacheEvent $event) {
 		$storage = $event->getStorageId();
-		if ($this->sendUpdates[$storage]) {
+		$key = $storage . '::' . $event->getPath();
+		if ($this->sendUpdates[$key]) {
 			return;
 		}
-		$this->sendUpdates[$storage] = true;
+		$this->sendUpdates[$key] = true;
 
 		$this->queue->push('notify_storage_update', [
 			'storage' => $event->getStorageId(),
