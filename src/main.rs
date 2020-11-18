@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::connection::ActiveConnections;
 use crate::event::StorageUpdate;
 use crate::storage_mapping::StorageMapping;
@@ -9,6 +10,7 @@ use tokio::sync::mpsc;
 use warp::ws::WebSocket;
 use warp::Filter;
 
+mod config;
 mod connection;
 mod event;
 mod storage_mapping;
@@ -17,11 +19,12 @@ mod user;
 #[tokio::main]
 async fn main() -> Result<(), MainError> {
     pretty_env_logger::init();
-    let _ = dotenv::dotenv();
+    let config = Config::from_env()?;
 
     let connections = ActiveConnections::default();
-    let mapping = StorageMapping::new(&std::env::var("DATABASE_URL")?).await?;
-    let client = redis::Client::open(std::env::var("REDIS_URL")?)?;
+
+    let mapping = StorageMapping::new(&config.database_url, config.database_prefix).await?;
+    let client = redis::Client::open(config.redis_url)?;
     let active_connections = connections.clone();
     let connections = warp::any().map(move || connections.clone());
 

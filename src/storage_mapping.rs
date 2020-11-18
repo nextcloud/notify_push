@@ -15,14 +15,16 @@ pub struct UserStorageAccess {
 pub struct StorageMapping {
     cache: DashMap<u32, (Instant, Vec<UserStorageAccess>)>,
     connection: AnyPool,
+    prefix: String,
 }
 
 impl StorageMapping {
-    pub async fn new(connect: &str) -> Result<Self, sqlx::Error> {
+    pub async fn new(connect: &str, prefix: String) -> Result<Self, sqlx::Error> {
         let connection = AnyPool::connect(connect).await?;
         Ok(StorageMapping {
             cache: Default::default(),
             connection,
+            prefix,
         })
     }
 
@@ -41,13 +43,14 @@ impl StorageMapping {
         }) {
             cached
         } else {
-            let users = sqlx::query_as::<Any, UserStorageAccess>(
+            let users = sqlx::query_as::<Any, UserStorageAccess>(&format!(
                 "\
                 SELECT user_id, path \
-                FROM oc_mounts \
-                INNER JOIN oc_filecache ON root_id = fileid \
+                FROM {prefix}mounts \
+                INNER JOIN {prefix}filecache ON root_id = fileid \
                 WHERE storage_id = $1",
-            )
+                prefix = self.prefix
+            ))
             .bind(storage as i32)
             .fetch_all(&self.connection)
             .await?;
