@@ -1,5 +1,6 @@
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
+use serde::Deserialize;
 use sqlx::database::HasValueRef;
 use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Type};
@@ -9,7 +10,8 @@ use std::hash::Hasher;
 
 static USER_NAMES: Lazy<DashMap<u64, String>> = Lazy::new(|| DashMap::new());
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize)]
+#[serde(from = "String")]
 pub struct UserId {
     hash: u64,
 }

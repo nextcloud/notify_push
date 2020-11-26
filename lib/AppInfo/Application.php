@@ -35,9 +35,12 @@ use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\EventDispatcher\IEventDispatcher;
-use OCP\Files\Cache\CacheInsertEvent;
+use OCP\Files\Cache\CacheEntryInsertedEvent;
 use OCP\Files\Cache\CacheEntryRemovedEvent;
-use OCP\Files\Cache\CacheUpdateEvent;
+use OCP\Files\Cache\CacheEntryUpdatedEvent;
+use OCP\Group\Events\UserAddedEvent;
+use OCP\Group\Events\UserRemovedEvent;
+use OCP\Share\Events\ShareCreatedEvent;
 
 class Application extends App implements IBootstrap {
 	public const APP_ID = 'notify_push';
@@ -68,8 +71,13 @@ class Application extends App implements IBootstrap {
 		IEventDispatcher $eventDispatcher,
 		Listener $listener
 	) {
-		$eventDispatcher->addListener(CacheInsertEvent::class, [$listener, 'cacheListener']);
-		$eventDispatcher->addListener(CacheUpdateEvent::class, [$listener, 'cacheListener']);
+		$eventDispatcher->addListener(CacheEntryInsertedEvent::class, [$listener, 'cacheListener']);
+		$eventDispatcher->addListener(CacheEntryUpdatedEvent::class, [$listener, 'cacheListener']);
 		$eventDispatcher->addListener(CacheEntryRemovedEvent::class, [$listener, 'cacheListener']);
+
+		$eventDispatcher->addListener(UserAddedEvent::class, [$listener, 'groupListener']);
+		$eventDispatcher->addListener(UserRemovedEvent::class, [$listener, 'groupListener']);
+
+		$eventDispatcher->addListener(ShareCreatedEvent::class, [$listener, 'shareListener']);
 	}
 }

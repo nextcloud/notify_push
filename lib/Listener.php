@@ -26,6 +26,10 @@ namespace OCA\NotifyPush;
 use OC\Cache\CappedMemoryCache;
 use OCA\NotifyPush\Queue\IQueue;
 use OCP\Files\Cache\ICacheEvent;
+use OCP\Group\Events\UserAddedEvent;
+use OCP\Group\Events\UserRemovedEvent;
+use OCP\Share\Events\ShareCreatedEvent;
+use OCP\Share\IShare;
 
 class Listener {
 	private $queue;
@@ -49,5 +53,26 @@ class Listener {
 			'storage' => $event->getStorageId(),
 			'path' => $event->getPath(),
 		]);
+	}
+
+	/***
+	 * @param UserAddedEvent|UserRemovedEvent $event
+	 */
+	public function groupListener($event) {
+		$this->queue->push('notify_group_membership_update', [
+			'user' => $event->getUser()->getUID(),
+			'group' => $event->getGroup()->getGID(),
+		]);
+	}
+
+	public function shareListener(ShareCreatedEvent $event) {
+		$share = $event->getShare();
+
+		if ($share->getShareType() == IShare::TYPE_USER) {
+			$this->queue->push('notify_user_share_created', [
+				'user' => $share->getSharedWith(),
+			]);
+		}
+		// todo group shares
 	}
 }

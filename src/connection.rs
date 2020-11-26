@@ -1,10 +1,9 @@
 use crate::UserId;
 use dashmap::DashMap;
 use smallvec::SmallVec;
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::mpsc;
 use warp::ws::Message;
 
 type Sender = mpsc::UnboundedSender<Result<Message, warp::Error>>;

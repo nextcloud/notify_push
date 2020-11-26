@@ -1,11 +1,11 @@
 use crate::config::Config;
 use crate::connection::ActiveConnections;
-use crate::event::StorageUpdate;
+use crate::event::{Event, GroupUpdate, ShareCreate, StorageUpdate};
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
 use color_eyre::{eyre::WrapErr, Result};
 use futures::{FutureExt, StreamExt};
-use redis::{Client, RedisError};
+use redis::Client;
 use tokio::sync::mpsc;
 use warp::ws::WebSocket;
 use warp::Filter;
@@ -95,7 +95,7 @@ async fn listen(
     let mut event_stream = event::subscribe(client).await?;
     while let Some(event) = event_stream.next().await {
         match event {
-            Ok(event::Event::StorageUpdate(StorageUpdate { storage, path })) => {
+            Ok(Event::StorageUpdate(StorageUpdate { storage, path })) => {
                 log::debug!(
                     target: "notify_push::receive",
                     "Received storage update notification for storage {} and path {}",
@@ -112,6 +112,26 @@ async fn listen(
                     }
                     Err(e) => log::error!("{:#}", e),
                 }
+            }
+            Ok(Event::GroupUpdate(GroupUpdate { user, .. })) => {
+                log::debug!(
+                    target: "notify_push::receive",
+                    "Received group update notification for user {}",
+                    user
+                );
+                connections
+                    .send_to_user(&user, "notify_storage_update")
+                    .await;
+            }
+            Ok(Event::ShareCreate(ShareCreate { user, .. })) => {
+                log::debug!(
+                    target: "notify_push::receive",
+                    "Received share create notification for user {}",
+                    user
+                );
+                connections
+                    .send_to_user(&user, "notify_storage_update")
+                    .await;
             }
             Err(e) => log::warn!("{:#}", e),
         }
