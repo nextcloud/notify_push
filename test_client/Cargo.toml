@@ -1,0 +1,10 @@
+[package]
+name = "test_client"
+version = "0.1.0"
+authors = ["Robin Appelman <robin@icewind.nl>"]
+edition = "2018"
+
+[dependencies]
+tungstenite = "0.11.0"
+color-eyre = "0.5.8"
+url = "2.2.0"

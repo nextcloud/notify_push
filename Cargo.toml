@@ -26,3 +26,8 @@ smallvec = "1.5.0"
 
 [profile.dev.package.backtrace]
 opt-level = 3
+
+[dev-dependencies]
+test_client = { path = "./test_client" }
+
+[workspace]
