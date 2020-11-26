@@ -1,4 +1,5 @@
 use crate::UserId;
+use color_eyre::{eyre::WrapErr, Result};
 use dashmap::DashMap;
 use sqlx::{Any, AnyPool, FromRow};
 use std::time::Instant;
@@ -19,8 +20,10 @@ pub struct StorageMapping {
 }
 
 impl StorageMapping {
-    pub async fn new(connect: &str, prefix: String) -> Result<Self, sqlx::Error> {
-        let connection = AnyPool::connect(connect).await?;
+    pub async fn new(connect: &str, prefix: String) -> Result<Self> {
+        let connection = AnyPool::connect(connect)
+            .await
+            .wrap_err("Failed to connect to Nextcloud database")?;
         Ok(StorageMapping {
             cache: Default::default(),
             connection,
@@ -32,7 +35,7 @@ impl StorageMapping {
         &self,
         storage: u32,
         path: &str,
-    ) -> Result<impl Iterator<Item = UserId>, sqlx::Error> {
+    ) -> Result<impl Iterator<Item = UserId>> {
         let cached = if let Some(cached) = self.cache.get(&storage).and_then(|cached| {
             let (time, _cache) = cached.value();
             if time.elapsed() < Duration::from_secs(5 * 60) {
@@ -53,7 +56,8 @@ impl StorageMapping {
             ))
             .bind(storage as i32)
             .fetch_all(&self.connection)
-            .await?;
+            .await
+            .wrap_err("Failed to load storage mapping from database")?;
 
             self.cache.insert(storage, (Instant::now(), users));
             self.cache.get(&storage).unwrap()

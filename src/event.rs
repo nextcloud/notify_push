@@ -1,3 +1,4 @@
+use color_eyre::{eyre::WrapErr, Result};
 use redis::{Client, Msg, RedisError};
 use serde::Deserialize;
 use std::convert::TryFrom;
@@ -36,12 +37,20 @@ impl TryFrom<Msg> for Event {
     }
 }
 
-pub async fn subscribe(client: Client) -> Result<impl Stream<Item = Event>, RedisError> {
-    let con = client.get_async_connection().await?;
+pub async fn subscribe(
+    client: Client,
+) -> Result<impl Stream<Item = Result<Event, MessageDecodeError>>, RedisError> {
+    let con = client
+        .get_async_connection()
+        .await
+        .wrap_err("Failed to connect to redis")?;
     let mut pubsub = con.into_pubsub();
-    pubsub.subscribe("notify_storage_update").await?;
+    pubsub
+        .subscribe("notify_storage_update")
+        .await
+        .wrap_err("Failed to subscribe to redis pubsub")?;
 
     Ok(pubsub
         .into_on_message()
-        .filter_map(|msg| Event::try_from(msg).ok()))
+        .filter_map(|msg| Event::try_from(msg)))
 }

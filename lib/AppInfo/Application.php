@@ -36,7 +36,7 @@ use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\Files\Cache\CacheInsertEvent;
-use OCP\Files\Cache\CacheRemoveEvent;
+use OCP\Files\Cache\CacheEntryRemovedEvent;
 use OCP\Files\Cache\CacheUpdateEvent;
 
 class Application extends App implements IBootstrap {
@@ -70,6 +70,6 @@ class Application extends App implements IBootstrap {
 	) {
 		$eventDispatcher->addListener(CacheInsertEvent::class, [$listener, 'cacheListener']);
 		$eventDispatcher->addListener(CacheUpdateEvent::class, [$listener, 'cacheListener']);
-		$eventDispatcher->addListener(CacheRemoveEvent::class, [$listener, 'cacheListener']);
+		$eventDispatcher->addListener(CacheEntryRemovedEvent::class, [$listener, 'cacheListener']);
 	}
 }

@@ -3,8 +3,8 @@ use crate::connection::ActiveConnections;
 use crate::event::StorageUpdate;
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
+use color_eyre::{eyre::WrapErr, Result};
 use futures::{FutureExt, StreamExt};
-use main_error::MainError;
 use redis::{Client, RedisError};
 use tokio::sync::mpsc;
 use warp::ws::WebSocket;
@@ -17,9 +17,11 @@ mod storage_mapping;
 mod user;
 
 #[tokio::main]
-async fn main() -> Result<(), MainError> {
+async fn main() -> Result<()> {
+    color_eyre::install()?;
     pretty_env_logger::init();
-    let config = Config::from_env()?;
+
+    let config = Config::from_env().wrap_err("Failed to load config")?;
 
     let connections = ActiveConnections::default();
 
@@ -75,13 +77,13 @@ async fn user_connected(ws: WebSocket, connections: ActiveConnections) {
         if let (Ok(message), None) = (msg.to_str(), connection_id) {
             println!("listing to changes for {}", message);
             user_id = Some(message.into());
-            connection_id = Some(connections.add(message.into(), tx.clone()).await);
+            connection_id = Some(connections.add(message.into(), tx.clone()));
         }
     }
 
     if let (Some(connection_id), Some(user_id)) = (connection_id, user_id) {
         // user_ws_rx stream will keep processing as long as the user stays connected
-        connections.remove(&user_id, connection_id).await;
+        connections.remove(&user_id, connection_id);
     }
 }
 
@@ -89,11 +91,11 @@ async fn listen(
     client: Client,
     connections: ActiveConnections,
     mapping: StorageMapping,
-) -> Result<(), RedisError> {
+) -> Result<()> {
     let mut event_stream = event::subscribe(client).await?;
     while let Some(event) = event_stream.next().await {
         match event {
-            event::Event::StorageUpdate(StorageUpdate { storage, path }) => {
+            Ok(event::Event::StorageUpdate(StorageUpdate { storage, path })) => {
                 log::debug!(
                     target: "notify_push::receive",
                     "Received storage update notification for storage {} and path {}",
@@ -108,9 +110,10 @@ async fn listen(
                                 .await;
                         }
                     }
-                    Err(e) => eprintln!("{:?}", e),
+                    Err(e) => log::error!("{:#}", e),
                 }
             }
+            Err(e) => log::warn!("{:#}", e),
         }
     }
     Ok(())
