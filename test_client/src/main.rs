@@ -28,6 +28,14 @@ fn main() -> Result<()> {
 
     loop {
         let msg = socket.read_message()?;
-        println!("Received: {}", msg);
+        let text = msg.to_text()?;
+        if text.starts_with("err: ") {
+            eprintln!("Received error: {}", &text[5..]);
+            return Ok(());
+        } else if text == "notify_storage_update" {
+            println!("Received update notification");
+        } else {
+            println!("Received: {}", msg);
+        }
     }
 }

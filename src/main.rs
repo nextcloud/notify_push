@@ -68,6 +68,7 @@ async fn user_connected(ws: WebSocket, connections: ActiveConnections) {
         Ok(user_id) => user_id,
         Err(e) => {
             log::warn!("{}", e);
+            let _ = tx.send(Ok(Message::text(format!("err: {}", e))));
             return;
         }
     };
