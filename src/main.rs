@@ -6,6 +6,7 @@ pub use crate::user::UserId;
 use color_eyre::{eyre::WrapErr, Report, Result};
 use futures::stream::SplitStream;
 use futures::{FutureExt, StreamExt};
+use once_cell::sync::OnceCell;
 use redis::Client;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -17,8 +18,11 @@ use warp::Filter;
 mod config;
 mod connection;
 mod event;
+mod nc;
 mod storage_mapping;
 mod user;
+
+static NC_CLIENT: OnceCell<nc::Client> = OnceCell::new();
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -28,6 +32,8 @@ async fn main() -> Result<()> {
     let config = Config::from_env().wrap_err("Failed to load config")?;
 
     let connections = ActiveConnections::default();
+    let nc_client = nc::Client::new(&config.nextcloud_url)?;
+    let _ = NC_CLIENT.set(nc_client);
 
     let mapping = StorageMapping::new(&config.database_url, config.database_prefix).await?;
     let client = redis::Client::open(config.redis_url)?;
@@ -104,13 +110,17 @@ async fn socket_auth(rx: &mut SplitStream<WebSocket>) -> Result<UserId> {
         .to_str()
         .map_err(|_| Report::msg("Invalid authentication message"))?;
     let password_msg = read_socket_auth_message(rx).await?;
-    let _password = password_msg
+    let password = password_msg
         .to_str()
         .map_err(|_| Report::msg("Invalid authentication message"))?;
 
-    // todo: actually authenticate
-    log::debug!("Authenticated socket for {}", username);
-    Ok(UserId::from(username))
+    let client = NC_CLIENT.get().unwrap();
+    if client.verify_credentials(username, password).await? {
+        log::info!("Authenticated socket for {}", username);
+        Ok(UserId::from(username))
+    } else {
+        Err(Report::msg("Invalid credentials"))
+    }
 }
 
 async fn listen(
