@@ -52,7 +52,7 @@ class Application extends App implements IBootstrap {
 	public function register(IRegistrationContext $context): void {
 		$context->registerCapability(Capabilities::class);
 
-		$context->registerService(IQueue::class, function(SimpleContainer $c) {
+		$context->registerService(IQueue::class, function (SimpleContainer $c) {
 			/** @var RedisFactory $redisFactory */
 			$redisFactory = $c->get(RedisFactory::class);
 			if ($redisFactory->isAvailable()) {

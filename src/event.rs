@@ -28,6 +28,7 @@ pub enum Event {
     StorageUpdate(StorageUpdate),
     GroupUpdate(GroupUpdate),
     ShareCreate(ShareCreate),
+    TestCookie(u32),
 }
 
 #[derive(Debug, Error)]
@@ -52,6 +53,9 @@ impl TryFrom<Msg> for Event {
             "notify_user_share_created" => Ok(Event::ShareCreate(serde_json::from_slice(
                 msg.get_payload_bytes(),
             )?)),
+            "notify_test_cookie" => Ok(Event::TestCookie(serde_json::from_slice(
+                msg.get_payload_bytes(),
+            )?)),
             _ => Err(MessageDecodeError::UnsupportedEventType),
         }
     }
@@ -69,6 +73,7 @@ pub async fn subscribe(
         "notify_storage_update",
         "notify_group_membership_update",
         "notify_user_share_created",
+        "notify_test_cookie",
     ];
     for channel in channels.iter() {
         pubsub

@@ -21,34 +21,12 @@ declare(strict_types=1);
  *
  */
 
-namespace OCA\NotifyPush;
-
-use OCP\Capabilities\ICapability;
-use OCP\IConfig;
-
-class Capabilities implements ICapability {
-	private $config;
-
-	public function __construct(IConfig $config) {
-		$this->config = $config;
-	}
-
-	public function getCapabilities() {
-		$baseEndpoint = $this->config->getAppValue('notify_push', 'base_endpoint');
-
-		$wsEndpoint = str_replace('https://', 'wss://', $baseEndpoint);
-		$wsEndpoint = str_replace('http://', 'ws://', $wsEndpoint);
-
-		if ($baseEndpoint) {
-			return [
-				'notify_push' => [
-					'endpoints' => [
-						'websocket' => $wsEndpoint,
-					],
-				],
-			];
-		} else {
-			return [];
-		}
-	}
-}
+return [
+	'routes' => [
+		[
+			'name' => 'test#cookie',
+			'url' => '/test_cookie',
+			'verb' => 'GET',
+		],
+	],
+];

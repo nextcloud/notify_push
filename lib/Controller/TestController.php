@@ -21,34 +21,31 @@ declare(strict_types=1);
  *
  */
 
-namespace OCA\NotifyPush;
+namespace OCA\NotifyPush\Controller;
 
-use OCP\Capabilities\ICapability;
+use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\DataResponse;
 use OCP\IConfig;
+use OCP\IRequest;
 
-class Capabilities implements ICapability {
+class TestController extends Controller {
 	private $config;
 
-	public function __construct(IConfig $config) {
+	public function __construct(
+		IRequest $request,
+		IConfig $config
+	) {
+		parent::__construct('notify_push', $request);
 		$this->config = $config;
 	}
 
-	public function getCapabilities() {
-		$baseEndpoint = $this->config->getAppValue('notify_push', 'base_endpoint');
-
-		$wsEndpoint = str_replace('https://', 'wss://', $baseEndpoint);
-		$wsEndpoint = str_replace('http://', 'ws://', $wsEndpoint);
-
-		if ($baseEndpoint) {
-			return [
-				'notify_push' => [
-					'endpoints' => [
-						'websocket' => $wsEndpoint,
-					],
-				],
-			];
-		} else {
-			return [];
-		}
+	/**
+	 * @NoAdminRequired
+	 * @PublicPage
+	 * @NoCSRFRequired
+	 * @return DataResponse
+	 */
+	public function cookie() {
+		return new DataResponse((int)$this->config->getAppValue('notify_push', 'cookie', '0'));
 	}
 }

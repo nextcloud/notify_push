@@ -8,6 +8,9 @@ use futures::stream::SplitStream;
 use futures::{FutureExt, StreamExt};
 use once_cell::sync::OnceCell;
 use redis::Client;
+use smallvec::alloc::sync::Arc;
+use std::convert::Infallible;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::timeout;
@@ -33,12 +36,23 @@ async fn main() -> Result<()> {
 
     let connections = ActiveConnections::default();
     let nc_client = nc::Client::new(&config.nextcloud_url)?;
+    let test_cookie = Arc::new(AtomicU32::new(0));
     let _ = NC_CLIENT.set(nc_client);
 
-    let mapping = StorageMapping::new(&config.database_url, config.database_prefix).await?;
+    let mapping =
+        Arc::new(StorageMapping::new(&config.database_url, config.database_prefix).await?);
     let client = redis::Client::open(config.redis_url)?;
-    let active_connections = connections.clone();
+
+    tokio::task::spawn(listen(
+        client,
+        connections.clone(),
+        mapping.clone(),
+        test_cookie.clone(),
+    ));
+
     let connections = warp::any().map(move || connections.clone());
+    let test_cookie = warp::any().map(move || test_cookie.clone());
+    let mapping = warp::any().map(move || mapping.clone());
 
     let cors = warp::cors().allow_any_origin();
 
@@ -50,9 +64,35 @@ async fn main() -> Result<()> {
         .map(|ws: warp::ws::Ws, users| ws.on_upgrade(move |socket| user_connected(socket, users)))
         .with(cors);
 
-    let routes = socket;
+    let cookie_test =
+        warp::path("cookie_test")
+            .and(test_cookie)
+            .map(|test_cookie: Arc<AtomicU32>| {
+                let cookie = test_cookie.load(Ordering::SeqCst);
+                cookie.to_string()
+            });
 
-    tokio::task::spawn(listen(client, active_connections, mapping));
+    let reverse_cookie_test = warp::path("reverse_cookie_test").and_then(|| async move {
+        let client = NC_CLIENT.get().unwrap();
+        let cookie = client.get_test_cookie().await.unwrap_or(0);
+        Result::<_, Infallible>::Ok(cookie.to_string())
+    });
+
+    let mapping_test = warp::path!("mapping_test" / u32).and(mapping).and_then(
+        |storage_id: u32, mapping: Arc<StorageMapping>| async move {
+            let access = mapping
+                .get_users_for_storage_path(storage_id, "")
+                .await
+                .map(|access| access.count())
+                .unwrap_or(0);
+            Result::<_, Infallible>::Ok(access.to_string())
+        },
+    );
+
+    let routes = socket
+        .or(cookie_test)
+        .or(reverse_cookie_test)
+        .or(mapping_test);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
     Ok(())
@@ -126,7 +166,8 @@ async fn socket_auth(rx: &mut SplitStream<WebSocket>) -> Result<UserId> {
 async fn listen(
     client: Client,
     connections: ActiveConnections,
-    mapping: StorageMapping,
+    mapping: Arc<StorageMapping>,
+    test_cookie: Arc<AtomicU32>,
 ) -> Result<()> {
     let mut event_stream = event::subscribe(client).await?;
     while let Some(event) = event_stream.next().await {
@@ -168,6 +209,14 @@ async fn listen(
                 connections
                     .send_to_user(&user, "notify_storage_update")
                     .await;
+            }
+            Ok(Event::TestCookie(cookie)) => {
+                log::debug!(
+                    target: "notify_push::receive",
+                    "Received test cookie {}",
+                    cookie
+                );
+                test_cookie.store(cookie, Ordering::SeqCst);
             }
             Err(e) => log::warn!("{:#}", e),
         }

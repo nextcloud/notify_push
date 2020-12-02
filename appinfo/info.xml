@@ -19,4 +19,8 @@
 	<dependencies>
 		<nextcloud min-version="21" max-version="21"/>
 	</dependencies>
+
+	<commands>
+		<command>OCA\NotifyPush\Command\Setup</command>
+	</commands>
 </info>

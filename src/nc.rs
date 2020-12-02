@@ -4,6 +4,7 @@ use reqwest::{StatusCode, Url};
 pub struct Client {
     http: reqwest::Client,
     dav_url: Url,
+    base_url: Url,
 }
 
 impl Client {
@@ -11,7 +12,11 @@ impl Client {
         let base_url = Url::parse(base_url).wrap_err("Invalid base url")?;
         let dav_url = base_url.join("remote.php/dav").unwrap();
         let http = reqwest::Client::new();
-        Ok(Client { http, dav_url })
+        Ok(Client {
+            http,
+            dav_url,
+            base_url,
+        })
     }
 
     pub async fn verify_credentials(&self, username: &str, password: &str) -> Result<bool> {
@@ -34,5 +39,15 @@ impl Client {
             }
             status => Err(Report::msg(format!("Unexpected status code: {}", status))),
         }
+    }
+
+    pub async fn get_test_cookie(&self) -> Result<u32> {
+        Ok(self
+            .http
+            .get(self.base_url.join("apps/notify_push/test_cookie")?)
+            .send()
+            .await?
+            .json()
+            .await?)
     }
 }
