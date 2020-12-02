@@ -73,9 +73,15 @@ class Setup extends Base {
 			return 1;
 		}
 
-		// we test if the push server is listening to redis by sending and retrieving a random number
 		$server = $input->getArgument("server");
+		if (strpos($server, 'http://') === 0) {
+			$output->writeln("<comment>🗴 using unencrypted https for push server is strongly discouraged</comment>");
+		} else if (strpos($server, 'https://') !== 0) {
+			$output->writeln("<error>🗴 malformed server url</error>");
+			return 1;
+		}
 
+		// we test if the push server is listening to redis by sending and retrieving a random number
 		$cookie = rand(1, pow(2, 30));
 
 		$this->queue->push('notify_test_cookie', $cookie);
