@@ -10,6 +10,7 @@ use once_cell::sync::OnceCell;
 use redis::Client;
 use smallvec::alloc::sync::Arc;
 use std::convert::Infallible;
+use std::net::IpAddr;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -17,6 +18,7 @@ use tokio::time::timeout;
 use warp::filters::ws::Message;
 use warp::ws::WebSocket;
 use warp::Filter;
+use warp_real_ip::real_ip;
 
 mod config;
 mod connection;
@@ -61,7 +63,10 @@ async fn main() -> Result<()> {
         // The `ws()` filter will prepare Websocket handshake...
         .and(warp::ws())
         .and(connections)
-        .map(|ws: warp::ws::Ws, users| ws.on_upgrade(move |socket| user_connected(socket, users)))
+        .and(real_ip(config.trusted_proxies))
+        .map(|ws: warp::ws::Ws, users, addr: Option<IpAddr>| {
+            ws.on_upgrade(move |socket| user_connected(socket, users, addr))
+        })
         .with(cors);
 
     let cookie_test =
@@ -98,7 +103,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn user_connected(ws: WebSocket, connections: ActiveConnections) {
+async fn user_connected(ws: WebSocket, connections: ActiveConnections, remote: Option<IpAddr>) {
     let (user_ws_tx, mut user_ws_rx) = ws.split();
 
     // Use an unbounded channel to handle buffering and flushing of messages
@@ -110,7 +115,7 @@ async fn user_connected(ws: WebSocket, connections: ActiveConnections) {
         }
     }));
 
-    let user_id = match socket_auth(&mut user_ws_rx).await {
+    let user_id = match socket_auth(&mut user_ws_rx, remote).await {
         Ok(user_id) => user_id,
         Err(e) => {
             log::warn!("{}", e);
@@ -144,7 +149,7 @@ async fn read_socket_auth_message(rx: &mut SplitStream<WebSocket>) -> Result<Mes
     }
 }
 
-async fn socket_auth(rx: &mut SplitStream<WebSocket>) -> Result<UserId> {
+async fn socket_auth(rx: &mut SplitStream<WebSocket>, remote: Option<IpAddr>) -> Result<UserId> {
     let username_msg = read_socket_auth_message(rx).await?;
     let username = username_msg
         .to_str()
@@ -155,7 +160,10 @@ async fn socket_auth(rx: &mut SplitStream<WebSocket>) -> Result<UserId> {
         .map_err(|_| Report::msg("Invalid authentication message"))?;
 
     let client = NC_CLIENT.get().unwrap();
-    if client.verify_credentials(username, password).await? {
+    if client
+        .verify_credentials(username, password, remote)
+        .await?
+    {
         log::info!("Authenticated socket for {}", username);
         Ok(UserId::from(username))
     } else {

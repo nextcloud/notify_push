@@ -1404,6 +1404,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "warp",
+ "warp-real-ip",
 ]
 
 [[package]]
@@ -2812,6 +2813,15 @@ dependencies = [
  "tracing",
  "tracing-futures",
  "urlencoding",
+]
+
+[[package]]
+name = "warp-real-ip"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0d4fb159f4bf64590bf410f57e3d319980c6291cda824d85fd6184beb2157eb"
+dependencies = [
+ "warp",
 ]
 
 [[package]]

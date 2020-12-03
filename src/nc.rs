@@ -1,5 +1,6 @@
 use color_eyre::{eyre::WrapErr, Report, Result};
 use reqwest::{StatusCode, Url};
+use std::net::IpAddr;
 
 pub struct Client {
     http: reqwest::Client,
@@ -19,11 +20,20 @@ impl Client {
         })
     }
 
-    pub async fn verify_credentials(&self, username: &str, password: &str) -> Result<bool> {
+    pub async fn verify_credentials(
+        &self,
+        username: &str,
+        password: &str,
+        addr: Option<IpAddr>,
+    ) -> Result<bool> {
         let response = self
             .http
             .head(self.dav_url.clone())
             .basic_auth(username, Some(password))
+            .header(
+                "X_FORWARDED_FOR",
+                addr.map(|addr| addr.to_string()).unwrap_or_default(),
+            )
             .send()
             .await
             .wrap_err("Error while connecting to nextcloud server")?;
