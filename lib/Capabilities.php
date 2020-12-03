@@ -37,11 +37,12 @@ class Capabilities implements ICapability {
 		$baseEndpoint = $this->config->getAppValue('notify_push', 'base_endpoint');
 
 		$wsEndpoint = str_replace('https://', 'wss://', $baseEndpoint);
-		$wsEndpoint = str_replace('http://', 'ws://', $wsEndpoint);
+		$wsEndpoint = str_replace('http://', 'ws://', $wsEndpoint) . '/ws';
 
 		if ($baseEndpoint) {
 			return [
 				'notify_push' => [
+					'type' => ['files'],
 					'endpoints' => [
 						'websocket' => $wsEndpoint,
 					],
