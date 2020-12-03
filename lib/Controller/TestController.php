@@ -24,6 +24,7 @@ declare(strict_types=1);
 namespace OCA\NotifyPush\Controller;
 
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IConfig;
 use OCP\IRequest;
@@ -47,5 +48,14 @@ class TestController extends Controller {
 	 */
 	public function cookie() {
 		return new DataResponse((int)$this->config->getAppValue('notify_push', 'cookie', '0'));
+	}
+
+	/**
+	 * @NoAdminRequired
+	 * @PublicPage
+	 * @NoCSRFRequired
+	 */
+	public function remote() {
+		return new DataDisplayResponse($this->request->getRemoteAddress());
 	}
 }

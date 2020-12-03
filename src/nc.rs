@@ -31,7 +31,7 @@ impl Client {
             .head(self.dav_url.clone())
             .basic_auth(username, Some(password))
             .header(
-                "X_FORWARDED_FOR",
+                "x-forwarded-for",
                 addr.map(|addr| addr.to_string()).unwrap_or_default(),
             )
             .send()
@@ -59,5 +59,17 @@ impl Client {
             .await?
             .json()
             .await?)
+    }
+
+    pub async fn test_set_remote(&self, addr: IpAddr) -> Result<IpAddr> {
+        Ok(self
+            .http
+            .get(self.base_url.join("apps/notify_push/test/remote")?)
+            .header("x-forwarded-for", addr.to_string())
+            .send()
+            .await?
+            .text()
+            .await?
+            .parse()?)
     }
 }

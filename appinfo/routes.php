@@ -28,5 +28,10 @@ return [
 			'url' => '/test/cookie',
 			'verb' => 'GET',
 		],
+		[
+			'name' => 'test#remote',
+			'url' => '/test/remote',
+			'verb' => 'GET',
+		],
 	],
 ];

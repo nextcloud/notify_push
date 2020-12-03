@@ -94,10 +94,22 @@ async fn main() -> Result<()> {
         },
     );
 
+    let remote_test =
+        warp::path!("test" / "remote" / IpAddr).and_then(|remote: IpAddr| async move {
+            let client = NC_CLIENT.get().unwrap();
+            let result = client
+                .test_set_remote(remote)
+                .await
+                .map(|remote| remote.to_string())
+                .unwrap_or_else(|e| e.to_string());
+            Result::<_, Infallible>::Ok(result)
+        });
+
     let routes = socket
         .or(cookie_test)
         .or(reverse_cookie_test)
-        .or(mapping_test);
+        .or(mapping_test)
+        .or(remote_test);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
     Ok(())

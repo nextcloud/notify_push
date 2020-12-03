@@ -120,6 +120,22 @@ class SelfTest {
 			return 1;
 		}
 
+		// test that the push server is a trusted proxy
+		try {
+			$remote = $this->client->get($this->server . '/test/remote/1.2.3.4')->getBody();
+		} catch (\Exception $e) {
+			$msg = $e->getMessage();
+			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
+			return 1;
+		}
+
+		if ($remote === '1.2.3.4') {
+			$output->writeln("<info>✓ push server is a trusted proxy</info>");
+		} else {
+			$output->writeln("<error>🗴 push server is not a trusted proxy, please add '$remote' to the list of trusted proxies</error>");
+			return 1;
+		}
+
 		return 0;
 	}
 
