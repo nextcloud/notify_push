@@ -23,9 +23,9 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\Command;
 
+
 use OC\Core\Command\Base;
 use OCA\NotifyPush\Queue\IQueue;
-use OCA\NotifyPush\SelfTest;
 use OCP\Files\Config\IUserMountCache;
 use OCP\Http\Client\IClientService;
 use OCP\IConfig;
@@ -34,7 +34,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class Setup extends Base {
+class SelfTest extends Base {
 	private $config;
 	private $queue;
 	private $clientService;
@@ -59,27 +59,24 @@ class Setup extends Base {
 
 	protected function configure() {
 		$this
-			->setName('notify_push:setup')
-			->setDescription('Configure push server')
-			->addArgument('server', InputArgument::REQUIRED, "url of the push server");
+			->setName('notify_push:self-test')
+			->setDescription('Run self test for configured push server');
 		parent::configure();
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output) {
-		$test = new SelfTest(
+		$server = $this->config->getAppValue('notify_push', 'base_endpoint', '');
+		if (!$server) {
+			$output->writeln("<error>🗴 no push server configured</error>");
+			return 1;
+		}
+		$test = new \OCA\NotifyPush\SelfTest(
 			$this->clientService->newClient(),
 			$this->config,
 			$this->queue,
 			$this->connection,
-			$input->getArgument('server')
+			$server
 		);
-		$result = $test->test($output);
-
-		if ($result === 0) {
-			$this->config->setAppValue('notify_push', 'base_endpoint', $server);
-			$output->writeln("  configuration saved");
-		}
-
-		return $result;
+		return $test->test($output);
 	}
 }

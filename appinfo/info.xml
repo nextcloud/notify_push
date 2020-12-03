@@ -22,5 +22,6 @@
 
 	<commands>
 		<command>OCA\NotifyPush\Command\Setup</command>
+		<command>OCA\NotifyPush\Command\SelfTest</command>
 	</commands>
 </info>

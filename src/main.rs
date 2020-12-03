@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
     let cors = warp::cors().allow_any_origin();
 
     // GET /ws -> websocket upgrade
-    let socket = warp::path("ws")
+    let socket = warp::path!("ws")
         // The `ws()` filter will prepare Websocket handshake...
         .and(warp::ws())
         .and(connections)
@@ -70,20 +70,20 @@ async fn main() -> Result<()> {
         .with(cors);
 
     let cookie_test =
-        warp::path("cookie_test")
+        warp::path!("test" / "cookie")
             .and(test_cookie)
             .map(|test_cookie: Arc<AtomicU32>| {
                 let cookie = test_cookie.load(Ordering::SeqCst);
                 cookie.to_string()
             });
 
-    let reverse_cookie_test = warp::path("reverse_cookie_test").and_then(|| async move {
+    let reverse_cookie_test = warp::path!("test" / "reverse_cookie").and_then(|| async move {
         let client = NC_CLIENT.get().unwrap();
         let cookie = client.get_test_cookie().await.unwrap_or(0);
         Result::<_, Infallible>::Ok(cookie.to_string())
     });
 
-    let mapping_test = warp::path!("mapping_test" / u32).and(mapping).and_then(
+    let mapping_test = warp::path!("test" / "mapping" / u32).and(mapping).and_then(
         |storage_id: u32, mapping: Arc<StorageMapping>| async move {
             let access = mapping
                 .get_users_for_storage_path(storage_id, "")

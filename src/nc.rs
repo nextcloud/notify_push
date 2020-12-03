@@ -54,7 +54,7 @@ impl Client {
     pub async fn get_test_cookie(&self) -> Result<u32> {
         Ok(self
             .http
-            .get(self.base_url.join("apps/notify_push/test_cookie")?)
+            .get(self.base_url.join("apps/notify_push/test/cookie")?)
             .send()
             .await?
             .json()

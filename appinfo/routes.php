@@ -25,7 +25,7 @@ return [
 	'routes' => [
 		[
 			'name' => 'test#cookie',
-			'url' => '/test_cookie',
+			'url' => '/test/cookie',
 			'verb' => 'GET',
 		],
 	],
