@@ -34,6 +34,8 @@ fn main() -> Result<()> {
             return Ok(());
         } else if text == "notify_file" {
             println!("Received update notification");
+        } else if text == "authenticated" {
+            println!("Authenticated");
         } else {
             println!("Received: {}", msg);
         }
