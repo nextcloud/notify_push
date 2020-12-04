@@ -64,7 +64,7 @@ class SelfTest {
 
 		if (strpos($this->server, 'http://') === 0) {
 			$output->writeln("<comment>🗴 using unencrypted https for push server is strongly discouraged</comment>");
-		} else if (strpos($this->server, 'https://') !== 0) {
+		} elseif (strpos($this->server, 'https://') !== 0) {
 			$output->writeln("<error>🗴 malformed server url</error>");
 			return 1;
 		}
@@ -132,7 +132,8 @@ class SelfTest {
 		if ($remote === '1.2.3.4') {
 			$output->writeln("<info>✓ push server is a trusted proxy</info>");
 		} else {
-			$output->writeln("<error>🗴 push server is not a trusted proxy, please add '$remote' to the list of trusted proxies</error>");
+			$output->writeln("<error>🗴 push server is not a trusted proxy, please add '$remote' to the list of trusted proxies" .
+				" or configure any existing reverse proxy to forward the 'x-forwarded-for' send by the push server.</error>");
 			return 1;
 		}
 
