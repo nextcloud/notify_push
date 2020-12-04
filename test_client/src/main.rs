@@ -32,7 +32,7 @@ fn main() -> Result<()> {
         if text.starts_with("err: ") {
             eprintln!("Received error: {}", &text[5..]);
             return Ok(());
-        } else if text == "notify_storage_update" {
+        } else if text == "notify_file" {
             println!("Received update notification");
         } else {
             println!("Received: {}", msg);

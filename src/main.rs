@@ -202,9 +202,7 @@ async fn listen(
                 match mapping.get_users_for_storage_path(storage, &path).await {
                     Ok(users) => {
                         for user in users {
-                            connections
-                                .send_to_user(&user, "notify_storage_update")
-                                .await;
+                            connections.send_to_user(&user, "notify_file").await;
                         }
                     }
                     Err(e) => log::error!("{:#}", e),
@@ -216,9 +214,7 @@ async fn listen(
                     "Received group update notification for user {}",
                     user
                 );
-                connections
-                    .send_to_user(&user, "notify_storage_update")
-                    .await;
+                connections.send_to_user(&user, "notify_file").await;
             }
             Ok(Event::ShareCreate(ShareCreate { user, .. })) => {
                 log::debug!(
@@ -226,9 +222,7 @@ async fn listen(
                     "Received share create notification for user {}",
                     user
                 );
-                connections
-                    .send_to_user(&user, "notify_storage_update")
-                    .await;
+                connections.send_to_user(&user, "notify_file").await;
             }
             Ok(Event::TestCookie(cookie)) => {
                 log::debug!(
