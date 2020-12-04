@@ -151,7 +151,7 @@ async fn user_connected(ws: WebSocket, connections: ActiveConnections, remote: O
         }
     };
 
-    tx.send(Ok(Message::text("authenticated"))).await?;
+    let _ = tx.send(Ok(Message::text("authenticated")));
 
     let connection_id = connections.add(user_id.clone(), tx.clone());
 
