@@ -33,6 +33,7 @@ static NC_CLIENT: OnceCell<nc::Client> = OnceCell::new();
 async fn main() -> Result<()> {
     color_eyre::install()?;
     pretty_env_logger::init();
+    let _ = dotenv::dotenv();
 
     let args = std::env::args();
     let config = match args.skip(1).next() {

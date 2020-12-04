@@ -13,21 +13,12 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Result<Self> {
-        let _ = dotenv::dotenv();
-
         let database_url = get_env("DATABASE_URL")?;
         let database_prefix = get_env("DATABASE_PREFIX").unwrap_or_else(|_| "oc_".to_string());
         let redis_url = get_env("REDIS_URL")?;
         let nextcloud_url = get_env("NEXTCLOUD_URL")?;
         let trusted_proxies = get_env("TRUSTED_PROXIES").unwrap_or_default();
-        let trusted_proxies = trusted_proxies
-            .split(',')
-            .filter(|proxy| !proxy.is_empty())
-            .map(|proxy| {
-                IpAddr::from_str(proxy).wrap_err_with(|| format!("Invalid ip addr: {}", proxy))
-            })
-            .collect::<Result<Vec<_>>>()
-            .wrap_err("Invalid `TRUSTED_PROXIES`")?;
+        let trusted_proxies = parse_proxies(&trusted_proxies)?;
 
         Ok(Config {
             database_url,
@@ -83,6 +74,29 @@ impl Config {
             })
             .collect::<Result<Vec<_>, Report>>()?;
 
+        // allow env overwrites
+
+        let database_url = match get_env("DATABASE_URL") {
+            Ok(database_url) => database_url,
+            _ => database_url,
+        };
+        let database_prefix = match get_env("DATABASE_PREFIX") {
+            Ok(database_prefix) => database_prefix,
+            _ => database_prefix,
+        };
+        let nextcloud_url = match get_env("NEXTCLOUD_URL") {
+            Ok(nextcloud_url) => nextcloud_url,
+            _ => nextcloud_url,
+        };
+        let redis_url = match get_env("REDIS_URL") {
+            Ok(redis_url) => redis_url,
+            _ => redis_url,
+        };
+        let trusted_proxies = match get_env("TRUSTED_PROXIES") {
+            Ok(trusted_proxies) => parse_proxies(&trusted_proxies)?,
+            _ => trusted_proxies,
+        };
+
         Ok(Config {
             database_url,
             database_prefix,
@@ -102,4 +116,15 @@ fn map_db_type(ty: &str) -> &str {
         "pgsql" => "postgres",
         ty => ty,
     }
+}
+
+fn parse_proxies(proxies: &str) -> Result<Vec<IpAddr>> {
+    Ok(proxies
+        .split(',')
+        .filter(|proxy| !proxy.is_empty())
+        .map(|proxy| {
+            IpAddr::from_str(proxy).wrap_err_with(|| format!("Invalid ip addr: {}", proxy))
+        })
+        .collect::<Result<Vec<_>>>()
+        .wrap_err("Invalid `TRUSTED_PROXIES`")?)
 }
