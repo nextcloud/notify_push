@@ -25,6 +25,7 @@ color-eyre = "0.5"
 smallvec = "1.5.0"
 reqwest = { version = "0.10.0", default-features = false, features = ["rustls-tls", "json"] }
 warp-real-ip = "0.1.0"
+php-literal-parser = "0.1"
 
 [profile.dev.package.backtrace]
 opt-level = 3

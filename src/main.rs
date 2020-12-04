@@ -34,7 +34,13 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     pretty_env_logger::init();
 
-    let config = Config::from_env().wrap_err("Failed to load config")?;
+    let args = std::env::args();
+    let config = match args.skip(1).next() {
+        Some(file) => {
+            Config::from_file(&file).wrap_err("Failed to load config from nextcloud config file")?
+        }
+        None => Config::from_env().wrap_err("Failed to load config from environment variables")?,
+    };
 
     let connections = ActiveConnections::default();
     let nc_client = nc::Client::new(&config.nextcloud_url)?;
@@ -45,12 +51,21 @@ async fn main() -> Result<()> {
         Arc::new(StorageMapping::new(&config.database_url, config.database_prefix).await?);
     let client = redis::Client::open(config.redis_url)?;
 
-    tokio::task::spawn(listen(
-        client,
-        connections.clone(),
-        mapping.clone(),
-        test_cookie.clone(),
-    ));
+    tokio::task::spawn(
+        listen(
+            client,
+            connections.clone(),
+            mapping.clone(),
+            test_cookie.clone(),
+        )
+        .map(|res| match res {
+            Err(e) => {
+                eprintln!("{:#}", e);
+                std::process::exit(1);
+            }
+            _ => {}
+        }),
+    );
 
     let connections = warp::any().map(move || connections.clone());
     let test_cookie = warp::any().map(move || test_cookie.clone());
