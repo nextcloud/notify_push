@@ -23,29 +23,6 @@ jobs:
     runs-on: ubuntu-18.04
 
     steps:
-      - name: musl-tools
-        run: |
-          sudo apt-get install musl-tools
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: x86_64-unknown-linux-musl
-      - uses: Swatinem/rust-cache@v1
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --exclude test_client --target x86_64-unknown-linux-musl
-      - uses: actions/upload-artifact@v2
-        with:
-          name: notify_push
-          path: target/x86_64-unknown-linux-musl/release/notify_push
-
-  build-client:
-    name: Build client
-    runs-on: ubuntu-18.04
-
-    steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -54,8 +31,12 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --workspace --exclude notify_push
+          args: --release
       - uses: actions/upload-artifact@v2
         with:
           name: notify_push
           path: target/release/notify_push
+      - uses: actions/upload-artifact@v2
+        with:
+          name: test_client
+          path: target/release/test_client
