@@ -45,6 +45,10 @@ async fn main() -> Result<()> {
     let connections = ActiveConnections::default();
     let nc_client = nc::Client::new(&config.nextcloud_url)?;
     let test_cookie = Arc::new(AtomicU32::new(0));
+    let port = dotenv::var("PORT")
+        .ok()
+        .and_then(|port| port.parse().ok())
+        .unwrap_or(80u16);
     let _ = NC_CLIENT.set(nc_client);
 
     let mapping =
@@ -126,7 +130,7 @@ async fn main() -> Result<()> {
         .or(mapping_test)
         .or(remote_test);
 
-    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+    warp::serve(routes).run(([127, 0, 0, 1], port)).await;
     Ok(())
 }
 
