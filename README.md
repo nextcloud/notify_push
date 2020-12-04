@@ -10,7 +10,11 @@ In order to keep sync snappy, clients wants to check for updates often, which in
 With many clients all checking for updates a large portion of the server load can consist of just these update checks.
 
 By providing a way for the server to send update notifications to the clients,
-the need for the clients to make these checks can be greatly reduced. 
+the need for the clients to make these checks can be greatly reduced.
+
+Update notifications are provided on a "best effort" basis, updates might happen without a notification being send and
+a notification can be send even if no update has actually happened. Clients are advised to still perform periodic checks
+for updates on their own, although these can be run on a much lower frequency.
 
 ## Configuring
 
