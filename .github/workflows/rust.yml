@@ -18,8 +18,8 @@ jobs:
         with:
           command: check
 
-  build-server:
-    name: Build server
+  build:
+    name: Build
     runs-on: ubuntu-18.04
 
     steps:
@@ -31,7 +31,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release
+          args: --release --all
       - uses: actions/upload-artifact@v2
         with:
           name: notify_push
