@@ -54,6 +54,12 @@ async fn main() -> Result<()> {
 
     let mapping =
         Arc::new(StorageMapping::new(&config.database_url, config.database_prefix).await?);
+
+    let _ = mapping
+        .get_users_for_storage_path(1, "")
+        .await
+        .wrap_err("Failed to test database access")?;
+
     let client = redis::Client::open(config.redis_url)?;
 
     tokio::task::spawn(
