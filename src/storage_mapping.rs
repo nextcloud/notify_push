@@ -51,10 +51,10 @@ impl StorageMapping {
                 SELECT user_id, path \
                 FROM {prefix}mounts \
                 INNER JOIN {prefix}filecache ON root_id = fileid \
-                WHERE storage_id = $1",
-                prefix = self.prefix
+                WHERE storage_id = {storage}",
+                prefix = self.prefix,
+                storage = storage
             ))
-            .bind(storage as i32)
             .fetch_all(&self.connection)
             .await
             .wrap_err("Failed to load storage mapping from database")?;
