@@ -23,14 +23,12 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\Command;
 
-
 use OC\Core\Command\Base;
 use OCA\NotifyPush\Queue\IQueue;
 use OCP\Files\Config\IUserMountCache;
 use OCP\Http\Client\IClientService;
 use OCP\IConfig;
 use OCP\IDBConnection;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 

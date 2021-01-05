@@ -23,7 +23,6 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush;
 
-
 use OCA\NotifyPush\Queue\IQueue;
 use OCA\NotifyPush\Queue\RedisQueue;
 use OCP\Http\Client\IClient;
