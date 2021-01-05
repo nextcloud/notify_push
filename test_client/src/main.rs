@@ -1,6 +1,6 @@
 use color_eyre::{eyre::WrapErr, Report, Result};
+use tungstenite::http::Request;
 use tungstenite::{connect, Message};
-use url::Url;
 
 fn main() -> Result<()> {
     color_eyre::install()?;
@@ -18,8 +18,10 @@ fn main() -> Result<()> {
 
     let ws_url = get_endpoint(&nc_url, &username, &password)?;
 
-    let (mut socket, _response) = connect(Url::parse(&ws_url).wrap_err("Invalid websocket url")?)
-        .wrap_err("Can't connect to server")?;
+    let ws_request = Request::get(ws_url)
+        .body(())
+        .wrap_err("Invalid websocket url")?;
+    let (mut socket, _response) = connect(ws_request).wrap_err("Can't connect to server")?;
 
     socket
         .write_message(Message::Text(username))
@@ -50,7 +52,8 @@ fn get_endpoint(nc_url: &str, user: &str, password: &str) -> Result<String> {
         .set("Accept", "application/json")
         .set("OCS-APIREQUEST", "true")
         .call()
-        .into_json()?;
+        .into_json()
+        .wrap_err("Failed to decode json capabilities response")?;
     Ok(
         json["ocs"]["data"]["capabilities"]["notify_push"]["endpoints"]["websocket"]
             .as_str()
