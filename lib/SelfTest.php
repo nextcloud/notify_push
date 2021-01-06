@@ -96,7 +96,7 @@ class SelfTest {
 			return 1;
 		}
 
-		if ($count === $retrievedCount) {
+		if ((int)$count === (int)$retrievedCount) {
 			$output->writeln("<info>✓ push server can load mount info from database</info>");
 		} else {
 			$output->writeln("<error>🗴 push server can't load mount info from database</error>");
