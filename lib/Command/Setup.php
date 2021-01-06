@@ -66,12 +66,14 @@ class Setup extends Base {
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output) {
+		$server = $input->getArgument('server');
+		
 		$test = new SelfTest(
 			$this->clientService->newClient(),
 			$this->config,
 			$this->queue,
 			$this->connection,
-			$input->getArgument('server')
+			$server
 		);
 		$result = $test->test($output);
 
