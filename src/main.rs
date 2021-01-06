@@ -100,6 +100,7 @@ async fn main() -> Result<()> {
                 if let Some(remote) = remote {
                     forwarded_for.push(remote.ip());
                 }
+                log::debug!("new websocket connection from {:?}", forwarded_for.first());
                 ws.on_upgrade(move |socket| user_connected(socket, users, forwarded_for))
             },
         )
@@ -110,12 +111,14 @@ async fn main() -> Result<()> {
             .and(test_cookie)
             .map(|test_cookie: Arc<AtomicU32>| {
                 let cookie = test_cookie.load(Ordering::SeqCst);
+                log::debug!("current test cookie is {}", cookie);
                 cookie.to_string()
             });
 
     let reverse_cookie_test = warp::path!("test" / "reverse_cookie").and_then(|| async move {
         let client = NC_CLIENT.get().unwrap();
         let cookie = client.get_test_cookie().await.unwrap_or(0);
+        log::debug!("got remote test cookie {}", cookie);
         Result::<_, Infallible>::Ok(cookie.to_string())
     });
 
@@ -124,7 +127,19 @@ async fn main() -> Result<()> {
             let access = mapping
                 .get_users_for_storage_path(storage_id, "")
                 .await
-                .map(|access| access.count())
+                .map(|access| {
+                    let count = access.count();
+                    log::debug!("storage mapping count for {} = {}", storage_id, count);
+                    count
+                })
+                .map_err(|err| {
+                    log::error!(
+                        "error while getting mapping count for {}: {:#}",
+                        storage_id,
+                        err
+                    );
+                    err
+                })
                 .unwrap_or(0);
             Result::<_, Infallible>::Ok(access.to_string())
         },
@@ -138,6 +153,7 @@ async fn main() -> Result<()> {
                 .await
                 .map(|remote| remote.to_string())
                 .unwrap_or_else(|e| e.to_string());
+            log::debug!("got remote {} when trying to set remote {}", result, remote);
             Result::<_, Infallible>::Ok(result)
         });
 
@@ -172,6 +188,7 @@ async fn user_connected(ws: WebSocket, connections: ActiveConnections, forwarded
         }
     };
 
+    log::debug!("new websocket authenticated as {}", user_id);
     let _ = tx.send(Ok(Message::text("authenticated")));
 
     let connection_id = connections.add(user_id.clone(), tx.clone());

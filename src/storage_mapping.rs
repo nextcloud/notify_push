@@ -44,8 +44,10 @@ impl StorageMapping {
                 None
             }
         }) {
+            log::trace!("using cached storage mapping for {}", storage);
             cached
         } else {
+            log::debug!("querying storage mapping for {}", storage);
             let users = sqlx::query_as::<Any, UserStorageAccess>(&format!(
                 "\
                 SELECT user_id, path \
