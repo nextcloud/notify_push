@@ -24,7 +24,7 @@ impl Client {
         &self,
         username: &str,
         password: &str,
-        addr: Option<IpAddr>,
+        forwarded_for: Vec<IpAddr>,
     ) -> Result<bool> {
         let response = self
             .http
@@ -32,7 +32,17 @@ impl Client {
             .basic_auth(username, Some(password))
             .header(
                 "x-forwarded-for",
-                addr.map(|addr| addr.to_string()).unwrap_or_default(),
+                forwarded_for.into_iter().map(|addr| addr.to_string()).fold(
+                    String::new(),
+                    |mut joined, ip| {
+                        joined.reserve(ip.len() + 1);
+                        if !joined.is_empty() {
+                            joined.push_str(", ");
+                        }
+                        joined.push_str(&ip);
+                        joined
+                    },
+                ),
             )
             .send()
             .await

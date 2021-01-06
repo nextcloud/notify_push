@@ -33,7 +33,6 @@ If using the `config.php` isn't possible, you can also configure the push server
 - `DATABASE_URL` connection url for the Nextcloud database, e.g `postgres://user:password@db_host/db_name`
 - `REDIS_URL` connection url for redis, e.g. `redis://redis_host`
 - `NEXTCLOUD_URL` url for the nextcloud instance, e.g. `https://cloud.example.com`
-- `TRUSTED_PROXIES` comma separated list of trusted proxies, e.g. `127.0.0.1,192.168.1.10`
 
 If both the `config.php` and environment variable is provided, the environment variable will overwrite the value from config.php
 
