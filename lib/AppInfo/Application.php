@@ -71,7 +71,8 @@ class Application extends App implements IBootstrap {
 	public function attachHooks(
 		IEventDispatcher $eventDispatcher,
 		Listener $listener,
-		IManager $activityManager
+		IManager $activityManager,
+		\OCP\Notification\IManager $notificationManager
 	) {
 		$eventDispatcher->addListener(CacheEntryInsertedEvent::class, [$listener, 'cacheListener']);
 		$eventDispatcher->addListener(CacheEntryUpdatedEvent::class, [$listener, 'cacheListener']);
@@ -85,5 +86,7 @@ class Application extends App implements IBootstrap {
 		$activityManager->registerConsumer(function() use ($listener) {
 			return $listener;
 		});
+
+		$notificationManager->registerApp(Listener::class);
 	}
 }

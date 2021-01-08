@@ -30,10 +30,12 @@ use OCP\Activity\IEvent;
 use OCP\Files\Cache\ICacheEvent;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
+use OCP\Notification\IApp;
+use OCP\Notification\INotification;
 use OCP\Share\Events\ShareCreatedEvent;
 use OCP\Share\IShare;
 
-class Listener implements IConsumer {
+class Listener implements IConsumer, IApp {
 	private $queue;
 
 	private $sendUpdates;
@@ -83,4 +85,22 @@ class Listener implements IConsumer {
 			'user' => $event->getAffectedUser(),
 		]);
 	}
+
+	public function notify(INotification $notification): void {
+		$this->queue->push('notify_notification', [
+			'user' => $notification->getUser(),
+		]);
+	}
+
+	public function markProcessed(INotification $notification): void {
+		$this->queue->push('notify_notification', [
+			'user' => $notification->getUser(),
+		]);
+	}
+
+	public function getCount(INotification $notification): int {
+		return 0;
+	}
+
+
 }

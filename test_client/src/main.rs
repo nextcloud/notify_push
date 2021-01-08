@@ -40,6 +40,8 @@ fn main() -> Result<()> {
             println!("Received file update notification");
         } else if text == "notify_activity" {
             println!("Received activity notification");
+        } else if text == "notify_notification" {
+            println!("Received notification notification");
         } else if text == "authenticated" {
             println!("Authenticated");
         } else {

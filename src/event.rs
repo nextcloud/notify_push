@@ -29,6 +29,11 @@ pub struct Activity {
     pub user: UserId,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Notification {
+    pub user: UserId,
+}
+
 #[derive(Debug, Display)]
 pub enum Event {
     #[display("storage update notification for storage {0.storage} and path {0.path}")]
@@ -41,6 +46,8 @@ pub enum Event {
     TestCookie(u32),
     #[display("activity notification for user {0.user}")]
     Activity(Activity),
+    #[display("notification notification for user {0.user}")]
+    Notification(Notification),
 }
 
 #[derive(Debug, Error)]
@@ -71,6 +78,9 @@ impl TryFrom<Msg> for Event {
             "notify_activity" => Ok(Event::Activity(serde_json::from_slice(
                 msg.get_payload_bytes(),
             )?)),
+            "notify_notification" => Ok(Event::Notification(serde_json::from_slice(
+                msg.get_payload_bytes(),
+            )?)),
             _ => Err(MessageDecodeError::UnsupportedEventType),
         }
     }
@@ -90,6 +100,7 @@ pub async fn subscribe(
         "notify_user_share_created",
         "notify_test_cookie",
         "notify_activity",
+        "notify_notification",
     ];
     for channel in channels.iter() {
         pubsub

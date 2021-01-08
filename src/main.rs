@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::connection::ActiveConnections;
-use crate::event::{Activity, Event, GroupUpdate, ShareCreate, StorageUpdate};
+use crate::event::{Activity, Event, GroupUpdate, Notification, ShareCreate, StorageUpdate};
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
 use color_eyre::{eyre::WrapErr, Report, Result};
@@ -278,6 +278,9 @@ async fn listen(
             }
             Ok(Event::Activity(Activity { user, .. })) => {
                 connections.send_to_user(&user, "notify_activity").await;
+            }
+            Ok(Event::Notification(Notification { user, .. })) => {
+                connections.send_to_user(&user, "notify_notification").await;
             }
             Err(e) => log::warn!("{:#}", e),
         }
