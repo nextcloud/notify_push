@@ -148,6 +148,6 @@ class SelfTest {
 			->groupBy('storage_id')
 			->setMaxResults(1);
 
-		return $query->execute()->fetchNumeric();
+		return $query->execute()->fetch(\PDO::FETCH_NUM);
 	}
 }

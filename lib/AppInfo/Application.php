@@ -30,6 +30,7 @@ use OCA\NotifyPush\Listener;
 use OCA\NotifyPush\Queue\IQueue;
 use OCA\NotifyPush\Queue\NullQueue;
 use OCA\NotifyPush\Queue\RedisQueue;
+use OCP\Activity\IManager;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
@@ -69,7 +70,8 @@ class Application extends App implements IBootstrap {
 
 	public function attachHooks(
 		IEventDispatcher $eventDispatcher,
-		Listener $listener
+		Listener $listener,
+		IManager $activityManager
 	) {
 		$eventDispatcher->addListener(CacheEntryInsertedEvent::class, [$listener, 'cacheListener']);
 		$eventDispatcher->addListener(CacheEntryUpdatedEvent::class, [$listener, 'cacheListener']);
@@ -79,5 +81,9 @@ class Application extends App implements IBootstrap {
 		$eventDispatcher->addListener(UserRemovedEvent::class, [$listener, 'groupListener']);
 
 		$eventDispatcher->addListener(ShareCreatedEvent::class, [$listener, 'shareListener']);
+
+		$activityManager->registerConsumer(function() use ($listener) {
+			return $listener;
+		});
 	}
 }

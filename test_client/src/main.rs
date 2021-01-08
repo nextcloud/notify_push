@@ -37,7 +37,9 @@ fn main() -> Result<()> {
             eprintln!("Received error: {}", &text[5..]);
             return Ok(());
         } else if text == "notify_file" {
-            println!("Received update notification");
+            println!("Received file update notification");
+        } else if text == "notify_activity" {
+            println!("Received activity notification");
         } else if text == "authenticated" {
             println!("Authenticated");
         } else {

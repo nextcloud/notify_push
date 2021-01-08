@@ -23,12 +23,18 @@ pub struct ShareCreate {
     pub user: UserId,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Activity {
+    pub user: UserId,
+}
+
 #[derive(Debug)]
 pub enum Event {
     StorageUpdate(StorageUpdate),
     GroupUpdate(GroupUpdate),
     ShareCreate(ShareCreate),
     TestCookie(u32),
+    Activity(Activity),
 }
 
 #[derive(Debug, Error)]
@@ -56,6 +62,9 @@ impl TryFrom<Msg> for Event {
             "notify_test_cookie" => Ok(Event::TestCookie(serde_json::from_slice(
                 msg.get_payload_bytes(),
             )?)),
+            "notify_activity" => Ok(Event::Activity(serde_json::from_slice(
+                msg.get_payload_bytes(),
+            )?)),
             _ => Err(MessageDecodeError::UnsupportedEventType),
         }
     }
@@ -74,6 +83,7 @@ pub async fn subscribe(
         "notify_group_membership_update",
         "notify_user_share_created",
         "notify_test_cookie",
+        "notify_activity",
     ];
     for channel in channels.iter() {
         pubsub

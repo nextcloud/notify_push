@@ -57,7 +57,9 @@ Once the push server is setup and running and the nextcloud app is configured, c
 - Send the username over the websocket connection
 - Send the password over the websocket connection
 - If the credentials are correct, the server will return with "authenticated"
-- The server will send a "notify_file" message every time a file for the user has been changed
+- The server will send the following notifications
+  - "notify_file" when a file for the user has been changed
+  - "notify_activity" when a new activity item for a user is created (note, due to workings of the activity app, file related activity doesn't trigger this notification)
 
 ### Example
 

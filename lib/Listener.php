@@ -25,13 +25,15 @@ namespace OCA\NotifyPush;
 
 use OC\Cache\CappedMemoryCache;
 use OCA\NotifyPush\Queue\IQueue;
+use OCP\Activity\IConsumer;
+use OCP\Activity\IEvent;
 use OCP\Files\Cache\ICacheEvent;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
 use OCP\Share\Events\ShareCreatedEvent;
 use OCP\Share\IShare;
 
-class Listener {
+class Listener implements IConsumer {
 	private $queue;
 
 	private $sendUpdates;
@@ -74,5 +76,11 @@ class Listener {
 			]);
 		}
 		// todo group shares
+	}
+
+	public function receive(IEvent $event) {
+		$this->queue->push('notify_activity', [
+			'user' => $event->getAffectedUser(),
+		]);
 	}
 }

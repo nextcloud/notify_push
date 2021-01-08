@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::connection::ActiveConnections;
-use crate::event::{Event, GroupUpdate, ShareCreate, StorageUpdate};
+use crate::event::{Activity, Event, GroupUpdate, ShareCreate, StorageUpdate};
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
 use color_eyre::{eyre::WrapErr, Report, Result};
@@ -289,6 +289,14 @@ async fn listen(
                     cookie
                 );
                 test_cookie.store(cookie, Ordering::SeqCst);
+            }
+            Ok(Event::Activity(Activity { user, .. })) => {
+                log::debug!(
+                    target: "notify_push::receive",
+                    "Received activity notification for user {}",
+                    user
+                );
+                connections.send_to_user(&user, "notify_activity").await;
             }
             Err(e) => log::warn!("{:#}", e),
         }
