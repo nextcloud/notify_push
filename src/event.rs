@@ -1,5 +1,6 @@
 use crate::UserId;
 use color_eyre::{eyre::WrapErr, Result};
+use parse_display::Display;
 use redis::{Client, Msg};
 use serde::Deserialize;
 use std::convert::TryFrom;
@@ -28,12 +29,17 @@ pub struct Activity {
     pub user: UserId,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Display)]
 pub enum Event {
+    #[display("storage update notification for storage {0.storage} and path {0.path}")]
     StorageUpdate(StorageUpdate),
+    #[display("group update notification for user {0.user}")]
     GroupUpdate(GroupUpdate),
+    #[display("share create notification for user {0.user}")]
     ShareCreate(ShareCreate),
+    #[display("test cookie {0}")]
     TestCookie(u32),
+    #[display("activity notification for user {0.user}")]
     Activity(Activity),
 }
 

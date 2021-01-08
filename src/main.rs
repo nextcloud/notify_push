@@ -249,14 +249,15 @@ async fn listen(
 ) -> Result<()> {
     let mut event_stream = event::subscribe(client).await?;
     while let Some(event) = event_stream.next().await {
+        if let Ok(event) = &event {
+            log::debug!(
+                target: "notify_push::receive",
+                "Received {}",
+                event
+            );
+        }
         match event {
             Ok(Event::StorageUpdate(StorageUpdate { storage, path })) => {
-                log::debug!(
-                    target: "notify_push::receive",
-                    "Received storage update notification for storage {} and path {}",
-                    storage,
-                    path
-                );
                 match mapping.get_users_for_storage_path(storage, &path).await {
                     Ok(users) => {
                         for user in users {
@@ -267,35 +268,15 @@ async fn listen(
                 }
             }
             Ok(Event::GroupUpdate(GroupUpdate { user, .. })) => {
-                log::debug!(
-                    target: "notify_push::receive",
-                    "Received group update notification for user {}",
-                    user
-                );
                 connections.send_to_user(&user, "notify_file").await;
             }
             Ok(Event::ShareCreate(ShareCreate { user, .. })) => {
-                log::debug!(
-                    target: "notify_push::receive",
-                    "Received share create notification for user {}",
-                    user
-                );
                 connections.send_to_user(&user, "notify_file").await;
             }
             Ok(Event::TestCookie(cookie)) => {
-                log::debug!(
-                    target: "notify_push::receive",
-                    "Received test cookie {}",
-                    cookie
-                );
                 test_cookie.store(cookie, Ordering::SeqCst);
             }
             Ok(Event::Activity(Activity { user, .. })) => {
-                log::debug!(
-                    target: "notify_push::receive",
-                    "Received activity notification for user {}",
-                    user
-                );
                 connections.send_to_user(&user, "notify_activity").await;
             }
             Err(e) => log::warn!("{:#}", e),
