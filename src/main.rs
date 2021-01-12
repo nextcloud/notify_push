@@ -1,9 +1,12 @@
 use crate::config::Config;
 use crate::connection::ActiveConnections;
-use crate::event::{Activity, Event, GroupUpdate, Notification, ShareCreate, StorageUpdate};
+use crate::event::{
+    Activity, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
+};
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
 use color_eyre::{eyre::WrapErr, Report, Result};
+use dashmap::DashMap;
 use futures::stream::SplitStream;
 use futures::{FutureExt, StreamExt};
 use once_cell::sync::OnceCell;
@@ -12,7 +15,7 @@ use smallvec::alloc::sync::Arc;
 use std::convert::Infallible;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 use warp::filters::addr::remote;
@@ -55,6 +58,7 @@ async fn main() -> Result<()> {
 
     let mapping =
         Arc::new(StorageMapping::new(&config.database_url, config.database_prefix).await?);
+    let pre_auth: Arc<DashMap<String, (Instant, UserId)>> = Arc::default();
 
     let _ = mapping
         .get_users_for_storage_path(1, "")
@@ -69,6 +73,7 @@ async fn main() -> Result<()> {
             connections.clone(),
             mapping.clone(),
             test_cookie.clone(),
+            pre_auth.clone(),
         )
         .map(|res| match res {
             Err(e) => {
@@ -82,6 +87,7 @@ async fn main() -> Result<()> {
     let connections = warp::any().map(move || connections.clone());
     let test_cookie = warp::any().map(move || test_cookie.clone());
     let mapping = warp::any().map(move || mapping.clone());
+    let pre_auth = warp::any().map(move || pre_auth.clone());
 
     let cors = warp::cors().allow_any_origin();
 
@@ -90,18 +96,20 @@ async fn main() -> Result<()> {
         // The `ws()` filter will prepare Websocket handshake...
         .and(warp::ws())
         .and(connections)
+        .and(pre_auth)
         .and(remote())
         .and(get_forwarded_for())
         .map(
             |ws: warp::ws::Ws,
              users,
+             pre_auth,
              remote: Option<SocketAddr>,
              mut forwarded_for: Vec<IpAddr>| {
                 if let Some(remote) = remote {
                     forwarded_for.push(remote.ip());
                 }
                 log::debug!("new websocket connection from {:?}", forwarded_for.first());
-                ws.on_upgrade(move |socket| user_connected(socket, users, forwarded_for))
+                ws.on_upgrade(move |socket| user_connected(socket, users, forwarded_for, pre_auth))
             },
         )
         .with(cors);
@@ -167,7 +175,12 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn user_connected(ws: WebSocket, connections: ActiveConnections, forwarded_for: Vec<IpAddr>) {
+async fn user_connected(
+    ws: WebSocket,
+    connections: ActiveConnections,
+    forwarded_for: Vec<IpAddr>,
+    pre_auth: Arc<DashMap<String, (Instant, UserId)>>,
+) {
     let (user_ws_tx, mut user_ws_rx) = ws.split();
 
     // Use an unbounded channel to handle buffering and flushing of messages
@@ -179,7 +192,7 @@ async fn user_connected(ws: WebSocket, connections: ActiveConnections, forwarded
         }
     }));
 
-    let user_id = match socket_auth(&mut user_ws_rx, forwarded_for).await {
+    let user_id = match socket_auth(&mut user_ws_rx, forwarded_for, pre_auth).await {
         Ok(user_id) => user_id,
         Err(e) => {
             log::warn!("{}", e);
@@ -219,6 +232,7 @@ async fn read_socket_auth_message(rx: &mut SplitStream<WebSocket>) -> Result<Mes
 async fn socket_auth(
     rx: &mut SplitStream<WebSocket>,
     forwarded_for: Vec<IpAddr>,
+    pre_auth: Arc<DashMap<String, (Instant, UserId)>>,
 ) -> Result<UserId> {
     let username_msg = read_socket_auth_message(rx).await?;
     let username = username_msg
@@ -228,6 +242,18 @@ async fn socket_auth(
     let password = password_msg
         .to_str()
         .map_err(|_| Report::msg("Invalid authentication message"))?;
+
+    // cleanup all pre_auth tokens older than 15s
+    let now = Instant::now();
+    pre_auth.retain(|_, (time, _)| now.duration_since(*time) < Duration::from_secs(15));
+
+    if let Some((_, (_, user))) = pre_auth.remove(password) {
+        log::info!(
+            "Authenticated socket for {} using pre authenticated token",
+            user
+        );
+        return Ok(user);
+    }
 
     let client = NC_CLIENT.get().unwrap();
     if client
@@ -246,6 +272,7 @@ async fn listen(
     connections: ActiveConnections,
     mapping: Arc<StorageMapping>,
     test_cookie: Arc<AtomicU32>,
+    pre_auth: Arc<DashMap<String, (Instant, UserId)>>,
 ) -> Result<()> {
     let mut event_stream = event::subscribe(client).await?;
     while let Some(event) = event_stream.next().await {
@@ -281,6 +308,9 @@ async fn listen(
             }
             Ok(Event::Notification(Notification { user, .. })) => {
                 connections.send_to_user(&user, "notify_notification").await;
+            }
+            Ok(Event::PreAuth(PreAuth { user, token })) => {
+                pre_auth.insert(token, (Instant::now(), user));
             }
             Err(e) => log::warn!("{:#}", e),
         }

@@ -33,5 +33,10 @@ return [
 			'url' => '/test/remote',
 			'verb' => 'GET',
 		],
+		[
+			'name' => 'PreAuth#preAuth',
+			'url' => '/pre_auth',
+			'verb' => 'POST',
+		],
 	],
 ];
