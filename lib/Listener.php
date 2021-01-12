@@ -30,12 +30,15 @@ use OCP\Activity\IEvent;
 use OCP\Files\Cache\ICacheEvent;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
+use OCP\Notification\AlreadyProcessedException;
 use OCP\Notification\IApp;
+use OCP\Notification\IDismissableNotifier;
 use OCP\Notification\INotification;
+use OCP\Notification\INotifier;
 use OCP\Share\Events\ShareCreatedEvent;
 use OCP\Share\IShare;
 
-class Listener implements IConsumer, IApp {
+class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 	private $queue;
 
 	private $sendUpdates;
@@ -102,5 +105,21 @@ class Listener implements IConsumer, IApp {
 		return 0;
 	}
 
+	public function getID(): string {
+		return 'notify_push';
+	}
 
+	public function getName(): string {
+		return 'notify_push';
+	}
+
+	public function prepare(INotification $notification, string $languageCode): INotification {
+		throw new \InvalidArgumentException();
+	}
+
+	public function dismissNotification(INotification $notification): void {
+		$this->queue->push('notify_notification', [
+			'user' => $notification->getUser(),
+		]);
+	}
 }

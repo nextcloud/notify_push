@@ -60,7 +60,7 @@ Once the push server is setup and running and the nextcloud app is configured, c
 - The server will send the following notifications
   - "notify_file" when a file for the user has been changed
   - "notify_activity" when a new activity item for a user is created (note, due to workings of the activity app, file related activity doesn't trigger this notification)
-  - "notify_notification" when a notification is created or processed for a user
+  - "notify_notification" when a notification is created, processed or dismissed for a user
 
 ### Example
 

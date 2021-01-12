@@ -94,5 +94,6 @@ class Application extends App implements IBootstrap {
 		});
 
 		$notificationManager->registerApp(Listener::class);
+		$notificationManager->registerNotifierService(Listener::class);
 	}
 }
