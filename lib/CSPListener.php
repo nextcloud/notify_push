@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 /**
- * @copyright Copyright (c) 2020 Robin Appelman <robin@icewind.nl>
+ * @copyright Copyright (c) 2021 Robin Appelman <robin@icewind.nl>
  *
  * @license GNU AGPL version 3 or any later version
  *
@@ -23,37 +23,40 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush;
 
-use OCP\Capabilities\ICapability;
+use OCP\AppFramework\Http\ContentSecurityPolicy;
+use OCP\EventDispatcher\Event;
+use OCP\EventDispatcher\IEventListener;
 use OCP\IConfig;
-use OCP\IURLGenerator;
+use OCP\Security\CSP\AddContentSecurityPolicyEvent;
 
-class Capabilities implements ICapability {
+class CSPListener implements IEventListener {
 	private $config;
-	private $urlGenerator;
 
-	public function __construct(IConfig $config, IURLGenerator $urlGenerator) {
+	public function __construct(IConfig $config) {
 		$this->config = $config;
-		$this->urlGenerator = $urlGenerator;
 	}
 
-	public function getCapabilities() {
-		$baseEndpoint = $this->config->getAppValue('notify_push', 'base_endpoint');
-
-		$wsEndpoint = str_replace('https://', 'wss://', $baseEndpoint);
-		$wsEndpoint = str_replace('http://', 'ws://', $wsEndpoint) . '/ws';
-
-		if ($baseEndpoint) {
-			return [
-				'notify_push' => [
-					'type' => ['files'],
-					'endpoints' => [
-						'websocket' => $wsEndpoint,
-						'pre_auth' => $this->urlGenerator->getAbsoluteURL($this->urlGenerator->linkToRoute('notify_push.PreAuth.preAuth'))
-					],
-				],
-			];
-		} else {
-			return [];
+	public function handle(Event $event): void {
+		if (!($event instanceof AddContentSecurityPolicyEvent)) {
+			return;
 		}
+
+		$csp = new ContentSecurityPolicy();
+
+		$baseEndpoint = $this->config->getAppValue('notify_push', 'base_endpoint');
+		$endPointUrl = parse_url($baseEndpoint);
+
+		$connect = $endPointUrl['host'];
+		if (isset($endPointUrl['port'])) {
+			$connect .= ':'. $endPointUrl['port'];
+		}
+		if ($endPointUrl['scheme'] === 'https') {
+			$connect = 'wss://' . $connect;
+		} else {
+			$connect = 'ws://' . $connect;
+		}
+		$csp->addAllowedConnectDomain($connect);
+
+		$event->addPolicy($csp);
 	}
 }
