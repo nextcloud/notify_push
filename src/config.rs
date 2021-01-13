@@ -1,4 +1,5 @@
 use color_eyre::{eyre::WrapErr, Report, Result};
+use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
 #[derive(Debug)]
 pub struct Config {
@@ -39,7 +40,7 @@ impl Config {
                     .ok_or(Report::msg("invalid 'dbtype'"))?
             ),
             parsed["dbuser"],
-            parsed["dbpassword"],
+            utf8_percent_encode(&parsed["dbpassword"].to_string(), NON_ALPHANUMERIC),
             parsed["dbhost"],
             if parsed["dbport"] != "" { ":" } else { "" },
             parsed["dbport"],

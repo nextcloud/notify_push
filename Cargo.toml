@@ -27,6 +27,7 @@ reqwest = { version = "0.10.0", default-features = false, features = ["rustls-tl
 warp-real-ip = "0.1.1"
 php-literal-parser = "0.1"
 parse-display = "0.4"
+percent-encoding = "2.1.0"
 
 [profile.dev.package.backtrace]
 opt-level = 3

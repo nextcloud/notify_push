@@ -1526,6 +1526,7 @@ dependencies = [
  "main_error",
  "once_cell",
  "parse-display",
+ "percent-encoding",
  "php-literal-parser",
  "pretty_env_logger",
  "redis",

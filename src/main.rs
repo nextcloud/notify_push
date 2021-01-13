@@ -47,6 +47,8 @@ async fn main() -> Result<()> {
         None => Config::from_env().wrap_err("Failed to load config from environment variables")?,
     };
 
+    log::trace!("Running with config: {:?}", config);
+
     let connections = ActiveConnections::default();
     let nc_client = nc::Client::new(&config.nextcloud_url)?;
     let test_cookie = Arc::new(AtomicU32::new(0));
