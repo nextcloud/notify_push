@@ -40,6 +40,12 @@ pub struct PreAuth {
     pub token: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Custom {
+    pub user: UserId,
+    pub message: String,
+}
+
 #[derive(Debug, Display)]
 pub enum Event {
     #[display("storage update notification for storage {0.storage} and path {0.path}")]
@@ -56,6 +62,8 @@ pub enum Event {
     Notification(Notification),
     #[display("pre_auth user {0.user}")]
     PreAuth(PreAuth),
+    #[display("custom notification {0.message} for user {0.user}")]
+    Custom(Custom),
 }
 
 #[derive(Debug, Error)]
@@ -92,6 +100,9 @@ impl TryFrom<Msg> for Event {
             "notify_pre_auth" => Ok(Event::PreAuth(serde_json::from_slice(
                 msg.get_payload_bytes(),
             )?)),
+            "notify_custom" => Ok(Event::Custom(serde_json::from_slice(
+                msg.get_payload_bytes(),
+            )?)),
             _ => Err(MessageDecodeError::UnsupportedEventType),
         }
     }
@@ -113,6 +124,7 @@ pub async fn subscribe(
         "notify_activity",
         "notify_notification",
         "notify_pre_auth",
+        "notify_custom",
     ];
     for channel in channels.iter() {
         pubsub

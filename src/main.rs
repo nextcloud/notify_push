@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::connection::ActiveConnections;
 use crate::event::{
-    Activity, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
+    Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
 };
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
@@ -299,20 +299,23 @@ async fn listen(
             Ok(Event::GroupUpdate(GroupUpdate { user, .. })) => {
                 connections.send_to_user(&user, "notify_file").await;
             }
-            Ok(Event::ShareCreate(ShareCreate { user, .. })) => {
+            Ok(Event::ShareCreate(ShareCreate { user })) => {
                 connections.send_to_user(&user, "notify_file").await;
             }
             Ok(Event::TestCookie(cookie)) => {
                 test_cookie.store(cookie, Ordering::SeqCst);
             }
-            Ok(Event::Activity(Activity { user, .. })) => {
+            Ok(Event::Activity(Activity { user })) => {
                 connections.send_to_user(&user, "notify_activity").await;
             }
-            Ok(Event::Notification(Notification { user, .. })) => {
+            Ok(Event::Notification(Notification { user })) => {
                 connections.send_to_user(&user, "notify_notification").await;
             }
             Ok(Event::PreAuth(PreAuth { user, token })) => {
                 pre_auth.insert(token, (Instant::now(), user));
+            }
+            Ok(Event::Custom(Custom { user, message })) => {
+                connections.send_to_user(&user, &message).await;
             }
             Err(e) => log::warn!("{:#}", e),
         }
