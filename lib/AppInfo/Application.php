@@ -25,7 +25,6 @@ namespace OCA\NotifyPush\AppInfo;
 
 use OC\AppFramework\Utility\SimpleContainer;
 use OC\RedisFactory;
-use OC\Security\CSP\ContentSecurityPolicy;
 use OCA\NotifyPush\Capabilities;
 use OCA\NotifyPush\CSPListener;
 use OCA\NotifyPush\Listener;
@@ -44,7 +43,6 @@ use OCP\Files\Cache\CacheEntryUpdatedEvent;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
 use OCP\Security\CSP\AddContentSecurityPolicyEvent;
-use OCP\Security\IContentSecurityPolicyManager;
 use OCP\Share\Events\ShareCreatedEvent;
 
 class Application extends App implements IBootstrap {

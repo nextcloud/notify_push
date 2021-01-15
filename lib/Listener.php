@@ -30,7 +30,6 @@ use OCP\Activity\IEvent;
 use OCP\Files\Cache\ICacheEvent;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
-use OCP\Notification\AlreadyProcessedException;
 use OCP\Notification\IApp;
 use OCP\Notification\IDismissableNotifier;
 use OCP\Notification\INotification;
@@ -96,9 +95,6 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 	}
 
 	public function markProcessed(INotification $notification): void {
-		$this->queue->push('notify_notification', [
-			'user' => $notification->getUser(),
-		]);
 	}
 
 	public function getCount(INotification $notification): int {
