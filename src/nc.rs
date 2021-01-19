@@ -64,7 +64,7 @@ impl Client {
     pub async fn get_test_cookie(&self) -> Result<u32> {
         Ok(self
             .http
-            .get(self.base_url.join("apps/notify_push/test/cookie")?)
+            .get(self.base_url.join("index.php/apps/notify_push/test/cookie")?)
             .send()
             .await?
             .json()
@@ -74,7 +74,7 @@ impl Client {
     pub async fn test_set_remote(&self, addr: IpAddr) -> Result<IpAddr> {
         Ok(self
             .http
-            .get(self.base_url.join("apps/notify_push/test/remote")?)
+            .get(self.base_url.join("index.php/apps/notify_push/test/remote")?)
             .header("x-forwarded-for", addr.to_string())
             .send()
             .await?
