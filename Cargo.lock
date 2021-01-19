@@ -1246,12 +1246,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "main_error"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb63bb1e282e0b6aba0addb1f0e87cb5181ea68142b2dfd21ba108f8e8088a64"
-
-[[package]]
 name = "maplit"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1414,7 +1408,6 @@ dependencies = [
  "dotenv",
  "futures",
  "log",
- "main_error",
  "once_cell",
  "parse-display",
  "percent-encoding",
