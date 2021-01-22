@@ -34,9 +34,13 @@ return [
 			'verb' => 'GET',
 		],
 		[
-			'name' => 'PreAuth#preAuth',
+			'name' => 'Auth#preAuth',
 			'url' => '/pre_auth',
 			'verb' => 'POST',
+		],
+		[
+			'name' => 'Auth#getUid',
+			'url' => '/uid',
 		],
 	],
 ];

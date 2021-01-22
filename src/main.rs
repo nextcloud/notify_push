@@ -258,15 +258,9 @@ async fn socket_auth(
     }
 
     let client = NC_CLIENT.get().unwrap();
-    if client
+    client
         .verify_credentials(username, password, forwarded_for)
-        .await?
-    {
-        log::info!("Authenticated socket for {}", username);
-        Ok(UserId::from(username))
-    } else {
-        Err(Report::msg("Invalid credentials"))
-    }
+        .await
 }
 
 async fn listen(

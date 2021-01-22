@@ -30,7 +30,7 @@ use OCP\IRequest;
 use OCP\IUserSession;
 use OCP\Security\ISecureRandom;
 
-class PreAuthController extends Controller {
+class AuthController extends Controller {
 	private $queue;
 	private $random;
 	private $userSession;
@@ -60,5 +60,14 @@ class PreAuthController extends Controller {
 		]);
 
 		return new DataDisplayResponse($token);
+	}
+
+	/**
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 * @return DataDisplayResponse
+	 */
+	public function getUid() {
+		return new DataDisplayResponse($this->userSession->getUser()->getUID());
 	}
 }
