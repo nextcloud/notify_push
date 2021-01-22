@@ -48,7 +48,7 @@ class Capabilities implements ICapability {
 					'type' => ['files'],
 					'endpoints' => [
 						'websocket' => $wsEndpoint,
-						'pre_auth' => $this->urlGenerator->getAbsoluteURL($this->urlGenerator->linkToRoute('notify_push.PreAuth.preAuth'))
+						'pre_auth' => $this->urlGenerator->getAbsoluteURL($this->urlGenerator->linkToRoute('notify_push.Auth.preAuth'))
 					],
 				],
 			];
