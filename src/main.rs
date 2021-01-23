@@ -39,6 +39,11 @@ async fn main() -> Result<()> {
     pretty_env_logger::init();
     let _ = dotenv::dotenv();
 
+    ctrlc::set_handler(move || {
+        std::process::exit(0);
+    })
+    .expect("Error setting Ctrl-C handler");
+
     let args = std::env::args();
     let config = match args.skip(1).next() {
         Some(file) => {
@@ -48,7 +53,10 @@ async fn main() -> Result<()> {
     };
 
     log::trace!("Running with config: {:?}", config);
+    serve(config).await
+}
 
+async fn serve(config: Config) -> Result<()> {
     let connections = ActiveConnections::default();
     let nc_client = nc::Client::new(&config.nextcloud_url)?;
     let test_cookie = Arc::new(AtomicU32::new(0));
@@ -173,7 +181,7 @@ async fn main() -> Result<()> {
         .or(mapping_test)
         .or(remote_test);
 
-    warp::serve(routes).run(([127, 0, 0, 1], port)).await;
+    warp::serve(routes).run(([0, 0, 0, 0], port)).await;
     Ok(())
 }
 
