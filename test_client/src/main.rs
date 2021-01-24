@@ -63,7 +63,7 @@ fn get_endpoint(nc_url: &str, user: &str, password: &str) -> Result<String> {
             .as_str()
             .map(|url| url.to_string())
             .ok_or(Report::msg(
-                "notify_push app not enabled or invalid capabilities response",
+                "notify_push app not enabled, invalid credentials or invalid capabilities response",
             ))?,
     )
 }

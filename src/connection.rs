@@ -2,7 +2,6 @@ use crate::UserId;
 use dashmap::DashMap;
 use smallvec::SmallVec;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use tokio::sync::mpsc;
 use warp::ws::Message;
 
@@ -25,8 +24,8 @@ struct UserConnection {
     sender: Sender,
 }
 
-#[derive(Default, Clone)]
-pub struct ActiveConnections(Arc<DashMap<UserId, SmallVec<[UserConnection; 4]>>>);
+#[derive(Default)]
+pub struct ActiveConnections(DashMap<UserId, SmallVec<[UserConnection; 4]>>);
 
 impl ActiveConnections {
     pub fn add(&self, user: UserId, sender: Sender) -> ConnectionId {

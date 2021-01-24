@@ -9,8 +9,6 @@ use color_eyre::{eyre::WrapErr, Report, Result};
 use dashmap::DashMap;
 use futures::stream::SplitStream;
 use futures::{FutureExt, StreamExt};
-use once_cell::sync::OnceCell;
-use redis::Client;
 use smallvec::alloc::sync::Arc;
 use std::convert::Infallible;
 use std::net::{IpAddr, SocketAddr};
@@ -31,8 +29,6 @@ mod nc;
 mod storage_mapping;
 mod user;
 
-static NC_CLIENT: OnceCell<nc::Client> = OnceCell::new();
-
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
@@ -52,52 +48,131 @@ async fn main() -> Result<()> {
         None => Config::from_env().wrap_err("Failed to load config from environment variables")?,
     };
 
-    log::trace!("Running with config: {:?}", config);
-    serve(config).await
-}
-
-async fn serve(config: Config) -> Result<()> {
-    let connections = ActiveConnections::default();
-    let nc_client = nc::Client::new(&config.nextcloud_url)?;
-    let test_cookie = Arc::new(AtomicU32::new(0));
     let port = dotenv::var("PORT")
         .ok()
         .and_then(|port| port.parse().ok())
         .unwrap_or(80u16);
-    let _ = NC_CLIENT.set(nc_client);
 
-    let mapping =
-        Arc::new(StorageMapping::new(&config.database_url, config.database_prefix).await?);
-    let pre_auth: Arc<DashMap<String, (Instant, UserId)>> = Arc::default();
+    log::trace!("Running with config: {:?} on port {}", config, port);
+    serve(config, port).await
+}
 
-    let _ = mapping
-        .get_users_for_storage_path(1, "")
-        .await
-        .wrap_err("Failed to test database access")?;
+struct App {
+    connections: ActiveConnections,
+    nc_client: nc::Client,
+    storage_mapping: StorageMapping,
+    pre_auth: DashMap<String, (Instant, UserId)>,
+    test_cookie: AtomicU32,
+    redis_url: String,
+}
 
-    let client = redis::Client::open(config.redis_url)?;
+impl App {
+    async fn new(config: Config) -> Result<Self> {
+        let connections = ActiveConnections::default();
+        let nc_client = nc::Client::new(&config.nextcloud_url)?;
+        let test_cookie = AtomicU32::new(0);
 
-    tokio::task::spawn(
-        listen(
-            client,
-            connections.clone(),
-            mapping.clone(),
-            test_cookie.clone(),
-            pre_auth.clone(),
-        )
-        .map(|res| match res {
-            Err(e) => {
-                eprintln!("{:#}", e);
-                std::process::exit(1);
+        let storage_mapping =
+            StorageMapping::new(&config.database_url, config.database_prefix).await?;
+        let pre_auth: DashMap<String, (Instant, UserId)> = DashMap::default();
+
+        let redis_url = config.redis_url;
+
+        Ok(App {
+            connections,
+            nc_client,
+            test_cookie,
+            pre_auth,
+            storage_mapping,
+            redis_url,
+        })
+    }
+
+    async fn self_test(&self) -> Result<()> {
+        let _ = self
+            .storage_mapping
+            .get_users_for_storage_path(1, "")
+            .await
+            .wrap_err("Failed to test database access")?;
+        Ok(())
+    }
+
+    async fn listen(&self) -> Result<()> {
+        let client = redis::Client::open(self.redis_url.clone())?;
+        let mut event_stream = event::subscribe(client).await?;
+        while let Some(event) = event_stream.next().await {
+            if let Ok(event) = &event {
+                log::debug!(
+                    target: "notify_push::receive",
+                    "Received {}",
+                    event
+                );
             }
-            _ => {}
-        }),
-    );
+            match event {
+                Ok(Event::StorageUpdate(StorageUpdate { storage, path })) => {
+                    match self
+                        .storage_mapping
+                        .get_users_for_storage_path(storage, &path)
+                        .await
+                    {
+                        Ok(users) => {
+                            for user in users {
+                                self.connections.send_to_user(&user, "notify_file").await;
+                            }
+                        }
+                        Err(e) => log::error!("{:#}", e),
+                    }
+                }
+                Ok(Event::GroupUpdate(GroupUpdate { user, .. })) => {
+                    self.connections.send_to_user(&user, "notify_file").await;
+                }
+                Ok(Event::ShareCreate(ShareCreate { user })) => {
+                    self.connections.send_to_user(&user, "notify_file").await;
+                }
+                Ok(Event::TestCookie(cookie)) => {
+                    self.test_cookie.store(cookie, Ordering::SeqCst);
+                }
+                Ok(Event::Activity(Activity { user })) => {
+                    self.connections
+                        .send_to_user(&user, "notify_activity")
+                        .await;
+                }
+                Ok(Event::Notification(Notification { user })) => {
+                    self.connections
+                        .send_to_user(&user, "notify_notification")
+                        .await;
+                }
+                Ok(Event::PreAuth(PreAuth { user, token })) => {
+                    self.pre_auth.insert(token, (Instant::now(), user));
+                }
+                Ok(Event::Custom(Custom { user, message })) => {
+                    self.connections.send_to_user(&user, &message).await;
+                }
+                Err(e) => log::warn!("{:#}", e),
+            }
+        }
+        Ok(())
+    }
+}
 
-    let connections = warp::any().map(move || connections.clone());
-    let test_cookie = warp::any().map(move || test_cookie.clone());
-    let mapping = warp::any().map(move || mapping.clone());
-    let pre_auth = warp::any().map(move || pre_auth.clone());
+async fn serve(config: Config, port: u16) -> Result<()> {
+    let app = Arc::new(App::new(config).await?);
+    app.self_test().await?;
+
+    {
+        let app = app.clone();
+        tokio::task::spawn(async move {
+            loop {
+                if let Err(e) = app.listen().await {
+                    eprintln!("{:#}", e);
+                    std::process::exit(1);
+                }
+                tokio::time::delay_for(Duration::from_secs(1)).await;
+            }
+        });
+    }
+
+    let app = warp::any().map(move || app.clone());
 
     let cors = warp::cors().allow_any_origin();
 
@@ -105,44 +180,41 @@ async fn serve(config: Config) -> Result<()> {
     let socket = warp::path!("ws")
         // The `ws()` filter will prepare Websocket handshake...
         .and(warp::ws())
-        .and(connections)
-        .and(pre_auth)
+        .and(app.clone())
         .and(remote())
         .and(get_forwarded_for())
         .map(
-            |ws: warp::ws::Ws,
-             users,
-             pre_auth,
-             remote: Option<SocketAddr>,
-             mut forwarded_for: Vec<IpAddr>| {
+            |ws: warp::ws::Ws, app, remote: Option<SocketAddr>, mut forwarded_for: Vec<IpAddr>| {
                 if let Some(remote) = remote {
                     forwarded_for.push(remote.ip());
                 }
                 log::debug!("new websocket connection from {:?}", forwarded_for.first());
-                ws.on_upgrade(move |socket| user_connected(socket, users, forwarded_for, pre_auth))
+                ws.on_upgrade(move |socket| user_connected(socket, app, forwarded_for))
             },
         )
         .with(cors);
 
-    let cookie_test =
-        warp::path!("test" / "cookie")
-            .and(test_cookie)
-            .map(|test_cookie: Arc<AtomicU32>| {
-                let cookie = test_cookie.load(Ordering::SeqCst);
-                log::debug!("current test cookie is {}", cookie);
-                cookie.to_string()
-            });
+    let cookie_test = warp::path!("test" / "cookie")
+        .and(app.clone())
+        .map(|app: Arc<App>| {
+            let cookie = app.test_cookie.load(Ordering::SeqCst);
+            log::debug!("current test cookie is {}", cookie);
+            cookie.to_string()
+        });
 
-    let reverse_cookie_test = warp::path!("test" / "reverse_cookie").and_then(|| async move {
-        let client = NC_CLIENT.get().unwrap();
-        let cookie = client.get_test_cookie().await.unwrap_or(0);
-        log::debug!("got remote test cookie {}", cookie);
-        Result::<_, Infallible>::Ok(cookie.to_string())
-    });
+    let reverse_cookie_test = warp::path!("test" / "reverse_cookie")
+        .and(app.clone())
+        .and_then(|app: Arc<App>| async move {
+            let cookie = app.nc_client.get_test_cookie().await.unwrap_or(0);
+            log::debug!("got remote test cookie {}", cookie);
+            Result::<_, Infallible>::Ok(cookie.to_string())
+        });
 
-    let mapping_test = warp::path!("test" / "mapping" / u32).and(mapping).and_then(
-        |storage_id: u32, mapping: Arc<StorageMapping>| async move {
-            let access = mapping
+    let mapping_test = warp::path!("test" / "mapping" / u32)
+        .and(app.clone())
+        .and_then(|storage_id: u32, app: Arc<App>| async move {
+            let access = app
+                .storage_mapping
                 .get_users_for_storage_path(storage_id, "")
                 .await
                 .map(|access| {
@@ -160,13 +232,13 @@ async fn serve(config: Config) -> Result<()> {
                 })
                 .unwrap_or(0);
             Result::<_, Infallible>::Ok(access.to_string())
-        },
-    );
+        });
 
-    let remote_test =
-        warp::path!("test" / "remote" / IpAddr).and_then(|remote: IpAddr| async move {
-            let client = NC_CLIENT.get().unwrap();
-            let result = client
+    let remote_test = warp::path!("test" / "remote" / IpAddr)
+        .and(app.clone())
+        .and_then(|remote: IpAddr, app: Arc<App>| async move {
+            let result = app
+                .nc_client
                 .test_set_remote(remote)
                 .await
                 .map(|remote| remote.to_string())
@@ -185,12 +257,7 @@ async fn serve(config: Config) -> Result<()> {
     Ok(())
 }
 
-async fn user_connected(
-    ws: WebSocket,
-    connections: ActiveConnections,
-    forwarded_for: Vec<IpAddr>,
-    pre_auth: Arc<DashMap<String, (Instant, UserId)>>,
-) {
+async fn user_connected(ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpAddr>) {
     let (user_ws_tx, mut user_ws_rx) = ws.split();
 
     // Use an unbounded channel to handle buffering and flushing of messages
@@ -202,7 +269,7 @@ async fn user_connected(
         }
     }));
 
-    let user_id = match socket_auth(&mut user_ws_rx, forwarded_for, pre_auth).await {
+    let user_id = match socket_auth(&mut user_ws_rx, forwarded_for, &app).await {
         Ok(user_id) => user_id,
         Err(e) => {
             log::warn!("{}", e);
@@ -214,7 +281,7 @@ async fn user_connected(
     log::debug!("new websocket authenticated as {}", user_id);
     let _ = tx.send(Ok(Message::text("authenticated")));
 
-    let connection_id = connections.add(user_id.clone(), tx.clone());
+    let connection_id = app.connections.add(user_id.clone(), tx.clone());
 
     // handle messages until the client closes the connection
     while let Some(result) = user_ws_rx.next().await {
@@ -227,7 +294,7 @@ async fn user_connected(
         };
     }
 
-    connections.remove(&user_id, connection_id);
+    app.connections.remove(&user_id, connection_id);
 }
 
 async fn read_socket_auth_message(rx: &mut SplitStream<WebSocket>) -> Result<Message> {
@@ -242,7 +309,7 @@ async fn read_socket_auth_message(rx: &mut SplitStream<WebSocket>) -> Result<Mes
 async fn socket_auth(
     rx: &mut SplitStream<WebSocket>,
     forwarded_for: Vec<IpAddr>,
-    pre_auth: Arc<DashMap<String, (Instant, UserId)>>,
+    app: &App,
 ) -> Result<UserId> {
     let username_msg = read_socket_auth_message(rx).await?;
     let username = username_msg
@@ -255,9 +322,10 @@ async fn socket_auth(
 
     // cleanup all pre_auth tokens older than 15s
     let now = Instant::now();
-    pre_auth.retain(|_, (time, _)| now.duration_since(*time) < Duration::from_secs(15));
+    app.pre_auth
+        .retain(|_, (time, _)| now.duration_since(*time) < Duration::from_secs(15));
 
-    if let Some((_, (_, user))) = pre_auth.remove(password) {
+    if let Some((_, (_, user))) = app.pre_auth.remove(password) {
         log::info!(
             "Authenticated socket for {} using pre authenticated token",
             user
@@ -265,62 +333,7 @@ async fn socket_auth(
         return Ok(user);
     }
 
-    let client = NC_CLIENT.get().unwrap();
-    client
+    app.nc_client
         .verify_credentials(username, password, forwarded_for)
         .await
-}
-
-async fn listen(
-    client: Client,
-    connections: ActiveConnections,
-    mapping: Arc<StorageMapping>,
-    test_cookie: Arc<AtomicU32>,
-    pre_auth: Arc<DashMap<String, (Instant, UserId)>>,
-) -> Result<()> {
-    let mut event_stream = event::subscribe(client).await?;
-    while let Some(event) = event_stream.next().await {
-        if let Ok(event) = &event {
-            log::debug!(
-                target: "notify_push::receive",
-                "Received {}",
-                event
-            );
-        }
-        match event {
-            Ok(Event::StorageUpdate(StorageUpdate { storage, path })) => {
-                match mapping.get_users_for_storage_path(storage, &path).await {
-                    Ok(users) => {
-                        for user in users {
-                            connections.send_to_user(&user, "notify_file").await;
-                        }
-                    }
-                    Err(e) => log::error!("{:#}", e),
-                }
-            }
-            Ok(Event::GroupUpdate(GroupUpdate { user, .. })) => {
-                connections.send_to_user(&user, "notify_file").await;
-            }
-            Ok(Event::ShareCreate(ShareCreate { user })) => {
-                connections.send_to_user(&user, "notify_file").await;
-            }
-            Ok(Event::TestCookie(cookie)) => {
-                test_cookie.store(cookie, Ordering::SeqCst);
-            }
-            Ok(Event::Activity(Activity { user })) => {
-                connections.send_to_user(&user, "notify_activity").await;
-            }
-            Ok(Event::Notification(Notification { user })) => {
-                connections.send_to_user(&user, "notify_notification").await;
-            }
-            Ok(Event::PreAuth(PreAuth { user, token })) => {
-                pre_auth.insert(token, (Instant::now(), user));
-            }
-            Ok(Event::Custom(Custom { user, message })) => {
-                connections.send_to_user(&user, &message).await;
-            }
-            Err(e) => log::warn!("{:#}", e),
-        }
-    }
-    Ok(())
 }
