@@ -333,7 +333,11 @@ async fn socket_auth(
         return Ok(user);
     }
 
-    app.nc_client
-        .verify_credentials(username, password, forwarded_for)
-        .await
+    if !username.is_empty() {
+        app.nc_client
+            .verify_credentials(username, password, forwarded_for)
+            .await
+    } else {
+        Err(Report::msg("Invalid credentials"))
+    }
 }
