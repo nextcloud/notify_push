@@ -40,8 +40,8 @@ async fn main() -> Result<()> {
     })
     .expect("Error setting Ctrl-C handler");
 
-    let args = std::env::args();
-    let config = match args.skip(1).next() {
+    let mut args = std::env::args();
+    let config = match args.nth(1) {
         Some(file) => {
             Config::from_file(&file).wrap_err("Failed to load config from nextcloud config file")?
         }

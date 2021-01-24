@@ -133,5 +133,5 @@ pub async fn subscribe(
             .wrap_err("Failed to subscribe to redis pubsub")?;
     }
 
-    Ok(pubsub.into_on_message().map(|msg| Event::try_from(msg)))
+    Ok(pubsub.into_on_message().map(Event::try_from))
 }

@@ -8,7 +8,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::hash::Hasher;
 
-static USER_NAMES: Lazy<DashMap<u64, String>> = Lazy::new(|| DashMap::new());
+static USER_NAMES: Lazy<DashMap<u64, String>> = Lazy::new(DashMap::new);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize)]
 #[serde(from = "String")]

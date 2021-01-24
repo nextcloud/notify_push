@@ -45,7 +45,7 @@ impl Client {
 
         match response.status() {
             StatusCode::OK => Ok(response.text().await?.into()),
-            StatusCode::UNAUTHORIZED => Err(Report::msg(format!("Invalid credentials"))),
+            StatusCode::UNAUTHORIZED => Err(Report::msg("Invalid credentials")),
             status if status.is_server_error() => {
                 Err(Report::msg(format!("Server error: {}", status)))
             }

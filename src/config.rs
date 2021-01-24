@@ -37,7 +37,7 @@ impl Config {
             map_db_type(
                 parsed["dbtype"]
                     .as_str()
-                    .ok_or(Report::msg("invalid 'dbtype'"))?
+                    .ok_or_else(|| Report::msg("invalid 'dbtype'"))?
             ),
             parsed["dbuser"],
             utf8_percent_encode(&parsed["dbpassword"].to_string(), NON_ALPHANUMERIC),
@@ -50,7 +50,7 @@ impl Config {
         let nextcloud_url = parsed["overwrite.cli.url"]
             .clone()
             .into_string()
-            .ok_or(Report::msg("'overwrite.cli.url' not set"))?;
+            .ok_or_else(|| Report::msg("'overwrite.cli.url' not set"))?;
         let redis_url = format!(
             "redis://{}/",
             parsed["redis"]["host"].as_str().unwrap_or("127.0.0.1")
