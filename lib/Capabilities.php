@@ -45,7 +45,7 @@ class Capabilities implements ICapability {
 		if ($baseEndpoint) {
 			return [
 				'notify_push' => [
-					'type' => ['files'],
+					'type' => ['files', 'activities', 'notifications'],
 					'endpoints' => [
 						'websocket' => $wsEndpoint,
 						'pre_auth' => $this->urlGenerator->getAbsoluteURL($this->urlGenerator->linkToRoute('notify_push.Auth.preAuth'))
