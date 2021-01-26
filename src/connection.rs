@@ -16,7 +16,7 @@ pub struct ConnectionId(usize);
 
 impl ConnectionId {
     pub fn next() -> Self {
-        ConnectionId(NEXT_CONNECTION_ID.fetch_add(1, Ordering::Relaxed))
+        ConnectionId(NEXT_CONNECTION_ID.fetch_add(1, Ordering::SeqCst))
     }
 }
 
