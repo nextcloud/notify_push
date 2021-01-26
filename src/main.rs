@@ -3,6 +3,7 @@ use crate::connection::ActiveConnections;
 use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
 };
+use crate::message::MessageType;
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
 use color_eyre::{eyre::WrapErr, Report, Result};
@@ -25,6 +26,7 @@ use warp_real_ip::get_forwarded_for;
 mod config;
 mod connection;
 mod event;
+mod message;
 mod nc;
 mod storage_mapping;
 mod user;
@@ -117,36 +119,44 @@ impl App {
                     {
                         Ok(users) => {
                             for user in users {
-                                self.connections.send_to_user(&user, "notify_file").await;
+                                self.connections
+                                    .send_to_user(&user, MessageType::File)
+                                    .await;
                             }
                         }
                         Err(e) => log::error!("{:#}", e),
                     }
                 }
                 Ok(Event::GroupUpdate(GroupUpdate { user, .. })) => {
-                    self.connections.send_to_user(&user, "notify_file").await;
+                    self.connections
+                        .send_to_user(&user, MessageType::File)
+                        .await;
                 }
                 Ok(Event::ShareCreate(ShareCreate { user })) => {
-                    self.connections.send_to_user(&user, "notify_file").await;
+                    self.connections
+                        .send_to_user(&user, MessageType::File)
+                        .await;
                 }
                 Ok(Event::TestCookie(cookie)) => {
                     self.test_cookie.store(cookie, Ordering::SeqCst);
                 }
                 Ok(Event::Activity(Activity { user })) => {
                     self.connections
-                        .send_to_user(&user, "notify_activity")
+                        .send_to_user(&user, MessageType::Activity)
                         .await;
                 }
                 Ok(Event::Notification(Notification { user })) => {
                     self.connections
-                        .send_to_user(&user, "notify_notification")
+                        .send_to_user(&user, MessageType::Notification)
                         .await;
                 }
                 Ok(Event::PreAuth(PreAuth { user, token })) => {
                     self.pre_auth.insert(token, (Instant::now(), user));
                 }
                 Ok(Event::Custom(Custom { user, message })) => {
-                    self.connections.send_to_user(&user, &message).await;
+                    self.connections
+                        .send_to_user(&user, MessageType::Custom(message))
+                        .await;
                 }
                 Err(e) => log::warn!("{:#}", e),
             }
