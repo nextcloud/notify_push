@@ -56,7 +56,20 @@ async fn main() -> Result<()> {
         .unwrap_or(80u16);
 
     log::trace!("Running with config: {:?} on port {}", config, port);
-    serve(config, port).await
+
+    let app = Arc::new(App::new(config).await?);
+    app.self_test().await?;
+
+    tokio::task::spawn(serve(app.clone(), port));
+
+    loop {
+        if let Err(e) = app.listen().await {
+            eprintln!("{:#}", e);
+            std::process::exit(1);
+        }
+        log::warn!("Redis server disconnected, reconnecting in 1s");
+        tokio::time::delay_for(Duration::from_secs(1)).await;
+    }
 }
 
 struct App {
@@ -99,64 +112,70 @@ impl App {
         Ok(())
     }
 
+    async fn handle_event(&self, event: Event) {
+        match event {
+            Event::StorageUpdate(StorageUpdate { storage, path }) => {
+                match self
+                    .storage_mapping
+                    .get_users_for_storage_path(storage, &path)
+                    .await
+                {
+                    Ok(users) => {
+                        for user in users {
+                            self.connections
+                                .send_to_user(&user, MessageType::File)
+                                .await;
+                        }
+                    }
+                    Err(e) => log::error!("{:#}", e),
+                }
+            }
+            Event::GroupUpdate(GroupUpdate { user, .. }) => {
+                self.connections
+                    .send_to_user(&user, MessageType::File)
+                    .await;
+            }
+            Event::ShareCreate(ShareCreate { user }) => {
+                self.connections
+                    .send_to_user(&user, MessageType::File)
+                    .await;
+            }
+            Event::TestCookie(cookie) => {
+                self.test_cookie.store(cookie, Ordering::SeqCst);
+            }
+            Event::Activity(Activity { user }) => {
+                self.connections
+                    .send_to_user(&user, MessageType::Activity)
+                    .await;
+            }
+            Event::Notification(Notification { user }) => {
+                self.connections
+                    .send_to_user(&user, MessageType::Notification)
+                    .await;
+            }
+            Event::PreAuth(PreAuth { user, token }) => {
+                self.pre_auth.insert(token, (Instant::now(), user));
+            }
+            Event::Custom(Custom { user, message }) => {
+                self.connections
+                    .send_to_user(&user, MessageType::Custom(message))
+                    .await;
+            }
+        }
+    }
+
     async fn listen(&self) -> Result<()> {
         let client = redis::Client::open(self.redis_url.clone())?;
         let mut event_stream = event::subscribe(client).await?;
         while let Some(event) = event_stream.next().await {
-            if let Ok(event) = &event {
-                log::debug!(
-                    target: "notify_push::receive",
-                    "Received {}",
-                    event
-                );
-            }
             match event {
-                Ok(Event::StorageUpdate(StorageUpdate { storage, path })) => {
-                    match self
-                        .storage_mapping
-                        .get_users_for_storage_path(storage, &path)
-                        .await
-                    {
-                        Ok(users) => {
-                            for user in users {
-                                self.connections
-                                    .send_to_user(&user, MessageType::File)
-                                    .await;
-                            }
-                        }
-                        Err(e) => log::error!("{:#}", e),
-                    }
-                }
-                Ok(Event::GroupUpdate(GroupUpdate { user, .. })) => {
-                    self.connections
-                        .send_to_user(&user, MessageType::File)
-                        .await;
-                }
-                Ok(Event::ShareCreate(ShareCreate { user })) => {
-                    self.connections
-                        .send_to_user(&user, MessageType::File)
-                        .await;
-                }
-                Ok(Event::TestCookie(cookie)) => {
-                    self.test_cookie.store(cookie, Ordering::SeqCst);
-                }
-                Ok(Event::Activity(Activity { user })) => {
-                    self.connections
-                        .send_to_user(&user, MessageType::Activity)
-                        .await;
-                }
-                Ok(Event::Notification(Notification { user })) => {
-                    self.connections
-                        .send_to_user(&user, MessageType::Notification)
-                        .await;
-                }
-                Ok(Event::PreAuth(PreAuth { user, token })) => {
-                    self.pre_auth.insert(token, (Instant::now(), user));
-                }
-                Ok(Event::Custom(Custom { user, message })) => {
-                    self.connections
-                        .send_to_user(&user, MessageType::Custom(message))
-                        .await;
+                Ok(event) => {
+                    log::debug!(
+                        target: "notify_push::receive",
+                        "Received {}",
+                        event
+                    );
+                    self.handle_event(event).await
                 }
                 Err(e) => log::warn!("{:#}", e),
             }
@@ -165,23 +184,7 @@ impl App {
     }
 }
 
-async fn serve(config: Config, port: u16) -> Result<()> {
-    let app = Arc::new(App::new(config).await?);
-    app.self_test().await?;
-
-    {
-        let app = app.clone();
-        tokio::task::spawn(async move {
-            loop {
-                if let Err(e) = app.listen().await {
-                    eprintln!("{:#}", e);
-                    std::process::exit(1);
-                }
-                tokio::time::delay_for(Duration::from_secs(1)).await;
-            }
-        });
-    }
-
+async fn serve(app: Arc<App>, port: u16) -> Result<()> {
     let app = warp::any().map(move || app.clone());
 
     let cors = warp::cors().allow_any_origin();
