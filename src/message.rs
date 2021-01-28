@@ -31,13 +31,11 @@ impl Default for DebounceMap {
     }
 }
 
-const DEBOUNCE_TIME: Duration = Duration::from_secs(1);
-
 impl DebounceMap {
     /// Check if the debounce time has passed and set the last send time if so
     pub fn should_send(&mut self, ty: &MessageType) -> bool {
         let last_send = self.get_last_send(ty);
-        if Instant::now().duration_since(last_send) > DEBOUNCE_TIME {
+        if Instant::now().duration_since(last_send) > Self::get_debounce_time(ty) {
             self.set_last_send(&ty);
             true
         } else {
@@ -60,6 +58,15 @@ impl DebounceMap {
             MessageType::Activity => self.activity = Instant::now(),
             MessageType::Notification => self.notification = Instant::now(),
             MessageType::Custom(_) => {} // no debouncing for custom messages
+        }
+    }
+
+    const fn get_debounce_time(ty: &MessageType) -> Duration {
+        match ty {
+            MessageType::File => Duration::from_secs(5),
+            MessageType::Activity => Duration::from_secs(15),
+            MessageType::Notification => Duration::from_secs(1),
+            MessageType::Custom(_) => Duration::from_millis(1), // no debouncing for custom messages
         }
     }
 }
