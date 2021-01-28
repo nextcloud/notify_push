@@ -61,11 +61,17 @@ impl ActiveConnections {
         if let Some(mut connections) = self.0.get_mut(user) {
             if connections.debounce_map.should_send(&msg) {
                 log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user);
-                for connection in connections.connections.iter() {
+                connections.connections.retain(|connection| {
                     if let Err(e) = connection.sender.send(Ok(Message::text(msg.to_string()))) {
-                        log::info!("Failed to send websocket message: {}", e)
+                        log::info!(
+                            "Failed to send websocket message: {:#}, closing connection",
+                            e
+                        );
+                        false
+                    } else {
+                        true
                     }
-                }
+                });
             } else {
                 log::trace!(target: "notify_push::send", "Not sending {} to {} due to debounce limits", msg, user);
             }
