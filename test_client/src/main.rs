@@ -17,6 +17,7 @@ fn main() -> Result<()> {
     };
 
     let ws_url = get_endpoint(&nc_url, &username, &password)?;
+    println!("Found push server at {}", ws_url);
 
     let ws_request = Request::get(ws_url)
         .body(())
