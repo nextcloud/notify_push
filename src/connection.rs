@@ -1,12 +1,13 @@
 use crate::message::{DebounceMap, MessageType};
 use crate::UserId;
 use dashmap::DashMap;
+use futures::stream::SplitSink;
+use futures::SinkExt;
 use smallvec::SmallVec;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tokio::sync::mpsc;
-use warp::ws::Message;
+use warp::ws::{Message, WebSocket};
 
-type Sender = mpsc::UnboundedSender<Result<Message, warp::Error>>;
+type Sender = SplitSink<WebSocket, Message>;
 
 static NEXT_CONNECTION_ID: AtomicUsize = AtomicUsize::new(1);
 
@@ -58,20 +59,28 @@ impl ActiveConnections {
     }
 
     pub async fn send_to_user(&self, user: &UserId, msg: MessageType) {
-        if let Some(mut connections) = self.0.get_mut(user) {
-            if connections.debounce_map.should_send(&msg) {
+        if let Some(mut user_connections) = self.0.get_mut(user) {
+            if user_connections.debounce_map.should_send(&msg) {
                 log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user);
-                connections.connections.retain(|connection| {
-                    if let Err(e) = connection.sender.send(Ok(Message::text(msg.to_string()))) {
+
+                // todo: something more clean than this (can't do retain because sending is async)
+                let mut to_cleanup = Vec::new();
+
+                for connection in user_connections.connections.iter_mut() {
+                    if let Err(e) = connection.sender.send(Message::text(msg.to_string())).await {
                         log::info!(
                             "Failed to send websocket message: {:#}, closing connection",
                             e
                         );
-                        false
-                    } else {
-                        true
+                        to_cleanup.push(connection.id);
                     }
-                });
+                }
+
+                for id in to_cleanup {
+                    user_connections
+                        .connections
+                        .retain(|connection| connection.id != id);
+                }
             } else {
                 log::trace!(target: "notify_push::send", "Not sending {} to {} due to debounce limits", msg, user);
             }

@@ -8,14 +8,12 @@ use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
 use color_eyre::{eyre::WrapErr, Report, Result};
 use dashmap::DashMap;
-use futures::stream::SplitStream;
-use futures::{FutureExt, StreamExt};
+use futures::{SinkExt, StreamExt};
 use smallvec::alloc::sync::Arc;
 use std::convert::Infallible;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
 use tokio::time::timeout;
 use warp::filters::addr::remote;
 use warp::filters::ws::Message;
@@ -250,31 +248,22 @@ async fn serve(app: Arc<App>, port: u16) -> Result<()> {
     Ok(())
 }
 
-async fn user_connected(ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpAddr>) {
-    let (user_ws_tx, mut user_ws_rx) = ws.split();
-
-    // Use an unbounded channel to handle buffering and flushing of messages
-    // to the websocket...
-    let (tx, rx) = mpsc::unbounded_channel();
-    tokio::task::spawn(rx.forward(user_ws_tx).map(|result| {
-        if let Err(e) = result {
-            eprintln!("websocket send error: {}", e);
-        }
-    }));
-
-    let user_id = match socket_auth(&mut user_ws_rx, forwarded_for, &app).await {
+async fn user_connected(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpAddr>) {
+    let user_id = match socket_auth(&mut ws, forwarded_for, &app).await {
         Ok(user_id) => user_id,
         Err(e) => {
             log::warn!("{}", e);
-            let _ = tx.send(Ok(Message::text(format!("err: {}", e))));
+            let _ = ws.send(Message::text(format!("err: {}", e)));
             return;
         }
     };
 
     log::debug!("new websocket authenticated as {}", user_id);
-    let _ = tx.send(Ok(Message::text("authenticated")));
+    let _ = ws.send(Message::text("authenticated"));
 
-    let connection_id = app.connections.add(user_id.clone(), tx.clone());
+    let (user_ws_tx, mut user_ws_rx) = ws.split();
+
+    let connection_id = app.connections.add(user_id.clone(), user_ws_tx);
 
     // handle messages until the client closes the connection
     while let Some(result) = user_ws_rx.next().await {
@@ -290,7 +279,7 @@ async fn user_connected(ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpAddr>
     app.connections.remove(&user_id, connection_id);
 }
 
-async fn read_socket_auth_message(rx: &mut SplitStream<WebSocket>) -> Result<Message> {
+async fn read_socket_auth_message(rx: &mut WebSocket) -> Result<Message> {
     match timeout(Duration::from_secs(1), rx.next()).await {
         Ok(Some(Ok(msg))) => Ok(msg),
         Ok(Some(Err(e))) => Err(Report::from(e).wrap_err("Socket error during authentication")),
@@ -299,11 +288,7 @@ async fn read_socket_auth_message(rx: &mut SplitStream<WebSocket>) -> Result<Mes
     }
 }
 
-async fn socket_auth(
-    rx: &mut SplitStream<WebSocket>,
-    forwarded_for: Vec<IpAddr>,
-    app: &App,
-) -> Result<UserId> {
+async fn socket_auth(rx: &mut WebSocket, forwarded_for: Vec<IpAddr>, app: &App) -> Result<UserId> {
     let username_msg = read_socket_auth_message(rx).await?;
     let username = username_msg
         .to_str()
