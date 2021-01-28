@@ -63,9 +63,8 @@ async fn main() -> Result<()> {
     tokio::task::spawn(serve(app.clone(), port));
 
     loop {
-        if let Err(e) = app.listen().await {
-            eprintln!("{:#}", e);
-            std::process::exit(1);
+        if let Err(e) = listen(app.clone()).await {
+            eprintln!("Failed to setup redis subscription: {:#}", e);
         }
         log::warn!("Redis server disconnected, reconnecting in 1s");
         tokio::time::delay_for(Duration::from_secs(1)).await;
@@ -162,25 +161,6 @@ impl App {
                     .await;
             }
         }
-    }
-
-    async fn listen(&self) -> Result<()> {
-        let client = redis::Client::open(self.redis_url.clone())?;
-        let mut event_stream = event::subscribe(client).await?;
-        while let Some(event) = event_stream.next().await {
-            match event {
-                Ok(event) => {
-                    log::debug!(
-                        target: "notify_push::receive",
-                        "Received {}",
-                        event
-                    );
-                    self.handle_event(event).await
-                }
-                Err(e) => log::warn!("{:#}", e),
-            }
-        }
-        Ok(())
     }
 }
 
@@ -353,4 +333,32 @@ async fn socket_auth(
     } else {
         Err(Report::msg("Invalid credentials"))
     }
+}
+
+async fn listen(app: Arc<App>) -> Result<()> {
+    let client = redis::Client::open(app.redis_url.clone())?;
+    let mut event_stream = event::subscribe(client).await?;
+
+    let handle = move |event: Event| {
+        // todo: any way to do this without cloning the arc every event (scoped?)
+        let app = app.clone();
+        async move {
+            app.handle_event(event).await;
+        }
+    };
+
+    while let Some(event) = event_stream.next().await {
+        match event {
+            Ok(event) => {
+                log::debug!(
+                    target: "notify_push::receive",
+                    "Received {}",
+                    event
+                );
+                tokio::spawn(handle(event));
+            }
+            Err(e) => log::warn!("{:#}", e),
+        }
+    }
+    Ok(())
 }
