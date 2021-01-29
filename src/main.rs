@@ -1,16 +1,18 @@
 use crate::config::Config;
-use crate::connection::ActiveConnections;
+use crate::connection::{ActiveConnections, CONNECTION_COUNT, MESSAGES_SEND};
 use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
+    EVENTS_RECEIVED,
 };
 use crate::message::MessageType;
-use crate::storage_mapping::StorageMapping;
+use crate::storage_mapping::{StorageMapping, MAPPING_QUERY_COUNT};
 pub use crate::user::UserId;
 use color_eyre::{eyre::WrapErr, Report, Result};
 use dashmap::DashMap;
 use futures::{SinkExt, StreamExt};
 use smallvec::alloc::sync::Arc;
 use std::convert::Infallible;
+use std::fmt::Write;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
@@ -238,11 +240,37 @@ async fn serve(app: Arc<App>, port: u16) -> Result<()> {
             Result::<_, Infallible>::Ok(result)
         });
 
+    let metrics = warp::path!("metrics").map(|| {
+        let mut response = String::with_capacity(128);
+        let _ = writeln!(
+            &mut response,
+            "connection_count {}",
+            CONNECTION_COUNT.load(Ordering::SeqCst)
+        );
+        let _ = writeln!(
+            &mut response,
+            "mapping_query_count {}",
+            MAPPING_QUERY_COUNT.load(Ordering::SeqCst)
+        );
+        let _ = writeln!(
+            &mut response,
+            "event_count_total {}",
+            EVENTS_RECEIVED.load(Ordering::SeqCst)
+        );
+        let _ = writeln!(
+            &mut response,
+            "message_count_total {}",
+            MESSAGES_SEND.load(Ordering::SeqCst)
+        );
+        response
+    });
+
     let routes = socket
         .or(cookie_test)
         .or(reverse_cookie_test)
         .or(mapping_test)
-        .or(remote_test);
+        .or(remote_test)
+        .or(metrics);
 
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
     Ok(())

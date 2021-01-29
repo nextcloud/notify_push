@@ -2,6 +2,7 @@ use crate::UserId;
 use color_eyre::{eyre::WrapErr, Result};
 use dashmap::DashMap;
 use sqlx::{Any, AnyPool, FromRow};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use tokio::time::Duration;
 
@@ -18,6 +19,8 @@ pub struct StorageMapping {
     connection: AnyPool,
     prefix: String,
 }
+
+pub static MAPPING_QUERY_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 impl StorageMapping {
     pub async fn new(connect: &str, prefix: String) -> Result<Self> {
@@ -60,6 +63,7 @@ impl StorageMapping {
             .fetch_all(&self.connection)
             .await
             .wrap_err("Failed to load storage mapping from database")?;
+            MAPPING_QUERY_COUNT.fetch_add(1, Ordering::SeqCst);
 
             self.cache.insert(storage, (Instant::now(), users));
             self.cache.get(&storage).unwrap()

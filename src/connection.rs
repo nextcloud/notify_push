@@ -35,19 +35,28 @@ struct UserConnectionList {
 #[derive(Default)]
 pub struct ActiveConnections(DashMap<UserId, UserConnectionList>);
 
+pub static CONNECTION_COUNT: AtomicUsize = AtomicUsize::new(0);
+pub static MESSAGES_SEND: AtomicUsize = AtomicUsize::new(0);
+
 impl ActiveConnections {
     pub fn add(&self, user: UserId, sender: Sender) -> ConnectionId {
         let id = ConnectionId::next();
         let connection = UserConnection { id, sender };
         self.0.entry(user).or_default().connections.push(connection);
+        CONNECTION_COUNT.fetch_add(1, Ordering::SeqCst);
         id
     }
 
     pub fn remove(&self, user: &UserId, id: ConnectionId) {
         let should_remove = if let Some(mut user_connections) = self.0.get_mut(user) {
+            let before = user_connections.connections.len();
             user_connections
                 .connections
                 .retain(|connection| connection.id != id);
+            let after = user_connections.connections.len();
+
+            CONNECTION_COUNT.fetch_sub(before - after, Ordering::SeqCst);
+
             user_connections.connections.is_empty()
         } else {
             false
@@ -63,6 +72,8 @@ impl ActiveConnections {
             if user_connections.debounce_map.should_send(&msg) {
                 log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user);
 
+                MESSAGES_SEND.fetch_add(1, Ordering::SeqCst);
+
                 // todo: something more clean than this (can't do retain because sending is async)
                 let mut to_cleanup = Vec::new();
 
@@ -76,11 +87,11 @@ impl ActiveConnections {
                     }
                 }
 
-                for id in to_cleanup {
-                    user_connections
-                        .connections
-                        .retain(|connection| connection.id != id);
-                }
+                user_connections
+                    .connections
+                    .retain(|connection| !to_cleanup.contains(&connection.id));
+
+                CONNECTION_COUNT.fetch_sub(to_cleanup.len(), Ordering::SeqCst);
             } else {
                 log::trace!(target: "notify_push::send", "Not sending {} to {} due to debounce limits", msg, user);
             }

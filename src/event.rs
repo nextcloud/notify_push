@@ -4,6 +4,7 @@ use parse_display::Display;
 use redis::{Client, Msg};
 use serde::Deserialize;
 use std::convert::TryFrom;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
 use tokio::stream::{Stream, StreamExt};
 
@@ -108,6 +109,8 @@ impl TryFrom<Msg> for Event {
     }
 }
 
+pub static EVENTS_RECEIVED: AtomicUsize = AtomicUsize::new(0);
+
 pub async fn subscribe(
     client: Client,
 ) -> Result<impl Stream<Item = Result<Event, MessageDecodeError>>> {
@@ -133,5 +136,8 @@ pub async fn subscribe(
             .wrap_err("Failed to subscribe to redis pubsub")?;
     }
 
-    Ok(pubsub.into_on_message().map(Event::try_from))
+    Ok(pubsub.into_on_message().map(|event| {
+        EVENTS_RECEIVED.fetch_add(1, Ordering::SeqCst);
+        Event::try_from(event)
+    }))
 }
