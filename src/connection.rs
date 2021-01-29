@@ -72,12 +72,12 @@ impl ActiveConnections {
             if user_connections.debounce_map.should_send(&msg) {
                 log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user);
 
-                MESSAGES_SEND.fetch_add(1, Ordering::SeqCst);
-
                 // todo: something more clean than this (can't do retain because sending is async)
                 let mut to_cleanup = Vec::new();
 
                 for connection in user_connections.connections.iter_mut() {
+                    MESSAGES_SEND.fetch_add(1, Ordering::SeqCst);
+
                     if let Err(e) = connection.sender.send(Message::text(msg.to_string())).await {
                         log::info!(
                             "Failed to send websocket message: {:#}, closing connection",
