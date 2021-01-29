@@ -55,12 +55,20 @@ async fn main() -> Result<()> {
         .and_then(|port| port.parse().ok())
         .unwrap_or(80u16);
 
+    let metrics_port = dotenv::var("METRICS_PORT")
+        .ok()
+        .and_then(|port| port.parse().ok());
+
     log::trace!("Running with config: {:?} on port {}", config, port);
 
     let app = Arc::new(App::new(config).await?);
     app.self_test().await?;
 
     tokio::task::spawn(serve(app.clone(), port));
+
+    if let Some(metrics_port) = metrics_port {
+        tokio::task::spawn(serve_metrics(metrics_port));
+    }
 
     loop {
         if let Err(e) = listen(app.clone()).await {
@@ -164,7 +172,7 @@ impl App {
     }
 }
 
-async fn serve(app: Arc<App>, port: u16) -> Result<()> {
+async fn serve(app: Arc<App>, port: u16) {
     let app = warp::any().map(move || app.clone());
 
     let cors = warp::cors().allow_any_origin();
@@ -240,40 +248,13 @@ async fn serve(app: Arc<App>, port: u16) -> Result<()> {
             Result::<_, Infallible>::Ok(result)
         });
 
-    let metrics = warp::path!("metrics").map(|| {
-        let mut response = String::with_capacity(128);
-        let _ = writeln!(
-            &mut response,
-            "connection_count {}",
-            CONNECTION_COUNT.load(Ordering::Relaxed)
-        );
-        let _ = writeln!(
-            &mut response,
-            "mapping_query_count {}",
-            MAPPING_QUERY_COUNT.load(Ordering::Relaxed)
-        );
-        let _ = writeln!(
-            &mut response,
-            "event_count_total {}",
-            EVENTS_RECEIVED.load(Ordering::Relaxed)
-        );
-        let _ = writeln!(
-            &mut response,
-            "message_count_total {}",
-            MESSAGES_SEND.load(Ordering::Relaxed)
-        );
-        response
-    });
-
     let routes = socket
         .or(cookie_test)
         .or(reverse_cookie_test)
         .or(mapping_test)
-        .or(remote_test)
-        .or(metrics);
+        .or(remote_test);
 
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
-    Ok(())
 }
 
 async fn user_connected(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpAddr>) {
@@ -374,4 +355,33 @@ async fn listen(app: Arc<App>) -> Result<()> {
         }
     }
     Ok(())
+}
+
+async fn serve_metrics(port: u16) {
+    let metrics = warp::path!("metrics").map(|| {
+        let mut response = String::with_capacity(128);
+        let _ = writeln!(
+            &mut response,
+            "connection_count {}",
+            CONNECTION_COUNT.load(Ordering::Relaxed)
+        );
+        let _ = writeln!(
+            &mut response,
+            "mapping_query_count {}",
+            MAPPING_QUERY_COUNT.load(Ordering::Relaxed)
+        );
+        let _ = writeln!(
+            &mut response,
+            "event_count_total {}",
+            EVENTS_RECEIVED.load(Ordering::Relaxed)
+        );
+        let _ = writeln!(
+            &mut response,
+            "message_count_total {}",
+            MESSAGES_SEND.load(Ordering::Relaxed)
+        );
+        response
+    });
+
+    warp::serve(metrics).run(([0, 0, 0, 0], port)).await;
 }
