@@ -137,7 +137,7 @@ pub async fn subscribe(
     }
 
     Ok(pubsub.into_on_message().map(|event| {
-        EVENTS_RECEIVED.fetch_add(1, Ordering::SeqCst);
+        EVENTS_RECEIVED.fetch_add(1, Ordering::Relaxed);
         Event::try_from(event)
     }))
 }

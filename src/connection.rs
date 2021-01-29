@@ -17,7 +17,7 @@ pub struct ConnectionId(usize);
 
 impl ConnectionId {
     pub fn next() -> Self {
-        ConnectionId(NEXT_CONNECTION_ID.fetch_add(1, Ordering::SeqCst))
+        ConnectionId(NEXT_CONNECTION_ID.fetch_add(1, Ordering::Relaxed))
     }
 }
 
@@ -43,7 +43,7 @@ impl ActiveConnections {
         let id = ConnectionId::next();
         let connection = UserConnection { id, sender };
         self.0.entry(user).or_default().connections.push(connection);
-        CONNECTION_COUNT.fetch_add(1, Ordering::SeqCst);
+        CONNECTION_COUNT.fetch_add(1, Ordering::Relaxed);
         id
     }
 
@@ -55,7 +55,7 @@ impl ActiveConnections {
                 .retain(|connection| connection.id != id);
             let after = user_connections.connections.len();
 
-            CONNECTION_COUNT.fetch_sub(before - after, Ordering::SeqCst);
+            CONNECTION_COUNT.fetch_sub(before - after, Ordering::Relaxed);
 
             user_connections.connections.is_empty()
         } else {
@@ -76,7 +76,7 @@ impl ActiveConnections {
                 let mut to_cleanup = Vec::new();
 
                 for connection in user_connections.connections.iter_mut() {
-                    MESSAGES_SEND.fetch_add(1, Ordering::SeqCst);
+                    MESSAGES_SEND.fetch_add(1, Ordering::Relaxed);
 
                     if let Err(e) = connection.sender.send(Message::text(msg.to_string())).await {
                         log::info!(
@@ -91,7 +91,7 @@ impl ActiveConnections {
                     .connections
                     .retain(|connection| !to_cleanup.contains(&connection.id));
 
-                CONNECTION_COUNT.fetch_sub(to_cleanup.len(), Ordering::SeqCst);
+                CONNECTION_COUNT.fetch_sub(to_cleanup.len(), Ordering::Relaxed);
             } else {
                 log::trace!(target: "notify_push::send", "Not sending {} to {} due to debounce limits", msg, user);
             }

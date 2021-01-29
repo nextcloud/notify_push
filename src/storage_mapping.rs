@@ -63,7 +63,7 @@ impl StorageMapping {
             .fetch_all(&self.connection)
             .await
             .wrap_err("Failed to load storage mapping from database")?;
-            MAPPING_QUERY_COUNT.fetch_add(1, Ordering::SeqCst);
+            MAPPING_QUERY_COUNT.fetch_add(1, Ordering::Relaxed);
 
             self.cache.insert(storage, (Instant::now(), users));
             self.cache.get(&storage).unwrap()

@@ -245,22 +245,22 @@ async fn serve(app: Arc<App>, port: u16) -> Result<()> {
         let _ = writeln!(
             &mut response,
             "connection_count {}",
-            CONNECTION_COUNT.load(Ordering::SeqCst)
+            CONNECTION_COUNT.load(Ordering::Relaxed)
         );
         let _ = writeln!(
             &mut response,
             "mapping_query_count {}",
-            MAPPING_QUERY_COUNT.load(Ordering::SeqCst)
+            MAPPING_QUERY_COUNT.load(Ordering::Relaxed)
         );
         let _ = writeln!(
             &mut response,
             "event_count_total {}",
-            EVENTS_RECEIVED.load(Ordering::SeqCst)
+            EVENTS_RECEIVED.load(Ordering::Relaxed)
         );
         let _ = writeln!(
             &mut response,
             "message_count_total {}",
-            MESSAGES_SEND.load(Ordering::SeqCst)
+            MESSAGES_SEND.load(Ordering::Relaxed)
         );
         response
     });
