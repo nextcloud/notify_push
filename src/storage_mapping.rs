@@ -1,6 +1,7 @@
 use crate::UserId;
 use color_eyre::{eyre::WrapErr, Result};
 use dashmap::DashMap;
+use rand::{thread_rng, Rng};
 use sqlx::{Any, AnyPool, FromRow};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
@@ -21,14 +22,16 @@ struct CachedAccess {
 
 impl CachedAccess {
     pub fn new(access: Vec<UserStorageAccess>) -> Self {
+        let mut rng = thread_rng();
         Self {
             access,
-            valid_till: Instant::now() + Duration::from_secs(5 * 60),
+            valid_till: Instant::now()
+                + Duration::from_millis(rng.gen_range((4 * 60 * 1000)..(5 * 60 * 1000))),
         }
     }
 
     pub fn is_valid(&self) -> bool {
-        self.valid_till < Instant::now()
+        self.valid_till > Instant::now()
     }
 }
 
