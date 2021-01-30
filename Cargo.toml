@@ -4,8 +4,6 @@ version = "0.1.0"
 authors = ["Robin Appelman <robin@icewind.nl>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 redis = { version = "0.17.0", features = ["tokio-rt-core", "aio"] }
 serde = { version = "1.0.117", features = ["derive"] }

@@ -334,9 +334,8 @@ async fn socket_auth(rx: &mut WebSocket, forwarded_for: Vec<IpAddr>, app: &App) 
         .map_err(|_| Report::msg("Invalid authentication message"))?;
 
     // cleanup all pre_auth tokens older than 15s
-    let now = Instant::now();
-    app.pre_auth
-        .retain(|_, (time, _)| now.duration_since(*time) < Duration::from_secs(15));
+    let cutoff = Instant::now() - Duration::from_secs(15);
+    app.pre_auth.retain(|_, (time, _)| *time > cutoff);
 
     if let Some((_, (_, user))) = app.pre_auth.remove(password) {
         log::info!(

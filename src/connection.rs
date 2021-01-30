@@ -22,10 +22,10 @@ impl ActiveConnections {
     }
 
     pub async fn send_to_user(&self, user: &UserId, msg: MessageType) {
-        if let Some(chan) = self.0.get(user) {
+        if let Some(tx) = self.0.get(user) {
             log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user);
 
-            chan.send(msg).ok();
+            tx.send(msg).ok();
         }
     }
 }
