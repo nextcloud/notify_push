@@ -262,17 +262,17 @@ async fn user_connected(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpA
         Ok(user_id) => user_id,
         Err(e) => {
             log::warn!("{}", e);
-            let _ = ws.send(Message::text(format!("err: {}", e)));
+            ws.send(Message::text(format!("err: {}", e))).await.ok();
             return;
         }
     };
 
     log::debug!("new websocket authenticated as {}", user_id);
-    let _ = ws.send(Message::text("authenticated"));
+    ws.send(Message::text("authenticated")).await.ok();
 
     let (user_ws_tx, mut user_ws_rx) = ws.split();
 
-    let connection_id = app.connections.add(user_id.clone(), user_ws_tx);
+    let connection_id = app.connections.add(user_id.clone(), user_ws_tx).await;
 
     // handle messages until the client closes the connection
     while let Some(result) = user_ws_rx.next().await {
@@ -285,7 +285,7 @@ async fn user_connected(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpA
         };
     }
 
-    app.connections.remove(&user_id, connection_id);
+    app.connections.remove(&user_id, connection_id).await;
 }
 
 async fn read_socket_auth_message(rx: &mut WebSocket) -> Result<Message> {

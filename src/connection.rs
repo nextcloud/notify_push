@@ -5,7 +5,7 @@ use futures::stream::SplitSink;
 use futures::{SinkExt, StreamExt};
 use smallvec::SmallVec;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::spawn;
 use warp::ws::{Message, WebSocket};
 
@@ -27,25 +27,25 @@ struct UserConnection {
 }
 
 #[derive(Default)]
-pub struct ActiveConnections(DashMap<UserId, UnboundedSender<UserMessage>>);
+pub struct ActiveConnections(DashMap<UserId, Sender<UserMessage>>);
 
 pub static CONNECTION_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub static MESSAGES_SEND: AtomicUsize = AtomicUsize::new(0);
 
 impl ActiveConnections {
-    pub fn add(&self, user: UserId, sender: SplitSink<WebSocket, Message>) -> ConnectionId {
+    pub async fn add(&self, user: UserId, sender: SplitSink<WebSocket, Message>) -> ConnectionId {
         let id = ConnectionId::next();
         let tx = self
             .0
             .entry(user)
             .or_insert_with(|| UserTask::default().spawn());
-        let _ = tx.send(UserMessage::Add(id, sender));
+        tx.clone().send(UserMessage::Add(id, sender)).await.ok();
         id
     }
 
-    pub fn remove(&self, user: &UserId, id: ConnectionId) {
+    pub async fn remove(&self, user: &UserId, id: ConnectionId) {
         if let Some(tx) = self.0.get(user) {
-            let _ = tx.send(UserMessage::Remove(id));
+            tx.clone().send(UserMessage::Remove(id)).await.ok();
         }
     }
 
@@ -53,7 +53,7 @@ impl ActiveConnections {
         if let Some(tx) = self.0.get(user) {
             log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user);
 
-            let _ = tx.send(UserMessage::Message(msg));
+            tx.clone().send(UserMessage::Message(msg)).await.ok();
         }
     }
 }
@@ -84,9 +84,6 @@ impl UserTask {
 
     async fn send(&mut self, msg: MessageType) {
         if self.debounce_map.should_send(&msg) {
-            // todo: something more clean than this (can't do retain because sending is async)
-            let mut to_cleanup = Vec::new();
-
             for connection in self.connections.iter_mut() {
                 MESSAGES_SEND.fetch_add(1, Ordering::Relaxed);
 
@@ -95,18 +92,12 @@ impl UserTask {
                         "Failed to send websocket message: {:#}, closing connection",
                         e
                     );
-                    to_cleanup.push(connection.id);
                 }
             }
-
-            self.connections
-                .retain(|connection| !to_cleanup.contains(&connection.id));
-
-            CONNECTION_COUNT.fetch_sub(to_cleanup.len(), Ordering::Relaxed);
         }
     }
 
-    async fn run(mut self, mut rx: UnboundedReceiver<UserMessage>) {
+    async fn run(mut self, mut rx: Receiver<UserMessage>) {
         while let Some(event) = rx.next().await {
             match event {
                 UserMessage::Add(id, sender) => self.add_connection(id, sender),
@@ -116,8 +107,8 @@ impl UserTask {
         }
     }
 
-    pub fn spawn(self) -> UnboundedSender<UserMessage> {
-        let (tx, rx) = unbounded_channel();
+    pub fn spawn(self) -> Sender<UserMessage> {
+        let (tx, rx) = channel(8);
 
         spawn(self.run(rx));
 
