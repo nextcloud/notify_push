@@ -53,7 +53,8 @@ impl ActiveConnections {
         if let Some(tx) = self.0.get(user) {
             log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user);
 
-            tx.clone().send(UserMessage::Message(msg)).await.ok();
+            // drop messages when the channel is full
+            tx.clone().try_send(UserMessage::Message(msg)).ok();
         }
     }
 }
