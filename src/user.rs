@@ -1,4 +1,5 @@
 use dashmap::DashMap;
+use log::LevelFilter;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use sqlx::database::HasValueRef;
@@ -22,9 +23,11 @@ impl UserId {
         hash.write(user_id.as_bytes());
         let hash = hash.finish();
 
-        USER_NAMES
-            .entry(hash)
-            .or_insert_with(|| user_id.to_string());
+        if LevelFilter::Info < log::max_level() {
+            USER_NAMES
+                .entry(hash)
+                .or_insert_with(|| user_id.to_string());
+        }
 
         UserId { hash }
     }
@@ -66,10 +69,14 @@ where
 
 impl fmt::Display for UserId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(user_name) = USER_NAMES.get(&self.hash) {
-            f.write_str(user_name.value())
+        if LevelFilter::Info < log::max_level() {
+            if let Some(user_name) = USER_NAMES.get(&self.hash) {
+                f.write_str(user_name.value())
+            } else {
+                f.write_str("unknown user")
+            }
         } else {
-            f.write_str("unknown user")
+            f.write_str("unknown user (Set log level to INFO or higher)")
         }
     }
 }
