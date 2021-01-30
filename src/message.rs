@@ -1,4 +1,5 @@
 use parse_display::Display;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 use tokio::time::Duration;
 
@@ -13,6 +14,8 @@ pub enum MessageType {
     #[display("{0}")]
     Custom(String),
 }
+
+pub static DEBOUNCE_ENABLE: AtomicBool = AtomicBool::new(true);
 
 pub struct DebounceMap {
     file: Instant,
@@ -34,12 +37,16 @@ impl Default for DebounceMap {
 impl DebounceMap {
     /// Check if the debounce time has passed and set the last send time if so
     pub fn should_send(&mut self, ty: &MessageType) -> bool {
-        let last_send = self.get_last_send(ty);
-        if Instant::now().duration_since(last_send) > Self::get_debounce_time(ty) {
-            self.set_last_send(&ty);
-            true
+        if DEBOUNCE_ENABLE.load(Ordering::Relaxed) {
+            let last_send = self.get_last_send(ty);
+            if Instant::now().duration_since(last_send) > Self::get_debounce_time(ty) {
+                self.set_last_send(&ty);
+                true
+            } else {
+                false
+            }
         } else {
-            false
+            true
         }
     }
 

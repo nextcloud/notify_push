@@ -4,7 +4,7 @@ use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
     EVENTS_RECEIVED,
 };
-use crate::message::{DebounceMap, MessageType};
+use crate::message::{DebounceMap, MessageType, DEBOUNCE_ENABLE};
 use crate::storage_mapping::{StorageMapping, MAPPING_QUERY_COUNT};
 pub use crate::user::UserId;
 use color_eyre::{eyre::WrapErr, Report, Result};
@@ -58,6 +58,10 @@ async fn main() -> Result<()> {
     let metrics_port = dotenv::var("METRICS_PORT")
         .ok()
         .and_then(|port| port.parse().ok());
+
+    if dotenv::var("DEBOUNCE_DISABLE").is_ok() {
+        DEBOUNCE_ENABLE.store(false, Ordering::Relaxed);
+    }
 
     log::trace!("Running with config: {:?} on port {}", config, port);
 
