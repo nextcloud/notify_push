@@ -14,8 +14,26 @@ pub struct UserStorageAccess {
     root: String,
 }
 
+struct CachedAccess {
+    access: Vec<UserStorageAccess>,
+    valid_till: Instant,
+}
+
+impl CachedAccess {
+    pub fn new(access: Vec<UserStorageAccess>) -> Self {
+        Self {
+            access,
+            valid_till: Instant::now() + Duration::from_secs(5 * 60),
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.valid_till < Instant::now()
+    }
+}
+
 pub struct StorageMapping {
-    cache: DashMap<u32, (Instant, Vec<UserStorageAccess>)>,
+    cache: DashMap<u32, CachedAccess>,
     connection: AnyPool,
     prefix: String,
 }
@@ -40,36 +58,21 @@ impl StorageMapping {
         path: &str,
     ) -> Result<impl Iterator<Item = UserId>> {
         let cached = if let Some(cached) = self.cache.get(&storage).and_then(|cached| {
-            let (time, _cache) = cached.value();
-            if time.elapsed() < Duration::from_secs(5 * 60) {
+            if cached.is_valid() {
                 Some(cached)
             } else {
                 None
             }
         }) {
-            log::trace!("using cached storage mapping for {}", storage);
             cached
         } else {
-            log::debug!("querying storage mapping for {}", storage);
-            let users = sqlx::query_as::<Any, UserStorageAccess>(&format!(
-                "\
-                SELECT user_id, path \
-                FROM {prefix}mounts \
-                INNER JOIN {prefix}filecache ON root_id = fileid \
-                WHERE storage_id = {storage}",
-                prefix = self.prefix,
-                storage = storage
-            ))
-            .fetch_all(&self.connection)
-            .await
-            .wrap_err("Failed to load storage mapping from database")?;
-            MAPPING_QUERY_COUNT.fetch_add(1, Ordering::Relaxed);
+            let users = self.load_storage_mapping(storage).await?;
 
-            self.cache.insert(storage, (Instant::now(), users));
+            self.cache.insert(storage, CachedAccess::new(users));
             self.cache.get(&storage).unwrap()
         };
-        let (_, access) = cached.value();
-        Ok(access
+        Ok(cached
+            .access
             .iter()
             .filter_map(move |access| {
                 if path.starts_with(&access.root) {
@@ -80,5 +83,24 @@ impl StorageMapping {
             })
             .collect::<Vec<_>>()
             .into_iter())
+    }
+
+    async fn load_storage_mapping(&self, storage: u32) -> Result<Vec<UserStorageAccess>> {
+        log::debug!("querying storage mapping for {}", storage);
+        let users = sqlx::query_as::<Any, UserStorageAccess>(&format!(
+            "\
+                SELECT user_id, path \
+                FROM {prefix}mounts \
+                INNER JOIN {prefix}filecache ON root_id = fileid \
+                WHERE storage_id = {storage}",
+            prefix = self.prefix,
+            storage = storage
+        ))
+        .fetch_all(&self.connection)
+        .await
+        .wrap_err("Failed to load storage mapping from database")?;
+        MAPPING_QUERY_COUNT.fetch_add(1, Ordering::Relaxed);
+
+        Ok(users)
     }
 }
