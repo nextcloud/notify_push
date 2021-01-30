@@ -2,7 +2,7 @@ use parse_display::Display;
 use std::time::Instant;
 use tokio::time::Duration;
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, Clone)]
 pub enum MessageType {
     #[display("notify_file")]
     File,

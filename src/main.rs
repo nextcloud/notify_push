@@ -4,12 +4,12 @@ use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
     EVENTS_RECEIVED,
 };
-use crate::message::MessageType;
+use crate::message::{DebounceMap, MessageType};
 use crate::storage_mapping::{StorageMapping, MAPPING_QUERY_COUNT};
 pub use crate::user::UserId;
 use color_eyre::{eyre::WrapErr, Report, Result};
 use dashmap::DashMap;
-use futures::{SinkExt, StreamExt};
+use futures::{future::select, pin_mut, SinkExt, StreamExt};
 use smallvec::alloc::sync::Arc;
 use std::convert::Infallible;
 use std::fmt::Write;
@@ -258,6 +258,8 @@ async fn serve(app: Arc<App>, port: u16) {
 }
 
 async fn user_connected(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpAddr>) {
+    CONNECTION_COUNT.fetch_add(1, Ordering::Relaxed);
+
     let user_id = match socket_auth(&mut ws, forwarded_for, &app).await {
         Ok(user_id) => user_id,
         Err(e) => {
@@ -270,22 +272,42 @@ async fn user_connected(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpA
     log::debug!("new websocket authenticated as {}", user_id);
     ws.send(Message::text("authenticated")).await.ok();
 
-    let (user_ws_tx, mut user_ws_rx) = ws.split();
+    let (mut user_ws_tx, mut user_ws_rx) = ws.split();
 
-    let connection_id = app.connections.add(user_id.clone(), user_ws_tx).await;
+    let mut rx = app.connections.add(user_id.clone()).await;
 
-    // handle messages until the client closes the connection
-    while let Some(result) = user_ws_rx.next().await {
-        let _msg = match result {
-            Ok(msg) => msg,
-            Err(e) => {
-                log::warn!("websocket error: {}", e);
-                break;
+    let transmit = async move {
+        let mut debounce = DebounceMap::default();
+        loop {
+            // we dont care about dropped messages
+            if let Ok(msg) = rx.recv().await {
+                if debounce.should_send(&msg) {
+                    MESSAGES_SEND.fetch_add(1, Ordering::Relaxed);
+                    user_ws_tx.send(Message::text(msg.to_string())).await.ok();
+                }
             }
-        };
-    }
+        }
+    };
 
-    app.connections.remove(&user_id, connection_id).await;
+    let receive = async move {
+        // handle messages until the client closes the connection
+        while let Some(result) = user_ws_rx.next().await {
+            let _msg = match result {
+                Ok(msg) => msg,
+                Err(e) => {
+                    log::warn!("websocket error: {}", e);
+                    break;
+                }
+            };
+        }
+    };
+
+    pin_mut!(transmit);
+    pin_mut!(receive);
+
+    select(transmit, receive).await;
+
+    CONNECTION_COUNT.fetch_sub(1, Ordering::Relaxed);
 }
 
 async fn read_socket_auth_message(rx: &mut WebSocket) -> Result<Message> {
