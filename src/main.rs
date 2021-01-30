@@ -262,8 +262,6 @@ async fn serve(app: Arc<App>, port: u16) {
 }
 
 async fn user_connected(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpAddr>) {
-    CONNECTION_COUNT.fetch_add(1, Ordering::Relaxed);
-
     let user_id = match socket_auth(&mut ws, forwarded_for, &app).await {
         Ok(user_id) => user_id,
         Err(e) => {
@@ -275,6 +273,8 @@ async fn user_connected(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpA
 
     log::debug!("new websocket authenticated as {}", user_id);
     ws.send(Message::text("authenticated")).await.ok();
+
+    CONNECTION_COUNT.fetch_add(1, Ordering::Relaxed);
 
     let (mut user_ws_tx, mut user_ws_rx) = ws.split();
 
