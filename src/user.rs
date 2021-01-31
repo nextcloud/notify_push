@@ -1,7 +1,8 @@
 use dashmap::DashMap;
 use log::LevelFilter;
 use once_cell::sync::Lazy;
-use serde::Deserialize;
+use serde::de::{Error, Visitor};
+use serde::{Deserialize, Deserializer};
 use sqlx::database::HasValueRef;
 use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Type};
@@ -11,8 +12,7 @@ use std::hash::Hasher;
 
 static USER_NAMES: Lazy<DashMap<u64, String>> = Lazy::new(DashMap::new);
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize)]
-#[serde(from = "String")]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UserId {
     hash: u64,
 }
@@ -30,6 +30,32 @@ impl UserId {
         }
 
         UserId { hash }
+    }
+}
+
+impl<'de> Deserialize<'de> for UserId {
+    fn deserialize<D>(deserializer: D) -> Result<UserId, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct UserIdVisitor;
+
+        impl<'a> Visitor<'a> for UserIdVisitor {
+            type Value = UserId;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a string")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(v.into())
+            }
+        }
+
+        deserializer.deserialize_str(UserIdVisitor)
     }
 }
 
