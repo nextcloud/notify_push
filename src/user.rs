@@ -1,3 +1,4 @@
+use ahash::RandomState;
 use dashmap::DashMap;
 use log::LevelFilter;
 use once_cell::sync::Lazy;
@@ -10,7 +11,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::hash::Hasher;
 
-static USER_NAMES: Lazy<DashMap<u64, String>> = Lazy::new(DashMap::new);
+static USER_NAMES: Lazy<DashMap<u64, String, RandomState>> = Lazy::new(DashMap::default);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UserId {

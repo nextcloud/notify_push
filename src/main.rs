@@ -7,6 +7,7 @@ use crate::event::{
 use crate::message::{DebounceMap, MessageType, DEBOUNCE_ENABLE};
 use crate::storage_mapping::{StorageMapping, MAPPING_QUERY_COUNT};
 pub use crate::user::UserId;
+use ahash::RandomState;
 use color_eyre::{eyre::WrapErr, Report, Result};
 use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
@@ -87,7 +88,7 @@ struct App {
     connections: ActiveConnections,
     nc_client: nc::Client,
     storage_mapping: StorageMapping,
-    pre_auth: DashMap<String, (Instant, UserId)>,
+    pre_auth: DashMap<String, (Instant, UserId), RandomState>,
     test_cookie: AtomicU32,
     redis_url: String,
 }
@@ -100,7 +101,7 @@ impl App {
 
         let storage_mapping =
             StorageMapping::new(&config.database_url, config.database_prefix).await?;
-        let pre_auth: DashMap<String, (Instant, UserId)> = DashMap::default();
+        let pre_auth = DashMap::default();
 
         let redis_url = config.redis_url;
 
