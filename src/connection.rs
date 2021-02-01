@@ -2,14 +2,10 @@ use crate::message::MessageType;
 use crate::UserId;
 use ahash::RandomState;
 use dashmap::DashMap;
-use std::sync::atomic::AtomicUsize;
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 
 #[derive(Default)]
 pub struct ActiveConnections(DashMap<UserId, Sender<MessageType>, RandomState>);
-
-pub static CONNECTION_COUNT: AtomicUsize = AtomicUsize::new(0);
-pub static MESSAGES_SEND: AtomicUsize = AtomicUsize::new(0);
 
 impl ActiveConnections {
     pub async fn add(&self, user: UserId) -> Receiver<MessageType> {

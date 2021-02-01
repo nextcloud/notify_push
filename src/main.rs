@@ -1,11 +1,11 @@
 use crate::config::Config;
-use crate::connection::{ActiveConnections, CONNECTION_COUNT, MESSAGES_SEND};
+use crate::connection::ActiveConnections;
 use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
-    EVENTS_RECEIVED,
 };
 use crate::message::{DebounceMap, MessageType, DEBOUNCE_ENABLE};
-use crate::storage_mapping::{StorageMapping, MAPPING_QUERY_COUNT};
+use crate::metrics::{serve_metrics, METRICS};
+use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
 use ahash::RandomState;
 use color_eyre::{eyre::WrapErr, Report, Result};
@@ -13,7 +13,6 @@ use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
 use smallvec::alloc::sync::Arc;
 use std::convert::Infallible;
-use std::fmt::Write;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
@@ -28,6 +27,7 @@ mod config;
 mod connection;
 mod event;
 mod message;
+mod metrics;
 mod nc;
 mod storage_mapping;
 mod user;
@@ -275,7 +275,7 @@ async fn user_connected(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpA
     log::debug!("new websocket authenticated as {}", user_id);
     ws.send(Message::text("authenticated")).await.ok();
 
-    CONNECTION_COUNT.fetch_add(1, Ordering::Relaxed);
+    METRICS.add_connection();
 
     let (mut user_ws_tx, mut user_ws_rx) = ws.split();
 
@@ -287,7 +287,7 @@ async fn user_connected(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpA
             // we dont care about dropped messages
             if let Ok(msg) = rx.recv().await {
                 if debounce.should_send(&msg) {
-                    MESSAGES_SEND.fetch_add(1, Ordering::Relaxed);
+                    METRICS.add_message();
                     user_ws_tx.send(Message::text(msg.to_string())).await.ok();
                 }
             }
@@ -312,7 +312,7 @@ async fn user_connected(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpA
 
     select(transmit, receive).await;
 
-    CONNECTION_COUNT.fetch_sub(1, Ordering::Relaxed);
+    METRICS.remove_connection();
 }
 
 async fn read_socket_auth_message(rx: &mut WebSocket) -> Result<Message> {
@@ -381,33 +381,4 @@ async fn listen(app: Arc<App>) -> Result<()> {
         }
     }
     Ok(())
-}
-
-async fn serve_metrics(port: u16) {
-    let metrics = warp::path!("metrics").map(|| {
-        let mut response = String::with_capacity(128);
-        let _ = writeln!(
-            &mut response,
-            "connection_count {}",
-            CONNECTION_COUNT.load(Ordering::Relaxed)
-        );
-        let _ = writeln!(
-            &mut response,
-            "mapping_query_count {}",
-            MAPPING_QUERY_COUNT.load(Ordering::Relaxed)
-        );
-        let _ = writeln!(
-            &mut response,
-            "event_count_total {}",
-            EVENTS_RECEIVED.load(Ordering::Relaxed)
-        );
-        let _ = writeln!(
-            &mut response,
-            "message_count_total {}",
-            MESSAGES_SEND.load(Ordering::Relaxed)
-        );
-        response
-    });
-
-    warp::serve(metrics).run(([0, 0, 0, 0], port)).await;
 }

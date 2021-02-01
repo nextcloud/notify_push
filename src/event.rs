@@ -1,10 +1,10 @@
+use crate::metrics::METRICS;
 use crate::UserId;
 use color_eyre::{eyre::WrapErr, Result};
 use parse_display::Display;
 use redis::{Client, Msg};
 use serde::Deserialize;
 use std::convert::TryFrom;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
 use tokio::stream::{Stream, StreamExt};
 
@@ -109,8 +109,6 @@ impl TryFrom<Msg> for Event {
     }
 }
 
-pub static EVENTS_RECEIVED: AtomicUsize = AtomicUsize::new(0);
-
 pub async fn subscribe(
     client: Client,
 ) -> Result<impl Stream<Item = Result<Event, MessageDecodeError>>> {
@@ -137,7 +135,7 @@ pub async fn subscribe(
     }
 
     Ok(pubsub.into_on_message().map(|event| {
-        EVENTS_RECEIVED.fetch_add(1, Ordering::Relaxed);
+        METRICS.add_event();
         Event::try_from(event)
     }))
 }
