@@ -140,7 +140,7 @@ Once the push server is configured and the reverse proxy setup, you can enable t
 the push server is listening.
 
 - enable the app `occ app:enable notify_push`
-- set the url of the push server `occ notify_push:setup https://example.com/push`
+- set the url of the push server `occ notify_push:setup https://cloud.example.com/push`
 
 The app will automatically run some tests to verify that the push server is configured correctly.
 
@@ -214,8 +214,8 @@ discover_endpoint(nextcloud_url, username, password).then((endpoint) => {
 ### Test client
 
 For development purposes a test client is provided which can be downloaded from
-the [github actions](https://github.com/icewind1991/notify_push/actions) page.
+the [github actions](https://github.com/nextcloud/notify_push/actions) page.
 
 ```bash
-test_client https://cloud.icewind.me username password
+test_client https://cloud.example.com username password
 ```
