@@ -265,7 +265,7 @@ async fn test_auth_failure() {
 #[track_caller]
 async fn assert_next_message(client: &mut WebSocketStream<TcpStream>, expected: &str) {
     assert_eq!(
-        timeout(Duration::from_millis(100), client.next())
+        timeout(Duration::from_millis(200), client.next())
             .await
             .unwrap()
             .unwrap()
@@ -393,4 +393,27 @@ async fn test_notify_file_multiple() {
     assert_next_message(&mut client1, "notify_file").await;
     assert_next_message(&mut client2, "notify_file").await;
     assert_no_message(&mut client3).await;
+}
+
+#[tokio::test(core_threads = 2)]
+async fn test_pre_auth() {
+    let services = Services::new().await;
+
+    let server_handle = services.spawn_server().await;
+
+    let mut redis = services.redis_client().await;
+    redis
+        .publish::<_, _, ()>("notify_pre_auth", r#"{"user":"foo", "token": "token"}"#)
+        .await
+        .unwrap();
+
+    let mut client = server_handle.connect_auth("", "token").await;
+
+    // verify that we are the correct user
+    redis
+        .publish::<_, _, ()>("notify_activity", r#"{"user":"foo"}"#)
+        .await
+        .unwrap();
+
+    assert_next_message(&mut client, "notify_activity").await;
 }
