@@ -42,15 +42,20 @@ pub struct StorageMapping {
 }
 
 impl StorageMapping {
-    pub async fn new(connect: &str, prefix: String) -> Result<Self> {
-        let connection = AnyPool::connect(connect)
-            .await
-            .wrap_err("Failed to connect to Nextcloud database")?;
+    pub async fn from_connection(connection: AnyPool, prefix: String) -> Result<Self> {
         Ok(StorageMapping {
             cache: Default::default(),
             connection,
             prefix,
         })
+    }
+
+    pub async fn new(connect: &str, prefix: String) -> Result<Self> {
+        let connection = AnyPool::connect(connect)
+            .await
+            .wrap_err("Failed to connect to Nextcloud database")?;
+
+        Self::from_connection(connection, prefix).await
     }
 
     pub async fn get_users_for_storage_path<'a>(
