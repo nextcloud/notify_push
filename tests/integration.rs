@@ -25,11 +25,9 @@ static LAST_PORT: AtomicU16 = AtomicU16::new(1024);
 async fn listen_available_port() -> Option<TcpListener> {
     let start = LAST_PORT.load(Ordering::SeqCst) + 1;
     for port in start..65535 {
+        LAST_PORT.store(port, Ordering::SeqCst);
         match TcpListener::bind(("127.0.0.1", port)).await {
-            Ok(tcp) => {
-                LAST_PORT.store(port, Ordering::SeqCst);
-                return Some(tcp);
-            }
+            Ok(tcp) => return Some(tcp),
             _ => {}
         }
     }
@@ -178,8 +176,27 @@ impl Services {
         client.get_async_connection().await.unwrap()
     }
 
-    fn add_user(&self, username: String, password: String) {
-        self.users.insert(username, password);
+    fn add_user(&self, username: &str, password: &str) {
+        self.users.insert(username.into(), password.into());
+    }
+
+    async fn add_storage_mapping(&self, username: &str, storage: u32, root: u32) {
+        sqlx::query("INSERT INTO oc_mounts(storage_id, root_id, user_id) VALUES(?, ?, ?)")
+            .bind(storage as i64)
+            .bind(root as i64)
+            .bind(username)
+            .execute(&self.db)
+            .await
+            .unwrap();
+    }
+
+    async fn add_filecache_item(&self, fileid: u32, path: &str) {
+        sqlx::query("INSERT INTO oc_filecache(fileid, path) VALUES(?, ?)")
+            .bind(fileid as i64)
+            .bind(path)
+            .execute(&self.db)
+            .await
+            .unwrap();
     }
 }
 
@@ -222,7 +239,7 @@ async fn test_self_test() {
 #[tokio::test(core_threads = 2)]
 async fn test_auth() {
     let services = Services::new().await;
-    services.add_user("foo".into(), "bar".into());
+    services.add_user("foo", "bar");
 
     let server_handle = services.spawn_server().await;
     let mut client = server_handle.connect().await;
@@ -235,7 +252,7 @@ async fn test_auth() {
 #[tokio::test(core_threads = 2)]
 async fn test_auth_failure() {
     let services = Services::new().await;
-    services.add_user("foo".into(), "bar".into());
+    services.add_user("foo", "bar");
 
     let server_handle = services.spawn_server().await;
     let mut client = server_handle.connect().await;
@@ -248,7 +265,7 @@ async fn test_auth_failure() {
 #[track_caller]
 async fn assert_next_message(client: &mut WebSocketStream<TcpStream>, expected: &str) {
     assert_eq!(
-        timeout(Duration::from_millis(10), client.next())
+        timeout(Duration::from_millis(100), client.next())
             .await
             .unwrap()
             .unwrap()
@@ -267,7 +284,7 @@ async fn assert_no_message(client: &mut WebSocketStream<TcpStream>) {
 #[tokio::test(core_threads = 2)]
 async fn test_notify_activity() {
     let services = Services::new().await;
-    services.add_user("foo".into(), "bar".into());
+    services.add_user("foo", "bar");
 
     let server_handle = services.spawn_server().await;
     let mut client = server_handle.connect_auth("foo", "bar").await;
@@ -284,7 +301,7 @@ async fn test_notify_activity() {
 #[tokio::test(core_threads = 2)]
 async fn test_notify_activity_other_user() {
     let services = Services::new().await;
-    services.add_user("foo".into(), "bar".into());
+    services.add_user("foo", "bar");
 
     let server_handle = services.spawn_server().await;
     let mut client = server_handle.connect_auth("foo", "bar").await;
@@ -296,4 +313,84 @@ async fn test_notify_activity_other_user() {
         .unwrap();
 
     assert_no_message(&mut client).await;
+}
+
+#[tokio::test(core_threads = 2)]
+async fn test_notify_file() {
+    let services = Services::new().await;
+    services.add_user("foo", "bar");
+    services.add_filecache_item(10, "foo").await;
+    services.add_filecache_item(11, "foo/bar").await;
+    services.add_storage_mapping("foo", 10, 11).await;
+
+    let server_handle = services.spawn_server().await;
+    let mut client = server_handle.connect_auth("foo", "bar").await;
+
+    let mut redis = services.redis_client().await;
+    redis
+        .publish::<_, _, ()>(
+            "notify_storage_update",
+            r#"{"storage":10, "path":"foo/bar"}"#,
+        )
+        .await
+        .unwrap();
+
+    assert_next_message(&mut client, "notify_file").await;
+}
+
+#[tokio::test(core_threads = 2)]
+async fn test_notify_file_different_storage() {
+    let services = Services::new().await;
+    services.add_user("foo", "bar");
+    services.add_filecache_item(10, "foo").await;
+    services.add_filecache_item(11, "foo/bar").await;
+    services.add_storage_mapping("foo", 10, 11).await;
+
+    let server_handle = services.spawn_server().await;
+    let mut client = server_handle.connect_auth("foo", "bar").await;
+
+    let mut redis = services.redis_client().await;
+    redis
+        .publish::<_, _, ()>(
+            "notify_storage_update",
+            r#"{"storage":11, "path":"foo/bar"}"#,
+        )
+        .await
+        .unwrap();
+
+    assert_no_message(&mut client).await;
+}
+
+#[tokio::test(core_threads = 2)]
+async fn test_notify_file_multiple() {
+    let services = Services::new().await;
+    services.add_user("foo", "bar");
+    services.add_user("foo2", "bar");
+    services.add_user("foo3", "bar");
+
+    services.add_filecache_item(10, "foo").await;
+    services.add_filecache_item(11, "foo/bar").await;
+    services.add_filecache_item(12, "foo/outside").await;
+
+    services.add_storage_mapping("foo", 10, 10).await;
+    services.add_storage_mapping("foo2", 10, 11).await;
+    services.add_storage_mapping("foo2", 10, 12).await;
+
+    let server_handle = services.spawn_server().await;
+    let mut client1 = server_handle.connect_auth("foo", "bar").await;
+    let mut client2 = server_handle.connect_auth("foo2", "bar").await;
+    let mut client3 = server_handle.connect_auth("foo3", "bar").await;
+
+    let mut redis = services.redis_client().await;
+    redis
+        .publish::<_, _, ()>(
+            "notify_storage_update",
+            r#"{"storage":10, "path":"foo/bar"}"#,
+        )
+        .await
+        .unwrap();
+
+    assert_next_message(&mut client1, "notify_file").await;
+    assert_next_message(&mut client2, "notify_file").await;
+    assert_no_message(&mut client3).await;
 }
