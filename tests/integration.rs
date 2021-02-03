@@ -412,6 +412,8 @@ async fn test_pre_auth() {
         .await
         .unwrap();
 
+    delay_for(Duration::from_millis(100)).await;
+
     let mut client = server_handle.connect_auth("", "token").await;
 
     // verify that we are the correct user
