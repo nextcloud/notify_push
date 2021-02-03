@@ -36,11 +36,22 @@ impl ActiveConnections {
 }
 
 pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpAddr>) {
-    let user_id = match socket_auth(&mut ws, forwarded_for, &app).await {
-        Ok(user_id) => user_id,
-        Err(e) => {
+    let user_id = match timeout(
+        Duration::from_secs(1),
+        socket_auth(&mut ws, forwarded_for, &app),
+    )
+    .await
+    {
+        Ok(Ok(user_id)) => user_id,
+        Ok(Err(e)) => {
             log::warn!("{}", e);
             ws.send(Message::text(format!("err: {}", e))).await.ok();
+            return;
+        }
+        Err(_) => {
+            ws.send(Message::text("Authentication timeout".to_string()))
+                .await
+                .ok();
             return;
         }
     };
@@ -89,11 +100,10 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
 }
 
 async fn read_socket_auth_message(rx: &mut WebSocket) -> Result<Message> {
-    match timeout(Duration::from_secs(1), rx.next()).await {
-        Ok(Some(Ok(msg))) => Ok(msg),
-        Ok(Some(Err(e))) => Err(Report::from(e).wrap_err("Socket error during authentication")),
-        Ok(None) => Err(Report::msg("Client disconnected during authentication")),
-        Err(_) => Err(Report::msg("Authentication timeout")),
+    match rx.next().await {
+        Some(Ok(msg)) => Ok(msg),
+        Some(Err(e)) => Err(Report::from(e).wrap_err("Socket error during authentication")),
+        None => Err(Report::msg("Client disconnected during authentication")),
     }
 }
 
