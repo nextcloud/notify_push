@@ -42,6 +42,13 @@ pub struct PreAuth {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Config {
+    LogSpec(String),
+    LogRestore,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Custom {
     pub user: UserId,
     pub message: String,
@@ -65,6 +72,8 @@ pub enum Event {
     PreAuth(PreAuth),
     #[display("custom notification {0.message} for user {0.user}")]
     Custom(Custom),
+    #[display("config update")]
+    Config(Config),
 }
 
 #[derive(Debug, Error)]
@@ -104,6 +113,9 @@ impl TryFrom<Msg> for Event {
             "notify_custom" => Ok(Event::Custom(serde_json::from_slice(
                 msg.get_payload_bytes(),
             )?)),
+            "notify_config" => Ok(Event::Config(serde_json::from_slice(
+                msg.get_payload_bytes(),
+            )?)),
             _ => Err(MessageDecodeError::UnsupportedEventType),
         }
     }
@@ -126,6 +138,7 @@ pub async fn subscribe(
         "notify_notification",
         "notify_pre_auth",
         "notify_custom",
+        "notify_config",
     ];
     for channel in channels.iter() {
         pubsub

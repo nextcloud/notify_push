@@ -1,4 +1,5 @@
 use color_eyre::{eyre::WrapErr, Result};
+use flexi_logger::{colored_detailed_format, LogTarget, Logger};
 use notify_push::config::Config;
 use notify_push::message::DEBOUNCE_ENABLE;
 use notify_push::metrics::serve_metrics;
@@ -10,7 +11,12 @@ use tokio::time::Duration;
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    pretty_env_logger::init();
+    let level = dotenv::var("LOG").ok();
+    let level = level.as_ref().map(String::as_str).unwrap_or("warn");
+    let log_handle = Logger::with_str(level)
+        .log_target(LogTarget::StdOut)
+        .format(colored_detailed_format)
+        .start()?;
     let _ = dotenv::dotenv();
 
     ctrlc::set_handler(move || {
@@ -41,7 +47,7 @@ async fn main() -> Result<()> {
 
     log::trace!("Running with config: {:?} on port {}", config, port);
 
-    let app = Arc::new(App::new(config).await?);
+    let app = Arc::new(App::new(config, log_handle).await?);
     app.self_test().await?;
 
     tokio::task::spawn(serve(app.clone(), port));

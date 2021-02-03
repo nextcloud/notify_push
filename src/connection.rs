@@ -97,7 +97,13 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
             let _msg = match result {
                 Ok(msg) => msg,
                 Err(e) => {
-                    log::warn!("websocket error: {}", e);
+                    let formatted = e.to_string();
+                    // hack while warp only has opaque error types
+                    if formatted
+                        != "WebSocket protocol error: Connection reset without closing handshake"
+                    {
+                        log::warn!("websocket error: {}", e);
+                    }
                     break;
                 }
             };

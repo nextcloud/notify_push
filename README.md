@@ -144,6 +144,29 @@ the push server is listening.
 
 The app will automatically run some tests to verify that the push server is configured correctly.
 
+### Logging
+
+By default, the push server only logs warnings, you can temporarily change the log level with an occ command
+
+```bash
+occ notify_push:log <level>
+```
+
+Where level is `error`, `warn`, `info`, debug` or `trace`, or restore the log level to the previous value using
+
+```bash
+occ notify_push:log --restore
+```
+
+Alternatively you can set the log level of the push server in the `LOG` environment variable.
+
+### Metrics
+
+The push server can expose some basic metrics about the number of connected clients and the traffic flowing trough the server
+by setting the `METRICS_PORT` environment variable.
+
+Once set the metrics are available in a prometheus compatible format at `/metrics` on the configured port.
+
 ## Developing
 
 As developer of a Nextcloud app or client you can use the `notify_push` app to receive real time notifications from the

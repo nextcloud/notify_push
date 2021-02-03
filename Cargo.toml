@@ -12,7 +12,6 @@ thiserror = "1.0.22"
 warp = "0.2.5"
 tokio = { version = "0.2", features = ["macros", "rt-threaded"] }
 futures = "0.3"
-pretty_env_logger = "0.4.0"
 log = "0.4.11"
 sqlx = { version = "0.4.1", features = ["runtime-tokio-rustls", "any", "macros", "mysql", "sqlite", "postgres"] }
 dotenv = "0.15.0"
@@ -28,6 +27,7 @@ percent-encoding = "2.1.0"
 ctrlc = { version = "3.1.7", features = ["termination"] }
 rand = "0.7.3"
 ahash = "0.7.0"
+flexi_logger = { version = "0.17", features = ["colors"] }
 
 [dev-dependencies]
 mini-redis = "0.2.0"

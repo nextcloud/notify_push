@@ -9,6 +9,7 @@ pub use crate::user::UserId;
 use ahash::RandomState;
 use color_eyre::{eyre::WrapErr, Result};
 use dashmap::DashMap;
+use flexi_logger::LoggerHandle;
 use futures::StreamExt;
 use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
@@ -16,6 +17,7 @@ use std::convert::Infallible;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
+use tokio::sync::Mutex;
 use warp::filters::addr::remote;
 use warp::Filter;
 use warp_real_ip::get_forwarded_for;
@@ -36,10 +38,11 @@ pub struct App {
     pre_auth: DashMap<String, (Instant, UserId), RandomState>,
     test_cookie: AtomicU32,
     redis_url: String,
+    log_handle: Mutex<LoggerHandle>,
 }
 
 impl App {
-    pub async fn new(config: Config) -> Result<Self> {
+    pub async fn new(config: Config, log_handle: LoggerHandle) -> Result<Self> {
         let connections = ActiveConnections::default();
         let nc_client = nc::Client::new(&config.nextcloud_url)?;
         let test_cookie = AtomicU32::new(0);
@@ -57,10 +60,15 @@ impl App {
             pre_auth,
             storage_mapping,
             redis_url,
+            log_handle: Mutex::new(log_handle),
         })
     }
 
-    pub async fn with_connection(connection: AnyPool, config: Config) -> Result<Self> {
+    pub async fn with_connection(
+        connection: AnyPool,
+        config: Config,
+        log_handle: LoggerHandle,
+    ) -> Result<Self> {
         let connections = ActiveConnections::default();
         let nc_client = nc::Client::new(&config.nextcloud_url)?;
         let test_cookie = AtomicU32::new(0);
@@ -78,6 +86,7 @@ impl App {
             pre_auth,
             storage_mapping,
             redis_url,
+            log_handle: Mutex::new(log_handle),
         })
     }
 
@@ -138,6 +147,14 @@ impl App {
                 self.connections
                     .send_to_user(&user, MessageType::Custom(message))
                     .await;
+            }
+            Event::Config(event::Config::LogSpec(spec)) => {
+                self.log_handle.lock().await.parse_and_push_temp_spec(&spec);
+                log::info!("Set log level to {}", spec);
+            }
+            Event::Config(event::Config::LogRestore) => {
+                self.log_handle.lock().await.pop_temp_spec();
+                log::info!("Restored log level");
             }
         }
     }

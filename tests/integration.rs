@@ -1,10 +1,12 @@
 use dashmap::DashMap;
+use flexi_logger::{Logger, LoggerHandle};
 use futures::future::select;
 use futures::{pin_mut, FutureExt};
 use futures::{SinkExt, StreamExt};
 use http_auth_basic::Credentials;
 use notify_push::config::Config;
 use notify_push::{listen, serve, App};
+use once_cell::sync::Lazy;
 use redis::AsyncCommands;
 use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
@@ -44,9 +46,10 @@ struct Services {
     db: AnyPool,
 }
 
+static LOG_HANDLE: Lazy<LoggerHandle> = Lazy::new(|| Logger::with_str("").start().unwrap());
+
 impl Services {
     pub async fn new() -> Self {
-        let _ = pretty_env_logger::try_init();
         let redis_tcp = listen_available_port()
             .await
             .expect("Can't find open port for redis");
@@ -145,7 +148,9 @@ impl Services {
 
     async fn app(&self) -> App {
         let config = self.config();
-        App::with_connection(self.db.clone(), config).await.unwrap()
+        App::with_connection(self.db.clone(), config, LOG_HANDLE.clone())
+            .await
+            .unwrap()
     }
 
     async fn spawn_server(&self) -> ServerHandle {
