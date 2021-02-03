@@ -87,7 +87,7 @@ class Application extends App implements IBootstrap {
 
 		$eventDispatcher->addListener(ShareCreatedEvent::class, [$listener, 'shareListener']);
 
-		$activityManager->registerConsumer(function() use ($listener) {
+		$activityManager->registerConsumer(function () use ($listener) {
 			return $listener;
 		});
 
