@@ -12,17 +12,24 @@ use tokio::sync::broadcast::{channel, Receiver, Sender};
 use tokio::time::timeout;
 use warp::filters::ws::{Message, WebSocket};
 
+const USER_CONNECTION_LIMIT: usize = 64;
+
 #[derive(Default)]
 pub struct ActiveConnections(DashMap<UserId, Sender<MessageType>, RandomState>);
 
 impl ActiveConnections {
-    pub async fn add(&self, user: UserId) -> Receiver<MessageType> {
+    pub async fn add(&self, user: UserId) -> Result<Receiver<MessageType>> {
         if let Some(sender) = self.0.get(&user) {
-            sender.subscribe()
+            // stop a single user from trying to eat all the resources
+            if sender.receiver_count() > USER_CONNECTION_LIMIT {
+                Err(Report::msg("connection limit exceeded"))
+            } else {
+                Ok(sender.subscribe())
+            }
         } else {
             let (tx, rx) = channel(4);
             self.0.insert(user, tx);
-            rx
+            Ok(rx)
         }
     }
 
@@ -59,11 +66,17 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
     log::debug!("new websocket authenticated as {}", user_id);
     ws.send(Message::text("authenticated")).await.ok();
 
-    METRICS.add_connection();
+    let mut rx = match app.connections.add(user_id.clone()).await {
+        Ok(rx) => rx,
+        Err(e) => {
+            ws.send(Message::text(e.to_string())).await.ok();
+            return;
+        }
+    };
 
     let (mut user_ws_tx, mut user_ws_rx) = ws.split();
 
-    let mut rx = app.connections.add(user_id.clone()).await;
+    METRICS.add_connection();
 
     let transmit = async move {
         let mut debounce = DebounceMap::default();
