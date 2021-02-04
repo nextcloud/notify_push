@@ -21,7 +21,7 @@ impl Client {
         password: &str,
         forwarded_for: Vec<IpAddr>,
     ) -> Result<UserId> {
-        log::info!("Verifying credentials for {}", username);
+        log::debug!("Verifying credentials for {}", username);
         let response = self
             .http
             .get(self.base_url.join("index.php/apps/notify_push/uid")?)

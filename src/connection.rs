@@ -63,7 +63,7 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
         }
     };
 
-    log::debug!("new websocket authenticated as {}", user_id);
+    log::info!("new websocket authenticated as {}", user_id);
     ws.send(Message::text("authenticated")).await.ok();
 
     let mut rx = match app.connections.add(user_id.clone()).await {
@@ -99,11 +99,13 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
                 Err(e) => {
                     let formatted = e.to_string();
                     // hack while warp only has opaque error types
-                    if formatted
-                        != "WebSocket protocol error: Connection reset without closing handshake"
-                    {
-                        log::warn!("websocket error: {}", e);
-                    }
+                    match formatted.as_str() {
+                        "WebSocket protocol error: Connection reset without closing handshake"
+                        | "IO error: Connection reset by peer (os error 104)" => {
+                            log::debug!("websocket error: {}", e)
+                        }
+                        _ => log::warn!("websocket error: {}", e),
+                    };
                     break;
                 }
             };
@@ -141,7 +143,7 @@ async fn socket_auth(rx: &mut WebSocket, forwarded_for: Vec<IpAddr>, app: &App) 
     app.pre_auth.retain(|_, (time, _)| *time > cutoff);
 
     if let Some((_, (_, user))) = app.pre_auth.remove(password) {
-        log::info!(
+        log::debug!(
             "Authenticated socket for {} using pre authenticated token",
             user
         );
