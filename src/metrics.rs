@@ -6,7 +6,8 @@ pub static METRICS: Metrics = Metrics::new();
 
 #[derive(Default)]
 pub struct Metrics {
-    connection_count: AtomicUsize,
+    active_connection_count: AtomicUsize,
+    total_connection_count: AtomicUsize,
     mapping_query_count: AtomicUsize,
     events_received: AtomicUsize,
     messages_send: AtomicUsize,
@@ -15,15 +16,20 @@ pub struct Metrics {
 impl Metrics {
     pub const fn new() -> Self {
         Metrics {
-            connection_count: AtomicUsize::new(0),
+            active_connection_count: AtomicUsize::new(0),
+            total_connection_count: AtomicUsize::new(0),
             mapping_query_count: AtomicUsize::new(0),
             events_received: AtomicUsize::new(0),
             messages_send: AtomicUsize::new(0),
         }
     }
 
-    pub fn connection_count(&self) -> usize {
-        self.connection_count.load(Ordering::Relaxed)
+    pub fn active_connection_count(&self) -> usize {
+        self.active_connection_count.load(Ordering::Relaxed)
+    }
+
+    pub fn total_connection_count(&self) -> usize {
+        self.total_connection_count.load(Ordering::Relaxed)
     }
 
     pub fn mapping_query_count(&self) -> usize {
@@ -39,11 +45,12 @@ impl Metrics {
     }
 
     pub fn add_connection(&self) {
-        self.connection_count.fetch_add(1, Ordering::Relaxed);
+        self.total_connection_count.fetch_add(1, Ordering::Relaxed);
+        self.active_connection_count.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn remove_connection(&self) {
-        self.connection_count.fetch_sub(1, Ordering::Relaxed);
+        self.active_connection_count.fetch_sub(1, Ordering::Relaxed);
     }
 
     pub fn add_mapping_query(&self) {
@@ -64,8 +71,13 @@ pub async fn serve_metrics(port: u16) {
         let mut response = String::with_capacity(128);
         let _ = writeln!(
             &mut response,
-            "connection_count {}",
-            METRICS.connection_count()
+            "active_connection_count {}",
+            METRICS.active_connection_count()
+        );
+        let _ = writeln!(
+            &mut response,
+            "total_connection_count {}",
+            METRICS.total_connection_count()
         );
         let _ = writeln!(
             &mut response,
