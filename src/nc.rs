@@ -1,6 +1,7 @@
 use crate::UserId;
 use color_eyre::{eyre::WrapErr, Report, Result};
 use reqwest::{StatusCode, Url};
+use std::fmt::Write;
 use std::net::IpAddr;
 
 pub struct Client {
@@ -28,14 +29,13 @@ impl Client {
             .basic_auth(username, Some(password))
             .header(
                 "x-forwarded-for",
-                forwarded_for.into_iter().map(|addr| addr.to_string()).fold(
-                    String::new(),
+                forwarded_for.iter().fold(
+                    String::with_capacity(forwarded_for.len() * 16),
                     |mut joined, ip| {
-                        joined.reserve(ip.len() + 1);
                         if !joined.is_empty() {
-                            joined.push_str(", ");
+                            write!(&mut joined, ", ").ok();
                         }
-                        joined.push_str(&ip);
+                        write!(&mut joined, "{}", ip).ok();
                         joined
                     },
                 ),
