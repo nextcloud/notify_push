@@ -424,3 +424,112 @@ async fn test_pre_auth() {
 
     assert_next_message(&mut client, "notify_activity").await;
 }
+
+#[tokio::test(core_threads = 2)]
+async fn test_notify_notification() {
+    let services = Services::new().await;
+    services.add_user("foo", "bar");
+    services.add_user("foo2", "bar");
+
+    let server_handle = services.spawn_server().await;
+    let mut client1 = server_handle.connect_auth("foo", "bar").await;
+    let mut client2 = server_handle.connect_auth("foo2", "bar").await;
+
+    let mut redis = services.redis_client().await;
+    redis
+        .publish::<_, _, ()>("notify_notification", r#"{"user":"foo"}"#)
+        .await
+        .unwrap();
+
+    assert_next_message(&mut client1, "notify_notification").await;
+    assert_no_message(&mut client2).await;
+}
+
+#[tokio::test(core_threads = 2)]
+async fn test_notify_share() {
+    let services = Services::new().await;
+    services.add_user("foo", "bar");
+    services.add_user("foo2", "bar");
+
+    let server_handle = services.spawn_server().await;
+    let mut client1 = server_handle.connect_auth("foo", "bar").await;
+    let mut client2 = server_handle.connect_auth("foo2", "bar").await;
+
+    let mut redis = services.redis_client().await;
+    redis
+        .publish::<_, _, ()>("notify_user_share_created", r#"{"user":"foo"}"#)
+        .await
+        .unwrap();
+
+    assert_next_message(&mut client1, "notify_file").await;
+    assert_no_message(&mut client2).await;
+}
+
+#[tokio::test(core_threads = 2)]
+async fn test_notify_group() {
+    let services = Services::new().await;
+    services.add_user("foo", "bar");
+    services.add_user("foo2", "bar");
+
+    let server_handle = services.spawn_server().await;
+    let mut client1 = server_handle.connect_auth("foo", "bar").await;
+    let mut client2 = server_handle.connect_auth("foo2", "bar").await;
+
+    let mut redis = services.redis_client().await;
+    redis
+        .publish::<_, _, ()>(
+            "notify_group_membership_update",
+            r#"{"user":"foo", "group":"asd"}"#,
+        )
+        .await
+        .unwrap();
+
+    assert_next_message(&mut client1, "notify_file").await;
+    assert_no_message(&mut client2).await;
+}
+
+#[tokio::test(core_threads = 2)]
+async fn test_notify_custom() {
+    let services = Services::new().await;
+    services.add_user("foo", "bar");
+    services.add_user("foo2", "bar");
+
+    let server_handle = services.spawn_server().await;
+    let mut client1 = server_handle.connect_auth("foo", "bar").await;
+    let mut client2 = server_handle.connect_auth("foo2", "bar").await;
+
+    let mut redis = services.redis_client().await;
+    redis
+        .publish::<_, _, ()>(
+            "notify_custom",
+            r#"{"user":"foo", "message":"my_custom_message"}"#,
+        )
+        .await
+        .unwrap();
+
+    assert_next_message(&mut client1, "my_custom_message").await;
+    assert_no_message(&mut client2).await;
+}
+
+#[tokio::test(core_threads = 2)]
+async fn test_notify_custom_body() {
+    let services = Services::new().await;
+    services.add_user("foo", "bar");
+    services.add_user("foo2", "bar");
+
+    let server_handle = services.spawn_server().await;
+    let mut client1 = server_handle.connect_auth("foo", "bar").await;
+    let mut client2 = server_handle.connect_auth("foo2", "bar").await;
+
+    let mut redis = services.redis_client().await;
+    redis
+        .publish::<_, _, ()>(
+            "notify_custom",
+            r#"{"user":"foo", "message":"my_custom_message", "body": [1,2,3]}"#,
+        )
+        .await
+        .unwrap();
+
+    assert_next_message(&mut client1, "my_custom_message [1,2,3]").await;
+    assert_no_message(&mut client2).await;
+}

@@ -4,6 +4,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use parse_display::Display;
 use redis::{Client, Msg};
 use serde::Deserialize;
+use serde_json::Value;
 use std::convert::TryFrom;
 use thiserror::Error;
 use tokio::stream::{Stream, StreamExt};
@@ -52,6 +53,8 @@ pub enum Config {
 pub struct Custom {
     pub user: UserId,
     pub message: String,
+    #[serde(default)]
+    pub body: Value,
 }
 
 #[derive(Debug, Display)]

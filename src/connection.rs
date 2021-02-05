@@ -85,7 +85,7 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
             if let Ok(msg) = rx.recv().await {
                 if debounce.should_send(&msg) {
                     METRICS.add_message();
-                    user_ws_tx.send(Message::text(msg.to_string())).await.ok();
+                    user_ws_tx.send(msg.into()).await.ok();
                 }
             }
         }

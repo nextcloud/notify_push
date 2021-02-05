@@ -143,9 +143,13 @@ impl App {
             Event::PreAuth(PreAuth { user, token }) => {
                 self.pre_auth.insert(token, (Instant::now(), user));
             }
-            Event::Custom(Custom { user, message }) => {
+            Event::Custom(Custom {
+                user,
+                message,
+                body,
+            }) => {
                 self.connections
-                    .send_to_user(&user, MessageType::Custom(message))
+                    .send_to_user(&user, MessageType::Custom(message, body))
                     .await;
             }
             Event::Config(event::Config::LogSpec(spec)) => {

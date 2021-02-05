@@ -1,9 +1,12 @@
 use parse_display::Display;
+use serde_json::Value;
+use std::fmt::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 use tokio::time::Duration;
+use warp::ws::Message;
 
-#[derive(Debug, Display, Clone)]
+#[derive(Debug, Clone, Display)]
 pub enum MessageType {
     #[display("notify_file")]
     File,
@@ -12,7 +15,23 @@ pub enum MessageType {
     #[display("notify_notification")]
     Notification,
     #[display("{0}")]
-    Custom(String),
+    Custom(String, Value),
+}
+
+impl From<MessageType> for Message {
+    fn from(msg: MessageType) -> Self {
+        match msg {
+            MessageType::File => Message::text(String::from("notify_file")),
+            MessageType::Activity => Message::text(String::from("notify_activity")),
+            MessageType::Notification => Message::text(String::from("notify_notification")),
+            MessageType::Custom(ty, Value::Null) => Message::text(ty),
+            MessageType::Custom(ty, body) => Message::text({
+                let mut str = ty;
+                write!(&mut str, " {}", body).ok();
+                str
+            }),
+        }
+    }
 }
 
 pub static DEBOUNCE_ENABLE: AtomicBool = AtomicBool::new(true);
@@ -55,7 +74,7 @@ impl DebounceMap {
             MessageType::File => self.file,
             MessageType::Activity => self.activity,
             MessageType::Notification => self.notification,
-            MessageType::Custom(_) => Instant::now() - Duration::from_secs(600), // no debouncing for custom messages
+            MessageType::Custom(..) => Instant::now() - Duration::from_secs(600), // no debouncing for custom messages
         }
     }
 
@@ -64,7 +83,7 @@ impl DebounceMap {
             MessageType::File => self.file = Instant::now(),
             MessageType::Activity => self.activity = Instant::now(),
             MessageType::Notification => self.notification = Instant::now(),
-            MessageType::Custom(_) => {} // no debouncing for custom messages
+            MessageType::Custom(..) => {} // no debouncing for custom messages
         }
     }
 
@@ -73,7 +92,7 @@ impl DebounceMap {
             MessageType::File => Duration::from_secs(5),
             MessageType::Activity => Duration::from_secs(15),
             MessageType::Notification => Duration::from_secs(1),
-            MessageType::Custom(_) => Duration::from_millis(1), // no debouncing for custom messages
+            MessageType::Custom(..) => Duration::from_millis(1), // no debouncing for custom messages
         }
     }
 }
