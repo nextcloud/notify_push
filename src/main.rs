@@ -3,10 +3,13 @@ use flexi_logger::{colored_detailed_format, LogTarget, Logger};
 use notify_push::config::Config;
 use notify_push::message::DEBOUNCE_ENABLE;
 use notify_push::metrics::serve_metrics;
-use notify_push::{listen, serve, App};
+use notify_push::{listen_loop, serve, App};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tokio::time::Duration;
+use tokio::signal::unix::{signal, SignalKind};
+use tokio::stream::StreamExt;
+use tokio::sync::oneshot;
+use tokio::task::spawn;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -19,10 +22,9 @@ async fn main() -> Result<()> {
         .start()?;
     let _ = dotenv::dotenv();
 
-    ctrlc::set_handler(move || {
-        std::process::exit(0);
-    })
-    .expect("Error setting Ctrl-C handler");
+    let (serve_cancel, serve_cancel_handle) = oneshot::channel();
+    let (metrics_cancel, metrics_cancel_handle) = oneshot::channel();
+    let (listen_cancel, listen_cancel_handle) = oneshot::channel();
 
     let mut args = std::env::args();
     let config = match args.nth(1) {
@@ -50,17 +52,25 @@ async fn main() -> Result<()> {
     let app = Arc::new(App::new(config, log_handle).await?);
     app.self_test().await?;
 
-    tokio::task::spawn(serve(app.clone(), port));
+    spawn(serve(app.clone(), port, serve_cancel_handle));
 
     if let Some(metrics_port) = metrics_port {
-        tokio::task::spawn(serve_metrics(metrics_port));
+        spawn(serve_metrics(metrics_port, metrics_cancel_handle));
     }
 
-    loop {
-        if let Err(e) = listen(app.clone()).await {
-            eprintln!("Failed to setup redis subscription: {:#}", e);
-        }
-        log::warn!("Redis server disconnected, reconnecting in 1s");
-        tokio::time::delay_for(Duration::from_secs(1)).await;
-    }
+    spawn(listen_loop(app, listen_cancel_handle));
+
+    // wait for either a sigint or sigterm
+    let mut signals = signal(SignalKind::terminate())?.merge(signal(SignalKind::interrupt())?);
+    signals.next().await;
+
+    // then send cancel events to all of our spawned tasks
+
+    log::info!("shutdown signal received, shutting down");
+
+    serve_cancel.send(()).ok();
+    metrics_cancel.send(()).ok();
+    listen_cancel.send(()).ok();
+
+    Ok(())
 }

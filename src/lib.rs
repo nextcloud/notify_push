@@ -10,14 +10,17 @@ use ahash::RandomState;
 use color_eyre::{eyre::WrapErr, Result};
 use dashmap::DashMap;
 use flexi_logger::LoggerHandle;
+use futures::future::select;
 use futures::StreamExt;
+use futures::{pin_mut, FutureExt};
 use redis::{AsyncCommands, Client};
 use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
 use std::convert::Infallible;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
+use tokio::sync::oneshot;
 use tokio::sync::Mutex;
 use warp::filters::addr::remote;
 use warp::Filter;
@@ -165,7 +168,7 @@ impl App {
     }
 }
 
-pub async fn serve(app: Arc<App>, port: u16) {
+pub async fn serve(app: Arc<App>, port: u16, cancel: oneshot::Receiver<()>) {
     let app = warp::any().map(move || app.clone());
 
     let cors = warp::cors().allow_any_origin();
@@ -267,7 +270,23 @@ pub async fn serve(app: Arc<App>, port: u16) {
         .or(remote_test)
         .or(version);
 
-    warp::serve(routes).run(([0, 0, 0, 0], port)).await;
+    let (_, server) =
+        warp::serve(routes).bind_with_graceful_shutdown(([0, 0, 0, 0], port), cancel.map(|_| ()));
+    server.await;
+}
+
+pub async fn listen_loop(app: Arc<App>, cancel: oneshot::Receiver<()>) {
+    let loop_ = async move {
+        loop {
+            if let Err(e) = listen(app.clone()).await {
+                eprintln!("Failed to setup redis subscription: {:#}", e);
+            }
+            log::warn!("Redis server disconnected, reconnecting in 1s");
+            tokio::time::delay_for(Duration::from_secs(1)).await;
+        }
+    };
+    pin_mut!(loop_);
+    select(cancel, loop_).await;
 }
 
 pub async fn listen(app: Arc<App>) -> Result<()> {
