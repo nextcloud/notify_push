@@ -33,4 +33,8 @@ class RedisQueue implements IQueue {
 	public function push(string $channel, $message) {
 		$this->redis->publish($channel, json_encode($message));
 	}
+
+	public function getConnection(): \Redis {
+		return $this->redis;
+	}
 }

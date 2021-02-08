@@ -11,6 +11,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use dashmap::DashMap;
 use flexi_logger::LoggerHandle;
 use futures::StreamExt;
+use redis::{AsyncCommands, Client};
 use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
 use std::convert::Infallible;
@@ -37,7 +38,7 @@ pub struct App {
     storage_mapping: StorageMapping,
     pre_auth: DashMap<String, (Instant, UserId), RandomState>,
     test_cookie: AtomicU32,
-    redis_url: String,
+    redis: Client,
     log_handle: Mutex<LoggerHandle>,
 }
 
@@ -51,7 +52,7 @@ impl App {
             StorageMapping::new(&config.database_url, config.database_prefix).await?;
         let pre_auth = DashMap::default();
 
-        let redis_url = config.redis_url;
+        let redis = Client::open(config.redis_url)?;
 
         Ok(App {
             connections,
@@ -59,7 +60,7 @@ impl App {
             test_cookie,
             pre_auth,
             storage_mapping,
-            redis_url,
+            redis,
             log_handle: Mutex::new(log_handle),
         })
     }
@@ -77,7 +78,7 @@ impl App {
             StorageMapping::from_connection(connection, config.database_prefix).await?;
         let pre_auth = DashMap::default();
 
-        let redis_url = config.redis_url;
+        let redis = Client::open(config.redis_url)?;
 
         Ok(App {
             connections,
@@ -85,7 +86,7 @@ impl App {
             test_cookie,
             pre_auth,
             storage_mapping,
-            redis_url,
+            redis,
             log_handle: Mutex::new(log_handle),
         })
     }
@@ -240,18 +241,37 @@ pub async fn serve(app: Arc<App>, port: u16) {
             Result::<_, Infallible>::Ok(result)
         });
 
+    let version = warp::path!("test" / "version")
+        .and(warp::post())
+        .and(app.clone())
+        .and_then(|app: Arc<App>| async move {
+            Result::<_, Infallible>::Ok(match app.redis.get_async_connection().await {
+                Ok(mut client) => {
+                    client
+                        .set::<_, _, ()>("notify_push_version", env!("NOTIFY_PUSH_VERSION"))
+                        .await
+                        .ok();
+                    "set"
+                }
+                Err(e) => {
+                    log::warn!("Failed to get redis connection for version set: {:#}", e);
+                    "error"
+                }
+            })
+        });
+
     let routes = socket
         .or(cookie_test)
         .or(reverse_cookie_test)
         .or(mapping_test)
-        .or(remote_test);
+        .or(remote_test)
+        .or(version);
 
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }
 
 pub async fn listen(app: Arc<App>) -> Result<()> {
-    let client = redis::Client::open(app.redis_url.clone())?;
-    let mut event_stream = event::subscribe(client).await?;
+    let mut event_stream = event::subscribe(&app.redis).await?;
 
     let handle = move |event: Event| {
         // todo: any way to do this without cloning the arc every event (scoped?)

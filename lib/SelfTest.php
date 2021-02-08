@@ -25,35 +25,36 @@ namespace OCA\NotifyPush;
 
 use OCA\NotifyPush\Queue\IQueue;
 use OCA\NotifyPush\Queue\RedisQueue;
-use OCP\Http\Client\IClient;
+use OCP\App\IAppManager;
+use OCP\Http\Client\IClientService;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class SelfTest {
 	private $client;
-	private $server;
 	private $cookie;
 	private $config;
 	private $queue;
 	private $connection;
+	private $appManager;
 
 	public function __construct(
-		IClient $client,
+		IClientService $clientService,
 		IConfig $config,
 		IQueue $queue,
 		IDBConnection $connection,
-		string $server
+		IAppManager $appManager
 	) {
-		$this->client = $client;
-		$this->server = $server;
+		$this->client = $clientService->newClient();
 		$this->cookie = rand(1, pow(2, 30));
 		$this->queue = $queue;
 		$this->config = $config;
 		$this->connection = $connection;
+		$this->appManager = $appManager;
 	}
 
-	public function test(OutputInterface $output): int {
+	public function test(string $server, OutputInterface $output): int {
 		if ($this->queue instanceof RedisQueue) {
 			$output->writeln("<info>✓ redis is configured</info>");
 		} else {
@@ -61,9 +62,9 @@ class SelfTest {
 			return 1;
 		}
 
-		if (strpos($this->server, 'http://') === 0) {
+		if (strpos($server, 'http://') === 0) {
 			$output->writeln("<comment>🗴 using unencrypted https for push server is strongly discouraged</comment>");
-		} elseif (strpos($this->server, 'https://') !== 0) {
+		} elseif (strpos($server, 'https://') !== 0) {
 			$output->writeln("<error>🗴 malformed server url</error>");
 			return 1;
 		}
@@ -72,7 +73,7 @@ class SelfTest {
 		$this->config->setAppValue('notify_push', 'cookie', (string)$this->cookie);
 
 		try {
-			$retrievedCookie = (int)$this->client->get($this->server . '/test/cookie')->getBody();
+			$retrievedCookie = (int)$this->client->get($server . '/test/cookie')->getBody();
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
@@ -89,7 +90,7 @@ class SelfTest {
 		// test if the push server can load storage mappings from the db
 		[$storageId, $count] = $this->getStorageIdForTest();
 		try {
-			$retrievedCount = (int)$this->client->get($this->server . '/test/mapping/' . $storageId)->getBody();
+			$retrievedCount = (int)$this->client->get($server . '/test/mapping/' . $storageId)->getBody();
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
@@ -105,7 +106,7 @@ class SelfTest {
 
 		// test if the push server can reach nextcloud by having it request the cookie
 		try {
-			$retrievedCookie = (int)$this->client->get($this->server . '/test/reverse_cookie')->getBody();
+			$retrievedCookie = (int)$this->client->get($server . '/test/reverse_cookie')->getBody();
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
@@ -121,7 +122,7 @@ class SelfTest {
 
 		// test that the push server is a trusted proxy
 		try {
-			$remote = $this->client->get($this->server . '/test/remote/1.2.3.4')->getBody();
+			$remote = $this->client->get($server . '/test/remote/1.2.3.4')->getBody();
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
@@ -133,6 +134,30 @@ class SelfTest {
 		} else {
 			$output->writeln("<error>🗴 push server is not a trusted proxy, please add '$remote' to the list of trusted proxies" .
 				" or configure any existing reverse proxy to forward the 'x-forwarded-for' send by the push server.</error>");
+			return 1;
+		}
+
+		// test that the binary is up to date
+		try {
+			$this->queue->getConnection()->del("notify_push_version");
+			$response = $this->client->post($server . '/test/version');
+			if ($response === "error") {
+				$output->writeln("<error>🗴 failed to get binary version, check the push server output for more information</error>");
+				return 1;
+			}
+			usleep(10 * 1000);
+			$binaryVersion = $this->queue->getConnection()->get("notify_push_version");
+		} catch (\Exception $e) {
+			$msg = $e->getMessage();
+			$output->writeln("<error>🗴 failed to get binary version: $msg</error>");
+			return 1;
+		}
+		$appVersion = $this->appManager->getAppVersion('notify_push');
+
+		if ($appVersion === $binaryVersion) {
+			$output->writeln("<info>✓ push server is running the same version as the app</info>");
+		} else {
+			$output->writeln("<error>🗴 push server (version $binaryVersion) is not the same version as the app (version $appVersion).</error>");
 			return 1;
 		}
 

@@ -34,5 +34,8 @@ mini-redis = "0.2.0"
 tokio-tungstenite = "0.11.0"
 http-auth-basic = "0.1.1"
 
+[build-dependencies]
+nextcloud_appinfo = "0.6.0"
+
 [profile.dev.package.backtrace]
 opt-level = 3

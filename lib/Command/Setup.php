@@ -24,38 +24,23 @@ declare(strict_types=1);
 namespace OCA\NotifyPush\Command;
 
 use OC\Core\Command\Base;
-use OCA\NotifyPush\Queue\IQueue;
-use OCA\NotifyPush\SelfTest;
-use OCP\Files\Config\IUserMountCache;
-use OCP\Http\Client\IClientService;
 use OCP\IConfig;
-use OCP\IDBConnection;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class Setup extends Base {
+	private $test;
 	private $config;
-	private $queue;
-	private $clientService;
-	private $mountCache;
-	private $connection;
 
 	public function __construct(
-		IConfig $config,
-		IQueue $queue,
-		IClientService $clientService,
-		IUserMountCache $mountCache,
-		IDBConnection $connection
+		\OCA\NotifyPush\SelfTest $test,
+		IConfig $config
 	) {
 		parent::__construct();
+		$this->test = $test;
 		$this->config = $config;
-		$this->queue = $queue;
-		$this->clientService = $clientService;
-		$this->mountCache = $mountCache;
-		$this->connection = $connection;
 	}
-
 
 	protected function configure() {
 		$this
@@ -67,15 +52,8 @@ class Setup extends Base {
 
 	protected function execute(InputInterface $input, OutputInterface $output) {
 		$server = $input->getArgument('server');
-		
-		$test = new SelfTest(
-			$this->clientService->newClient(),
-			$this->config,
-			$this->queue,
-			$this->connection,
-			$server
-		);
-		$result = $test->test($output);
+
+		$result = $this->test->test($server, $output);
 
 		if ($result === 0) {
 			$this->config->setAppValue('notify_push', 'base_endpoint', $server);

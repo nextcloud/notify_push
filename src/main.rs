@@ -12,7 +12,7 @@ use tokio::time::Duration;
 async fn main() -> Result<()> {
     color_eyre::install()?;
     let level = dotenv::var("LOG").ok();
-    let level = level.as_ref().map(String::as_str).unwrap_or("warn");
+    let level = level.as_deref().unwrap_or("warn");
     let log_handle = Logger::with_str(level)
         .log_target(LogTarget::StdOut)
         .format(colored_detailed_format)

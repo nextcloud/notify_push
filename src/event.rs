@@ -125,7 +125,7 @@ impl TryFrom<Msg> for Event {
 }
 
 pub async fn subscribe(
-    client: Client,
+    client: &Client,
 ) -> Result<impl Stream<Item = Result<Event, MessageDecodeError>>> {
     let con = client
         .get_async_connection()
