@@ -242,3 +242,23 @@ the [github actions](https://github.com/nextcloud/notify_push/actions) page.
 ```bash
 test_client https://cloud.example.com username password
 ```
+
+### Building
+
+The server binary is built using rust and cargo.
+
+- Install `rust` trough your package manager or [rustup](https://rustup.rs/)
+- Run `cargo build`
+
+Any build intended for production use or distribution
+should be compiled in release mode for optimal performance and targeting musl libc for improved portability.
+
+```bash
+cargo build --release --target=x86_64-unknown-linux-musl
+```
+
+Cross compiling for other platform is done easiest using [`cross`](https://github.com/rust-embedded/cross), for example:
+
+```bash
+cross build --release --target=aarch64-unknown-linux-musl
+```
