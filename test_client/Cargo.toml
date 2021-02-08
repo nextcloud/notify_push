@@ -5,7 +5,6 @@ authors = ["Robin Appelman <robin@icewind.nl>"]
 edition = "2018"
 
 [dependencies]
-# https://github.com/snapview/tungstenite-rs/pull/166
-tungstenite = { version = "0.13.0", git = "https://github.com/dnaka91/tungstenite-rs", branch = "rustls", features = ["use-rustls"] }
+tungstenite = { version = "0.13.0", default-features = false, features = ["rustls-tls"] }
 color-eyre = "0.5.8"
 ureq = { version = "1.5", features = ["json"] }

@@ -834,7 +834,8 @@ dependencies = [
 [[package]]
 name = "tungstenite"
 version = "0.13.0"
-source = "git+https://github.com/dnaka91/tungstenite-rs?branch=rustls#be05920e08fc0d21c03ef2a1156da81bfeb1eba8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fe8dada8c1a3aeca77d6b51a4f1314e0f4b8e438b7b1b71e3ddaca8080e4093"
 dependencies = [
  "base64",
  "byteorder",
