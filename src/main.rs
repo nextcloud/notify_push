@@ -6,8 +6,8 @@ use notify_push::metrics::serve_metrics;
 use notify_push::{listen_loop, serve, App};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use tokio::select;
 use tokio::signal::unix::{signal, SignalKind};
-use tokio::stream::StreamExt;
 use tokio::sync::oneshot;
 use tokio::task::spawn;
 
@@ -61,8 +61,13 @@ async fn main() -> Result<()> {
     spawn(listen_loop(app, listen_cancel_handle));
 
     // wait for either a sigint or sigterm
-    let mut signals = signal(SignalKind::terminate())?.merge(signal(SignalKind::interrupt())?);
-    signals.next().await;
+    let mut term = signal(SignalKind::terminate())?;
+    let mut int = signal(SignalKind::interrupt())?;
+
+    select! {
+        _ = term.recv() => (),
+        _ = int.recv() => (),
+    };
 
     // then send cancel events to all of our spawned tasks
 

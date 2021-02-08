@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::convert::TryFrom;
 use thiserror::Error;
-use tokio::stream::{Stream, StreamExt};
+use tokio_stream::{Stream, StreamExt};
 
 #[derive(Debug, Deserialize)]
 pub struct StorageUpdate {

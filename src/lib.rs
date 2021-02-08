@@ -22,6 +22,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::oneshot;
 use tokio::sync::Mutex;
+use tokio::time::sleep;
 use warp::filters::addr::remote;
 use warp::Filter;
 use warp_real_ip::get_forwarded_for;
@@ -282,7 +283,7 @@ pub async fn listen_loop(app: Arc<App>, cancel: oneshot::Receiver<()>) {
                 eprintln!("Failed to setup redis subscription: {:#}", e);
             }
             log::warn!("Redis server disconnected, reconnecting in 1s");
-            tokio::time::delay_for(Duration::from_secs(1)).await;
+            sleep(Duration::from_secs(1)).await;
         }
     };
     pin_mut!(loop_);

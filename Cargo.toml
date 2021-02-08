@@ -5,33 +5,33 @@ authors = ["Robin Appelman <robin@icewind.nl>"]
 edition = "2018"
 
 [dependencies]
-redis = { version = "0.17.0", features = ["tokio-rt-core", "aio"] }
+redis = { version = "0.19.0", features = ["tokio-comp", "aio"] }
 serde = { version = "1.0.117", features = ["derive"] }
 serde_json = "1.0.59"
 thiserror = "1.0.22"
-warp = "0.2.5"
-tokio = { version = "0.2", features = ["macros", "rt-threaded"] }
+warp = "0.3.0"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "signal"] }
 futures = "0.3"
 log = "0.4.11"
-sqlx = { version = "0.4.1", features = ["runtime-tokio-rustls", "any", "macros", "mysql", "sqlite", "postgres"] }
+sqlx = { version = "0.5.0", features = ["runtime-tokio-rustls", "any", "macros", "mysql", "sqlite", "postgres"] }
 dotenv = "0.15.0"
 dashmap = "4.0"
 once_cell = "1.5.2"
 color-eyre = "0.5"
 smallvec = "1.5.0"
-reqwest = { version = "0.10.0", default-features = false, features = ["rustls-tls", "json"] }
-warp-real-ip = "0.1.1"
+reqwest = { version = "0.11.0", default-features = false, features = ["rustls-tls", "json"] }
+warp-real-ip = "0.2"
 php-literal-parser = "0.1"
 parse-display = "0.4"
 percent-encoding = "2.1.0"
-ctrlc = { version = "3.1.7", features = ["termination"] }
 rand = "0.7.3"
 ahash = "0.7.0"
 flexi_logger = { version = "0.17", features = ["colors"] }
+tokio-stream = { version = "0.1", features = ["net"] }
 
 [dev-dependencies]
-mini-redis = "0.2.0"
-tokio-tungstenite = "0.11.0"
+mini-redis = "0.4.0"
+tokio-tungstenite = "0.13.0"
 http-auth-basic = "0.1.1"
 
 [build-dependencies]

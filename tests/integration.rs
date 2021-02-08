@@ -5,7 +5,7 @@ use futures::{pin_mut, FutureExt};
 use futures::{SinkExt, StreamExt};
 use http_auth_basic::Credentials;
 use notify_push::config::Config;
-use notify_push::{listen, serve, App};
+use notify_push::{listen_loop, serve, App};
 use once_cell::sync::Lazy;
 use redis::AsyncCommands;
 use smallvec::alloc::sync::Arc;
@@ -16,7 +16,8 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::oneshot;
 use tokio::task::spawn;
 use tokio::time::timeout;
-use tokio::time::{delay_for, Duration};
+use tokio::time::{sleep, Duration};
+use tokio_stream::wrappers::TcpListenerStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 use warp::http::StatusCode;
@@ -53,7 +54,7 @@ impl Services {
         let redis_tcp = listen_available_port()
             .await
             .expect("Can't find open port for redis");
-        let mut nextcloud_tcp = listen_available_port()
+        let nextcloud_tcp = listen_available_port()
             .await
             .expect("Can't find open port for nextcloud mock");
 
@@ -116,7 +117,7 @@ impl Services {
         spawn(async move {
             warp::serve(uid)
                 .serve_incoming_with_graceful_shutdown(
-                    nextcloud_tcp.incoming(),
+                    TcpListenerStream::new(nextcloud_tcp),
                     nextcloud_shutdown_rx.map(|_| ()),
                 )
                 .await;
@@ -161,19 +162,26 @@ impl Services {
         }
         .await;
 
-        let (tx, rx) = oneshot::channel();
+        let (serve_tx, serve_rx) = oneshot::channel();
+        let (listen_tx, listen_rx) = oneshot::channel();
 
         spawn(async move {
-            let serve = serve(app.clone(), port);
-            let listen = listen(app.clone());
+            let serve = serve(app.clone(), port, serve_rx);
+            let listen = listen_loop(app.clone(), listen_rx);
+
             pin_mut!(serve);
             pin_mut!(listen);
-            select(select(serve, listen), rx).await;
+
+            select(serve, listen).await;
         });
 
-        delay_for(Duration::from_millis(10)).await;
+        sleep(Duration::from_millis(10)).await;
 
-        ServerHandle { _handle: tx, port }
+        ServerHandle {
+            _serve_handle: serve_tx,
+            _listen_handle: listen_tx,
+            port,
+        }
     }
 
     async fn redis_client(&self) -> redis::aio::Connection {
@@ -206,7 +214,8 @@ impl Services {
 }
 
 struct ServerHandle {
-    _handle: oneshot::Sender<()>,
+    _serve_handle: oneshot::Sender<()>,
+    _listen_handle: oneshot::Sender<()>,
     port: u16,
 }
 
@@ -234,14 +243,14 @@ impl ServerHandle {
     }
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_self_test() {
     let services = Services::new().await;
     let app = services.app().await;
     app.self_test().await.unwrap();
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_auth() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -254,7 +263,7 @@ async fn test_auth() {
     assert_next_message(&mut client, "authenticated").await;
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_auth_failure() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -286,7 +295,7 @@ async fn assert_no_message(client: &mut WebSocketStream<TcpStream>) {
         .is_err());
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_notify_activity() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -303,7 +312,7 @@ async fn test_notify_activity() {
     assert_next_message(&mut client, "notify_activity").await;
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_notify_activity_other_user() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -320,7 +329,7 @@ async fn test_notify_activity_other_user() {
     assert_no_message(&mut client).await;
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_notify_file() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -343,7 +352,7 @@ async fn test_notify_file() {
     assert_next_message(&mut client, "notify_file").await;
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_notify_file_different_storage() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -366,7 +375,7 @@ async fn test_notify_file_different_storage() {
     assert_no_message(&mut client).await;
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_notify_file_multiple() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -400,7 +409,7 @@ async fn test_notify_file_multiple() {
     assert_no_message(&mut client3).await;
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_pre_auth() {
     let services = Services::new().await;
 
@@ -412,7 +421,7 @@ async fn test_pre_auth() {
         .await
         .unwrap();
 
-    delay_for(Duration::from_millis(100)).await;
+    sleep(Duration::from_millis(100)).await;
 
     let mut client = server_handle.connect_auth("", "token").await;
 
@@ -425,7 +434,7 @@ async fn test_pre_auth() {
     assert_next_message(&mut client, "notify_activity").await;
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_notify_notification() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -445,7 +454,7 @@ async fn test_notify_notification() {
     assert_no_message(&mut client2).await;
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_notify_share() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -465,7 +474,7 @@ async fn test_notify_share() {
     assert_no_message(&mut client2).await;
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_notify_group() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -488,7 +497,7 @@ async fn test_notify_group() {
     assert_no_message(&mut client2).await;
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_notify_custom() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -511,7 +520,7 @@ async fn test_notify_custom() {
     assert_no_message(&mut client2).await;
 }
 
-#[tokio::test(core_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_notify_custom_body() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
