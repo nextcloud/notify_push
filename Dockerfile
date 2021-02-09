@@ -8,9 +8,9 @@ RUN mkdir src && \
  cargo build --release && \
  rm -r src
 
-COPY src/* ./src/
-COPY appinfo/info.xml ./appinfo/
 COPY build.rs ./
+COPY appinfo/info.xml ./appinfo/
+COPY src/* ./src/
 RUN sudo chown -R rust:rust . && touch src/main.rs
 
 RUN cargo build --release

@@ -52,7 +52,7 @@ async fn main() -> Result<()> {
     let app = Arc::new(App::new(config, log_handle).await?);
     app.self_test().await?;
 
-    spawn(serve(app.clone(), port, serve_cancel_handle));
+    let server = spawn(serve(app.clone(), port, serve_cancel_handle));
 
     if let Some(metrics_port) = metrics_port {
         spawn(serve_metrics(metrics_port, metrics_cancel_handle));
@@ -76,6 +76,8 @@ async fn main() -> Result<()> {
     serve_cancel.send(()).ok();
     metrics_cancel.send(()).ok();
     listen_cancel.send(()).ok();
+
+    server.await?;
 
     Ok(())
 }
