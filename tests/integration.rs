@@ -243,7 +243,7 @@ impl ServerHandle {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_auth() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -256,7 +256,7 @@ async fn test_auth() {
     assert_next_message(&mut client, "authenticated").await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_auth_failure() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -288,7 +288,7 @@ async fn assert_no_message(client: &mut WebSocketStream<TcpStream>) {
         .is_err());
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_notify_activity() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -305,7 +305,7 @@ async fn test_notify_activity() {
     assert_next_message(&mut client, "notify_activity").await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_notify_activity_other_user() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -322,7 +322,7 @@ async fn test_notify_activity_other_user() {
     assert_no_message(&mut client).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_notify_file() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -345,7 +345,7 @@ async fn test_notify_file() {
     assert_next_message(&mut client, "notify_file").await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_notify_file_different_storage() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -368,7 +368,7 @@ async fn test_notify_file_different_storage() {
     assert_no_message(&mut client).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_notify_file_multiple() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -402,7 +402,7 @@ async fn test_notify_file_multiple() {
     assert_no_message(&mut client3).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pre_auth() {
     let services = Services::new().await;
 
@@ -427,7 +427,7 @@ async fn test_pre_auth() {
     assert_next_message(&mut client, "notify_activity").await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_notify_notification() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -447,7 +447,7 @@ async fn test_notify_notification() {
     assert_no_message(&mut client2).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_notify_share() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -467,7 +467,7 @@ async fn test_notify_share() {
     assert_no_message(&mut client2).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_notify_group() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -490,7 +490,7 @@ async fn test_notify_group() {
     assert_no_message(&mut client2).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_notify_custom() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
@@ -513,7 +513,7 @@ async fn test_notify_custom() {
     assert_no_message(&mut client2).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_notify_custom_body() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
