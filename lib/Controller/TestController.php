@@ -23,6 +23,9 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\Controller;
 
+use OCA\NotifyPush\Queue\IQueue;
+use OCA\NotifyPush\Queue\RedisQueue;
+use OCP\App\IAppManager;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\AppFramework\Http\DataResponse;
@@ -31,22 +34,27 @@ use OCP\IRequest;
 
 class TestController extends Controller {
 	private $config;
+	private $queue;
+	private $appManager;
 
 	public function __construct(
 		IRequest $request,
-		IConfig $config
+		IConfig $config,
+		IQueue $queue,
+		IAppManager $appManager
 	) {
 		parent::__construct('notify_push', $request);
 		$this->config = $config;
+		$this->queue = $queue;
+		$this->appManager = $appManager;
 	}
 
 	/**
 	 * @NoAdminRequired
 	 * @PublicPage
 	 * @NoCSRFRequired
-	 * @return DataResponse
 	 */
-	public function cookie() {
+	public function cookie(): DataResponse {
 		return new DataResponse((int)$this->config->getAppValue('notify_push', 'cookie', '0'));
 	}
 
@@ -55,7 +63,18 @@ class TestController extends Controller {
 	 * @PublicPage
 	 * @NoCSRFRequired
 	 */
-	public function remote() {
+	public function remote(): DataDisplayResponse {
 		return new DataDisplayResponse($this->request->getRemoteAddress());
+	}
+
+	/**
+	 * @NoAdminRequired
+	 * @PublicPage
+	 * @NoCSRFRequired
+	 */
+	public function version() {
+		if ($this->queue instanceof RedisQueue) {
+			$this->queue->getConnection()->set("notify_push_app_version", $this->appManager->getAppVersion('notify_push'));
+		}
 	}
 }

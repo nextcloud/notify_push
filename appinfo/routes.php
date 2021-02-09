@@ -34,6 +34,11 @@ return [
 			'verb' => 'GET',
 		],
 		[
+			'name' => 'test#version',
+			'url' => '/test/version',
+			'verb' => 'POST',
+		],
+		[
 			'name' => 'Auth#preAuth',
 			'url' => '/pre_auth',
 			'verb' => 'POST',

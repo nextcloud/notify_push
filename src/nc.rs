@@ -84,4 +84,16 @@ impl Client {
             .await?
             .parse()?)
     }
+
+    /// Ask the app to put it's version number into redis under 'notify_push_app_version'
+    pub async fn request_app_version(&self) -> Result<()> {
+        self.http
+            .post(
+                self.base_url
+                    .join("index.php/apps/notify_push/test/version")?,
+            )
+            .send()
+            .await?;
+        Ok(())
+    }
 }

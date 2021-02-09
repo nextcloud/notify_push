@@ -101,6 +101,29 @@ impl App {
             .get_users_for_storage_path(1, "")
             .await
             .wrap_err("Failed to test database access")?;
+        let mut redis = self.redis.get_async_connection().await?;
+        redis
+            .del("notify_push_app_version")
+            .await
+            .wrap_err("Failed to clear app version")?;
+        self.nc_client
+            .request_app_version()
+            .await
+            .wrap_err("Failed to request app version")?;
+        let version: String = redis
+            .get("notify_push_app_version")
+            .await
+            .wrap_err("Failed to get app version")?;
+
+        log::debug!("app is running version {}", version);
+        if version != env!("NOTIFY_PUSH_VERSION") {
+            log::warn!(
+                "push server (version {}) is not the same version as the app (version {})",
+                env!("NOTIFY_PUSH_VERSION"),
+                version
+            );
+        }
+
         Ok(())
     }
 
