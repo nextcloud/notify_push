@@ -244,13 +244,6 @@ impl ServerHandle {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn test_self_test() {
-    let services = Services::new().await;
-    let app = services.app().await;
-    app.self_test().await.unwrap();
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_auth() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
