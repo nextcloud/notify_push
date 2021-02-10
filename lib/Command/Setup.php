@@ -24,42 +24,202 @@ declare(strict_types=1);
 namespace OCA\NotifyPush\Command;
 
 use OC\Core\Command\Base;
+use OCA\NotifyPush\SetupWizard;
 use OCP\IConfig;
+use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Question\ConfirmationQuestion;
 
 class Setup extends Base {
 	private $test;
 	private $config;
+	private $setupWizard;
 
 	public function __construct(
 		\OCA\NotifyPush\SelfTest $test,
-		IConfig $config
+		IConfig $config,
+		SetupWizard $setupWizard,
 	) {
 		parent::__construct();
 		$this->test = $test;
 		$this->config = $config;
+		$this->setupWizard = $setupWizard;
 	}
 
 	protected function configure() {
 		$this
 			->setName('notify_push:setup')
 			->setDescription('Configure push server')
-			->addArgument('server', InputArgument::REQUIRED, "url of the push server");
+			->addArgument('server', InputArgument::OPTIONAL, "url of the push server");
 		parent::configure();
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output) {
 		$server = $input->getArgument('server');
+		if ($server) {
 
-		$result = $this->test->test($server, $output);
+			$result = $this->test->test($server, $output);
 
-		if ($result === 0) {
-			$this->config->setAppValue('notify_push', 'base_endpoint', $server);
+			if ($result === 0) {
+				$this->config->setAppValue('notify_push', 'base_endpoint', $server);
+				$output->writeln("  configuration saved");
+			}
+			return $result;
+		} else {
+			/** @var QuestionHelper $helper */
+			$helper = $this->getHelper('question');
+
+			if (!$this->setupWizard->hasRedis()) {
+				$output->writeln("<error>🗴 redis is required.</error>");
+				return 1;
+			}
+
+			if (!$this->config->getSystemValueString('overwrite.cli.url', '')) {
+				$output->writeln("<error>🗴 'overwrite.cli.url' needs to be configured in your system config.</error>");
+				$output->writeln("  See https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/config_sample_php_parameters.html#proxy-configurations");
+			}
+
+			if (!$this->setupWizard->hasBinary()) {
+				$output->writeln("<error>🗴 your system is not supported by the bundled binaries.</error>");
+				$this->readmeLink($output);
+				return 1;
+			}
+
+			if (!$this->setupWizard->testBinary()) {
+				$output->writeln("<error>🗴 bundled binary not working on your system.</error>");
+				$this->readmeLink($output);
+				return 1;
+			}
+
+			if (!$this->setupWizard->hasSystemd()) {
+				$output->writeln("<error>🗴 your system doesn't seem to be using systemd.</error>");
+				$this->readmeLink($output);
+				return 1;
+			}
+
+			$trustedProxies = $this->config->getSystemValue('trusted_proxies', []);
+			if (array_search('127.0.0.1', $trustedProxies) === false) {
+				$trustedProxies[] = '127.0.0.1';
+				$this->config->setSystemValue('trusted_proxies', $trustedProxies);
+			}
+
+			if (!$this->setupWizard->isBinaryRunningAtDefaultPort()) {
+				if (!$this->setupWizard->isPortFree()) {
+					$output->writeln("<error>🗴 default port(7867) is in use.</error>");
+					$output->writeln("  if you've already setup the notify_push binary then call the setup command with the address it's listening on.");
+					$this->readmeLink($output);
+					return 1;
+				}
+
+				$testResult = $this->setupWizard->testAutoConfig();
+				if ($testResult !== true) {
+					$output->writeln("<error>🗴 failed to run self-test with auto-generated config.</error>");
+					if (is_string($testResult)) {
+						$this->printTestResult($output, $testResult);
+					}
+					$this->readmeLink($output);
+					return 1;
+				}
+
+				$systemd = $this->setupWizard->generateSystemdService();
+
+				$output->writeln("Place the following systemd config at <info>/etc/systemd/system/notify_push.service</info>");
+				$output->writeln("");
+				$output->writeln($systemd);
+				$output->writeln("");
+				$output->writeln("And run <info>sudo systemctl enable --now notify_push</info>");
+
+				$helper->ask($input, $output, new ConfirmationQuestion("Press enter to continue..."));
+
+				if (!$this->setupWizard->isBinaryRunningAtDefaultPort()) {
+					$output->writeln("<error>🗴 push binary doesn't seem to be running, did you follow the above instructions?.</error>");
+					$this->readmeLink($output);
+					return 1;
+				}
+			} else {
+				$output->writeln("Push binary seems to be running already");
+			}
+
+			$testResult = $this->setupWizard->selfTestNonProxied();
+			if ($testResult !== true) {
+				$output->writeln("<error>🗴 failed to run self-test.</error>");
+				if (is_string($testResult)) {
+					$this->printTestResult($output, $testResult);
+				}
+				$this->readmeLink($output);
+				return 1;
+			}
+			$output->writeln("<info>✓ push server seems to be functioning correctly.</info>");
+
+			if (!$this->setupWizard->isBinaryRunningBehindProxy()) {
+				$proxy = $this->setupWizard->guessProxy();
+				if ($proxy === 'nginx') {
+					$output->writeln("Place the following nginx config within the <info>server</info> block of the nginx config for your nextcloud installation");
+					$output->writeln("which can usually be found within <info>/etc/nginx/sites-enabled/</info>");
+					$output->writeln("");
+					$output->writeln($this->setupWizard->nginxConfig());
+					$output->writeln("");
+					$output->writeln("And reload the config using <info>sudo nginx -s reload</info>");
+				} else if ($proxy === 'apache') {
+					$output->writeln("Run the following commands to enable the proxy modules");
+					$output->writeln("    <info>sudo a2enmod proxy</info>");
+					$output->writeln("    <info>sudo a2enmod proxy_http</info>");
+					$output->writeln("");
+					$output->writeln("Then place the following within the <info><VirtualHost></info> block of the apache config for your nextcloud installation");
+					$output->writeln("which can usually be found within <info>/etc/apache2/sites-enabled/</info>");
+					$output->writeln("");
+					$output->writeln($this->setupWizard->apacheConfig());
+					$output->writeln("");
+					$output->writeln("And reload apache using <info>sudo systemctl restart apache2</info>");
+				} else {
+					$output->writeln("<error>🗴 failed to detect reverse proxy.</error>");
+					$this->readmeLink($output);
+					return 1;
+				}
+				$helper->ask($input, $output, new ConfirmationQuestion("Press enter to continue..."));
+
+				if (!$this->setupWizard->isBinaryRunningBehindProxy()) {
+					$output->writeln("<error>🗴 push binary doesn't seem to be reachable trough the reverse proxy, did you follow the above instructions?.</error>");
+					$this->readmeLink($output);
+					return 1;
+				}
+			} else {
+				$output->writeln("Reverse proxy seems to be configured already");
+			}
+
+			$testResult = $this->setupWizard->selfTestProxied();
+			if ($testResult !== true) {
+				$output->writeln("<error>🗴 failed to run self-test.</error>");
+				if (is_string($testResult)) {
+					$this->printTestResult($output, $testResult);
+				}
+				$this->readmeLink($output);
+				return 1;
+			}
+
+			$output->writeln("<info>✓ reverse proxy seems to be setup correctly.</info>");
+			$this->config->setAppValue('notify_push', 'base_endpoint', $this->setupWizard->getProxiedBase());
 			$output->writeln("  configuration saved");
 		}
 
-		return $result;
+		return 0;
+	}
+
+	private function readmeLink(OutputInterface $output) {
+		$output->writeln("  See the steps in the README for manual setup instructions: https://github.com/nextcloud/notify_push");
+	}
+
+	private function printTestResult(OutputInterface $output, string $result) {
+		$lines = explode("\n", $result);
+		foreach ($lines as $i => &$line) {
+			if ($i === 0) {
+				$line = 'test output: ' . $line;
+			} else {
+				$line = '             ' . $line;
+			}
+			$output->writeln($line);
+		}
 	}
 }

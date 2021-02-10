@@ -21,10 +21,18 @@ for updates on their own, although these can be run on a much lower frequency.
 
 This app requires a redis server to be setup and for nextcloud to be configured to use the redis server.
 
-## Setup
+## Quick setup
+
+The app comes with a setup wizard that should guide you trough the setup process for most setups.
+
+- Install the `notify_push` app from the appstore
+- Run `occ notify_push:setup` and follow the provided instructions
+
+## Manual setup
 
 The setup required consists of three steps
 
+- Install the `notify_push` app from the appstore
 - Setting up the push server
 - Configuring the reverse proxy
 - Configuring the nextcloud app
@@ -44,7 +52,7 @@ content.
 Description = Push daemon for Nextcloud clients
 
 [Service]
-Environment = PORT=3030 # Change if you already have something running on this port
+Environment = PORT=7867 # Change if you already have something running on this port
 ExecStart = /path/to/push/binary/notify_push /path/to/nextcloud/config/config.php
 
 [Install]
@@ -95,7 +103,7 @@ If you're using nginx, add the following `location` block the the existing `serv
 
 ```nginx
 location /push/ {
-    proxy_pass http://localhost:3030/; # Replace the port if you picked a different port for the push service
+    proxy_pass http://localhost:7867/; # Replace the port if you picked a different port for the push service
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "Upgrade";
@@ -124,8 +132,8 @@ sudo a2enmod proxy_http
 Then add the following lines to the `<VirtualHost>` block used for the Nextcloud server.
 
 ```dotenv
-ProxyPass /push/ http://localhost:3030/
-ProxyPassReverse /push/ http://localhost:3030/
+ProxyPass /push/ http://localhost:7867/
+ProxyPassReverse /push/ http://localhost:7867/
 ```
 
 Afterwards you can restart apache using
