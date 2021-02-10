@@ -1,11 +1,10 @@
 [package]
 before_cmds = [
-	"cargo build --release --target=x86_64-unknown-linux-musl",
 	"cross build --release --target=armv7-unknown-linux-musleabihf",
 	"cross build --release --target=aarch64-unknown-linux-musl",
-	"rm -r bin",
+	"cargo build --release --target=x86_64-unknown-linux-musl",
 	"mkdir -p bin/x86_64 bin/armv7 bin/aarch64",
-	"cp target/x86_64-unknown-linux-musl/release_notify_push bin/x86_64",
-	"cp target/armv7-unknown-linux-musleabihf/release_notify_push bin/armv7",
-	"cp target/aarch64-unknown-linux-musl bin/aarch64",
+	"cp target/x86_64-unknown-linux-musl/release/notify_push bin/x86_64",
+	"cp target/armv7-unknown-linux-musleabihf/release/notify_push bin/armv7",
+	"cp target/aarch64-unknown-linux-musl/release/notify_push bin/aarch64",
 ]

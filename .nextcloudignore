@@ -11,3 +11,7 @@ screenshots
 .nextcloudignore
 target
 src
+test_client
+tests
+Cargo.*
+build.rs
