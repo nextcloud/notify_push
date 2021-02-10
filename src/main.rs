@@ -27,9 +27,13 @@ async fn main() -> Result<()> {
     let (listen_cancel, listen_cancel_handle) = oneshot::channel();
 
     let mut args = std::env::args();
-    let config = match args.nth(1) {
+    let config = match args.nth(1).as_deref() {
+        Some("--version") => {
+            println!("notify_push {}", env!("NOTIFY_PUSH_VERSION"));
+            return Ok(());
+        }
         Some(file) => {
-            Config::from_file(&file).wrap_err("Failed to load config from nextcloud config file")?
+            Config::from_file(file).wrap_err("Failed to load config from nextcloud config file")?
         }
         None => Config::from_env().wrap_err("Failed to load config from environment variables")?,
     };
