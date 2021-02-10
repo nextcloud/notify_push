@@ -39,3 +39,6 @@ nextcloud_appinfo = "0.6.0"
 
 [profile.dev.package.backtrace]
 opt-level = 3
+
+[profile.release]
+lto = true
