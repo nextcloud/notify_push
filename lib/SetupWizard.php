@@ -209,7 +209,7 @@ WantedBy = multi-user.target
 	public function guessProxy() {
 		$base = $this->config->getSystemValueString('overwrite.cli.url', '');
 		try {
-			$result = $this->client->get($base, ['nextcloud' => ['allow_local_address' => true]]);
+			$result = $this->client->get($base, ['nextcloud' => ['allow_local_address' => true], 'verify' => false]);
 			$server = strtolower($result->getHeader('server'));
 			if (strpos($server, 'apache') !== false) {
 				return 'apache';
