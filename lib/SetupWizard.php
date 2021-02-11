@@ -51,9 +51,20 @@ class SetupWizard {
 		$this->config = $config;
 	}
 
+	private function getArch(): string {
+		$arch = php_uname('m');
+		if (strpos($arch, 'armv7') === 0) {
+			return 'armv7';
+		}
+		if (strpos($arch, 'aarch64') === 0) {
+			return 'aarch64';
+		}
+		return $arch;
+	}
+
 	private function getBinaryPath(): string {
 		$basePath = realpath(__DIR__ . '/../bin/');
-		$arch = php_uname('m');
+		$arch = $this->getArch();
 		return "$basePath/$arch/notify_push";
 	}
 
