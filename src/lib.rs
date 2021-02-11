@@ -109,18 +109,18 @@ impl App {
             .request_app_version()
             .await
             .wrap_err("Failed to request app version")?;
-        let version: String = redis
-            .get("notify_push_app_version")
-            .await
-            .wrap_err("Failed to get app version")?;
-
-        log::debug!("app is running version {}", version);
-        if version != env!("NOTIFY_PUSH_VERSION") {
-            log::warn!(
-                "push server (version {}) is not the same version as the app (version {})",
-                env!("NOTIFY_PUSH_VERSION"),
-                version
-            );
+        match redis.get::<_, String>("notify_push_app_version").await {
+            Ok(version) if version == env!("NOTIFY_PUSH_VERSION") => {}
+            Ok(version) => {
+                log::warn!(
+                    "push server (version {}) is not the same version as the app (version {})",
+                    env!("NOTIFY_PUSH_VERSION"),
+                    version
+                );
+            }
+            Err(e) => {
+                log::warn!("failed to detect app version app: {:#}", e);
+            }
         }
 
         Ok(())
