@@ -2,9 +2,11 @@
 <info xmlns:xsi= "http://www.w3.org/2001/XMLSchema-instance"
 	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
 	<id>notify_push</id>
-	<name>Socket Push</name>
-	<summary>Push update support for desktop app</summary>
-	<description><![CDATA[Push update support for desktop app]]></description>
+	<name>Client Push</name>
+	<summary>Push update support for clients</summary>
+	<description><![CDATA[Push update support for desktop app.
+
+Once the app is installed, the push binary needs to be setup. You can either use the setup wizard with `occ notify_push:setup` or see the `README` for detailed setup instructions: github.com/nextcloud/notify_push]]></description>
 	<version>0.1.0</version>
 	<licence>agpl</licence>
 	<author>Robin Appelman</author>
@@ -14,7 +16,10 @@
 		<filesystem/>
 	</types>
 
-	<bugs>https://github.com/nextcloud/push_ws/issues</bugs>
+	<bugs>https://github.com/nextcloud/notify_push/issues</bugs>
+	<documentation>
+		<admin>https://github.com/nextcloud/notify_push</admin>
+	</documentation>
 
 	<dependencies>
 		<nextcloud min-version="21" max-version="21"/>
