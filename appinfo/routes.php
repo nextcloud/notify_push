@@ -36,7 +36,7 @@ return [
 		[
 			'name' => 'test#version',
 			'url' => '/test/version',
-			'verb' => 'POST',
+			'verb' => 'GET',
 		],
 		[
 			'name' => 'Auth#preAuth',

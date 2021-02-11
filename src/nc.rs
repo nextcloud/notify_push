@@ -10,9 +10,11 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(base_url: &str) -> Result<Self> {
+    pub fn new(base_url: &str, allow_self_signed: bool) -> Result<Self> {
         let base_url = Url::parse(base_url).wrap_err("Invalid base url")?;
-        let http = reqwest::Client::new();
+        let http = reqwest::Client::builder()
+            .danger_accept_invalid_certs(allow_self_signed)
+            .build()?;
         Ok(Client { http, base_url })
     }
 
@@ -88,7 +90,7 @@ impl Client {
     /// Ask the app to put it's version number into redis under 'notify_push_app_version'
     pub async fn request_app_version(&self) -> Result<()> {
         self.http
-            .post(
+            .get(
                 self.base_url
                     .join("index.php/apps/notify_push/test/version")?,
             )

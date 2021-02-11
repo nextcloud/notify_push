@@ -141,7 +141,12 @@ class Setup extends Base {
 					return 1;
 				}
 
-				$testResult = $this->setupWizard->testAutoConfig();
+				$selfSigned = $this->setupWizard->isSelfSigned();
+				if ($selfSigned) {
+					$output->writeln("<comment>  Allowing self-signed certificates in the push config.</comment>");
+				}
+
+				$testResult = $this->setupWizard->testAutoConfig($selfSigned);
 				if ($testResult !== true) {
 					$output->writeln("<error>🗴 failed to run self-test with auto-generated config.</error>");
 					if (is_string($testResult)) {
@@ -151,7 +156,7 @@ class Setup extends Base {
 					return 1;
 				}
 
-				$systemd = $this->setupWizard->generateSystemdService();
+				$systemd = $this->setupWizard->generateSystemdService($selfSigned);
 
 				$output->writeln("Place the following systemd config at <info>/etc/systemd/system/notify_push.service</info>");
 				$output->writeln("");

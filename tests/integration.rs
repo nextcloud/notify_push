@@ -151,7 +151,7 @@ impl Services {
 
     async fn app(&self) -> App {
         let config = self.config();
-        App::with_connection(self.db.clone(), config, LOG_HANDLE.clone())
+        App::with_connection(self.db.clone(), config, LOG_HANDLE.clone(), false)
             .await
             .unwrap()
     }

@@ -47,9 +47,13 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(config: Config, log_handle: LoggerHandle) -> Result<Self> {
+    pub async fn new(
+        config: Config,
+        log_handle: LoggerHandle,
+        allow_self_signed: bool,
+    ) -> Result<Self> {
         let connections = ActiveConnections::default();
-        let nc_client = nc::Client::new(&config.nextcloud_url)?;
+        let nc_client = nc::Client::new(&config.nextcloud_url, allow_self_signed)?;
         let test_cookie = AtomicU32::new(0);
 
         let storage_mapping = StorageMapping::new(config.database, config.database_prefix).await?;
@@ -72,9 +76,10 @@ impl App {
         connection: AnyPool,
         config: Config,
         log_handle: LoggerHandle,
+        allow_self_signed: bool,
     ) -> Result<Self> {
         let connections = ActiveConnections::default();
-        let nc_client = nc::Client::new(&config.nextcloud_url)?;
+        let nc_client = nc::Client::new(&config.nextcloud_url, allow_self_signed)?;
         let test_cookie = AtomicU32::new(0);
 
         let storage_mapping =

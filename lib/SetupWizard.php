@@ -113,18 +113,22 @@ class SetupWizard {
 	}
 
 	/**
+	 * @param bool $selfSigned
 	 * @return bool|string
 	 */
-	public function testAutoConfig() {
+	public function testAutoConfig(bool $selfSigned) {
 		$path = $this->getBinaryPath();
 		$config = $this->getConfigPath();
 		$descriptorSpec = [
 			0 => ["pipe", "r"],
 			1 => ["pipe", "w"],
+			2 => ["pipe", "w"],
 		];
 		$pipes = [];
 		$proc = proc_open("exec $path $config", $descriptorSpec, $pipes, null, [
 			'PORT' => 7867,
+			'ALLOW_SELF_SIGNED' => $selfSigned ? 'true' : 'false',
+			'LOG' => 'notify_push=info',
 		]);
 		// give the server some time to start
 		usleep(100 * 1000);
@@ -136,7 +140,8 @@ class SetupWizard {
 		$testResult = $this->selfTestNonProxied();
 		if ($testResult !== true) {
 			proc_terminate($proc);
-			return $testResult;
+			rewind($pipes[1]);
+			return stream_get_contents($pipes[1]) . $testResult;
 		}
 		proc_terminate($proc);
 		return true;
@@ -146,16 +151,37 @@ class SetupWizard {
 		return $this->isBinaryRunningAt("http://localhost:7867");
 	}
 
-	public function getProxiedBase(): string {
+	private function getBaseUrl(): string {
 		$base = $this->config->getSystemValueString('overwrite.cli.url', '');
 		if (strpos($base, "https://") !== 0) {
 			$httpsBase = "https://" . ltrim($base, "http://");
-			if (isset($this->httpsCache[$httpsBase]) || $this->isBinaryRunningAt($httpsBase . '/push')) {
+			if (isset($this->httpsCache[$httpsBase])) {
+				return ($this->httpsCache[$httpsBase]) ? $httpsBase : $base;
+			}
+			try {
+				$this->client->get($base, ['nextcloud' => ['allow_local_address' => true], 'verify' => false]);
 				$this->httpsCache[$httpsBase] = true;
-				return $httpsBase . '/push';
+				return $base;
+			} catch (\Exception $e) {
+				$this->httpsCache[$httpsBase] = false;
+				return $base;
 			}
 		}
-		return $base . '/push';
+		return $base;
+	}
+
+	public function isSelfSigned(): bool {
+		$base = $this->getBaseUrl();
+		try {
+			$this->client->get($base, ['nextcloud' => ['allow_local_address' => true]]);
+			return false;
+		} catch (\Exception $e) {
+			return true;
+		}
+	}
+
+	public function getProxiedBase(): string {
+		return $this->getBaseUrl() . '/push';
 	}
 
 	private function isBinaryRunningAt(string $address): bool {
@@ -195,16 +221,17 @@ class SetupWizard {
 		}
 	}
 
-	public function generateSystemdService() {
+	public function generateSystemdService(bool $selfSigned) {
 		$path = $this->getBinaryPath();
 		$config = $this->getConfigPath();
 		$user = posix_getpwuid(posix_getuid())['name'];
+		$selfSigned = $selfSigned ? "Environment=ALLOW_SELF_SIGNED=true\n" : "";
 		$service = "[Unit]
 Description = Push daemon for Nextcloud clients
 
 [Service]
 Environment=PORT=7867
-ExecStart=$path $config
+${selfSigned}ExecStart=$path $config
 User=$user
 
 [Install]

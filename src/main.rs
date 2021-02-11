@@ -49,11 +49,20 @@ async fn main() -> Result<()> {
         .ok()
         .and_then(|port| port.parse().ok());
 
+    let allow_self_signed = dotenv::var("ALLOW_SELF_SIGNED")
+        .ok()
+        .map(|allow| allow.to_ascii_lowercase() == "true")
+        .unwrap_or(false);
+
+    if allow_self_signed {
+        log::info!("Running with certificate validation disabled");
+    }
+
     if dotenv::var("DEBOUNCE_DISABLE").is_ok() {
         DEBOUNCE_ENABLE.store(false, Ordering::Relaxed);
     }
 
-    let app = Arc::new(App::new(config, log_handle).await?);
+    let app = Arc::new(App::new(config, log_handle, allow_self_signed).await?);
     app.self_test().await?;
 
     log::trace!("Listening on port {}", port);
