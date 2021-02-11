@@ -122,7 +122,7 @@ class SetupWizard {
 			1 => ["pipe", "w"],
 		];
 		$pipes = [];
-		$proc = proc_open("$path $config", $descriptorSpec, $pipes, null, [
+		$proc = proc_open("exec $path $config", $descriptorSpec, $pipes, null, [
 			'PORT' => 7867,
 		]);
 		// give the server some time to start
