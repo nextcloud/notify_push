@@ -91,9 +91,13 @@ class Setup extends Base {
 				return 1;
 			}
 
-			if (!$this->config->getSystemValueString('overwrite.cli.url', '')) {
+			$url = $this->config->getSystemValueString('overwrite.cli.url', '');
+			if (!$url) {
 				$output->writeln("<error>🗴 'overwrite.cli.url' needs to be configured in your system config.</error>");
 				$output->writeln("  See https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/config_sample_php_parameters.html#proxy-configurations");
+			}
+			if (strpos($url, 'localhost') !== false) {
+				$output->writeln("<comment>🗴 'overwrite.cli.url' is set to localhost, the push server will not be reachable from other machines</comment>");
 			}
 
 			if (!$this->setupWizard->hasBinary()) {
@@ -195,6 +199,7 @@ class Setup extends Base {
 					$output->writeln("");
 					$output->writeln("Then place the following within the <info><VirtualHost></info> block of the apache config for your nextcloud installation");
 					$output->writeln("which can usually be found within <info>/etc/apache2/sites-enabled/</info>");
+					$output->writeln("Note that there might be both an <info>http</info> and <info>https</info> config file");
 					$output->writeln("");
 					$output->writeln($this->setupWizard->apacheConfig());
 					$output->writeln("");

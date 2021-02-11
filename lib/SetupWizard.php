@@ -36,6 +36,7 @@ class SetupWizard {
 	private $test;
 	private $client;
 	private $config;
+	private $httpsCache = [];
 
 	public function __construct(
 		IAppManager $appManager,
@@ -142,26 +143,32 @@ class SetupWizard {
 	}
 
 	public function isBinaryRunningAtDefaultPort(): bool {
-		try {
-			$result = $this->client->get("http://localhost:7867/test/cookie", ['nextcloud' => ['allow_local_address' => true]]);
-			return is_numeric($result->getBody());
-		} catch (\Exception $e) {
-			return false;
-		}
+		return $this->isBinaryRunningAt("http://localhost:7867");
 	}
 
 	public function getProxiedBase(): string {
 		$base = $this->config->getSystemValueString('overwrite.cli.url', '');
+		if (strpos($base, "https://") !== 0) {
+			$httpsBase = "https://" . ltrim($base, "http://");
+			if (isset($this->httpsCache[$httpsBase]) || $this->isBinaryRunningAt($httpsBase . '/push')) {
+				$this->httpsCache[$httpsBase] = true;
+				return $httpsBase . '/push';
+			}
+		}
 		return $base . '/push';
 	}
 
-	public function isBinaryRunningBehindProxy(): bool {
+	private function isBinaryRunningAt(string $address): bool {
 		try {
-			$result = $this->client->get($this->getProxiedBase() . "/test/cookie", ['nextcloud' => ['allow_local_address' => true], 'verify' => false]);
+			$result = $this->client->get($address . '/test/cookie', ['nextcloud' => ['allow_local_address' => true], 'verify' => false]);
 			return is_numeric($result->getBody());
 		} catch (\Exception $e) {
 			return false;
 		}
+	}
+
+	public function isBinaryRunningBehindProxy(): bool {
+		return $this->isBinaryRunningAt($this->getProxiedBase());
 	}
 
 	/**

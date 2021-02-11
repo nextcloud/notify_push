@@ -68,6 +68,9 @@ class SelfTest {
 			$output->writeln("<error>🗴 malformed server url</error>");
 			return 1;
 		}
+		if (strpos($server, 'localhost') !== false) {
+			$output->writeln("<comment>🗴 push server url is set to localhost, the push server will not be reachable from other machines</comment>");
+		}
 
 		$this->queue->push('notify_test_cookie', $this->cookie);
 		$this->config->setAppValue('notify_push', 'cookie', (string)$this->cookie);
