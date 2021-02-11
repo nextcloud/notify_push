@@ -40,7 +40,7 @@ class Setup extends Base {
 	public function __construct(
 		\OCA\NotifyPush\SelfTest $test,
 		IConfig $config,
-		SetupWizard $setupWizard,
+		SetupWizard $setupWizard
 	) {
 		parent::__construct();
 		$this->test = $test;
@@ -249,7 +249,7 @@ class Setup extends Base {
 
 	private function enterToContinue(OutputInterface $output): bool {
 		$output->write("Press enter to continue or ESC to cancel...");
-		system('stty cbreak -echo');
+		system('stty cbreak');
 		$result = null;
 		while ($result === null) {
 			$this->abortIfInterrupted();

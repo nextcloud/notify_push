@@ -38,6 +38,8 @@ async fn main() -> Result<()> {
         None => Config::from_env().wrap_err("Failed to load config from environment variables")?,
     };
 
+    log::trace!("Running with config: {:?}", config);
+
     let port = dotenv::var("PORT")
         .ok()
         .and_then(|port| port.parse().ok())
@@ -51,14 +53,14 @@ async fn main() -> Result<()> {
         DEBOUNCE_ENABLE.store(false, Ordering::Relaxed);
     }
 
-    log::trace!("Running with config: {:?} on port {}", config, port);
-
     let app = Arc::new(App::new(config, log_handle).await?);
     app.self_test().await?;
 
+    log::trace!("Listening on port {}", port);
     let server = spawn(serve(app.clone(), port, serve_cancel_handle));
 
     if let Some(metrics_port) = metrics_port {
+        log::trace!("Metrics listening on port {}", port);
         spawn(serve_metrics(metrics_port, metrics_cancel_handle));
     }
 

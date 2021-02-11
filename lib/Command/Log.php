@@ -34,7 +34,7 @@ class Log extends Base {
 	private $queue;
 
 	public function __construct(
-		IQueue $queue,
+		IQueue $queue
 	) {
 		parent::__construct();
 		$this->queue = $queue;
