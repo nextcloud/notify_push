@@ -74,7 +74,7 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 	public function shareListener(ShareCreatedEvent $event) {
 		$share = $event->getShare();
 
-		if ($share->getShareType() == IShare::TYPE_USER) {
+		if ($share->getShareType() === IShare::TYPE_USER) {
 			$this->queue->push('notify_user_share_created', [
 				'user' => $share->getSharedWith(),
 			]);
