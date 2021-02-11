@@ -267,7 +267,12 @@ class Setup extends Base {
 		system('stty cbreak');
 		$result = null;
 		while ($result === null) {
-			$this->abortIfInterrupted();
+			try {
+				$this->abortIfInterrupted();
+			} catch (\Exception $e) {
+				system('stty -cbreak');
+				throw $e;
+			}
 			$key = fgetc(STDIN);
 			if ($key === "\e") {
 				$result = false;
@@ -276,6 +281,7 @@ class Setup extends Base {
 			}
 			usleep(100);
 		}
+		system('stty -cbreak');
 		$output->writeln("");
 		return $result;
 	}
