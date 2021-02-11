@@ -52,11 +52,10 @@ impl App {
         let nc_client = nc::Client::new(&config.nextcloud_url)?;
         let test_cookie = AtomicU32::new(0);
 
-        let storage_mapping =
-            StorageMapping::new(&config.database_url, config.database_prefix).await?;
+        let storage_mapping = StorageMapping::new(config.database, config.database_prefix).await?;
         let pre_auth = DashMap::default();
 
-        let redis = Client::open(config.redis_url)?;
+        let redis = Client::open(config.redis)?;
 
         Ok(App {
             connections,
@@ -82,7 +81,7 @@ impl App {
             StorageMapping::from_connection(connection, config.database_prefix).await?;
         let pre_auth = DashMap::default();
 
-        let redis = Client::open(config.redis_url)?;
+        let redis = Client::open(config.redis)?;
 
         Ok(App {
             connections,

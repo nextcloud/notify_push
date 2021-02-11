@@ -1,11 +1,18 @@
 use color_eyre::{eyre::WrapErr, Report, Result};
-use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+use php_literal_parser::Value;
+use redis::{ConnectionAddr, ConnectionInfo};
+use sqlx::any::AnyConnectOptions;
+use sqlx::mysql::MySqlConnectOptions;
+use sqlx::postgres::PgConnectOptions;
+use sqlx::sqlite::SqliteConnectOptions;
+use std::path::PathBuf;
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub struct Config {
-    pub database_url: String,
+    pub database: AnyConnectOptions,
     pub database_prefix: String,
-    pub redis_url: String,
+    pub redis: ConnectionInfo,
     pub nextcloud_url: String,
 }
 
@@ -17,9 +24,11 @@ impl Config {
         let nextcloud_url = get_env("NEXTCLOUD_URL")?;
 
         Ok(Config {
-            database_url,
+            database: database_url
+                .parse()
+                .wrap_err("Failed to parse DATABASE_URL")?,
             database_prefix,
-            redis_url,
+            redis: redis_url.parse().wrap_err("Failed to parse REDIS_URL")?,
             nextcloud_url,
         })
     }
@@ -32,35 +41,20 @@ impl Config {
             .map_err(|err| Report::msg(err.to_string()))
             .wrap_err("Failed to parse config file")?;
 
-        let database_url = format!(
-            "{}://{}:{}@{}{}{}/{}",
-            map_db_type(
-                parsed["dbtype"]
-                    .as_str()
-                    .ok_or_else(|| Report::msg("invalid 'dbtype'"))?
-            ),
-            parsed["dbuser"],
-            utf8_percent_encode(&parsed["dbpassword"].to_string(), NON_ALPHANUMERIC),
-            parsed["dbhost"],
-            if parsed["dbport"] != "" { ":" } else { "" },
-            parsed["dbport"],
-            parsed["dbname"]
-        );
+        let database = parse_db_options(&parsed).wrap_err("Failed to create database config")?;
         let database_prefix = parsed["dbtableprefix"].to_string();
         let nextcloud_url = parsed["overwrite.cli.url"]
             .clone()
             .into_string()
             .ok_or_else(|| Report::msg("'overwrite.cli.url' not set"))?;
-        let redis_url = format!(
-            "redis://{}/",
-            parsed["redis"]["host"].as_str().unwrap_or("127.0.0.1")
-        );
+        let redis = parse_redis_options(&parsed).wrap_err("Failed to create redis config")?;
 
         // allow env overwrites
-
-        let database_url = match get_env("DATABASE_URL") {
-            Ok(database_url) => database_url,
-            _ => database_url,
+        let database = match get_env("DATABASE_URL") {
+            Ok(database_url) => database_url
+                .parse()
+                .wrap_err("Failed to parse DATABASE_URL")?,
+            _ => database,
         };
         let database_prefix = match get_env("DATABASE_PREFIX") {
             Ok(database_prefix) => database_prefix,
@@ -70,16 +64,16 @@ impl Config {
             Ok(nextcloud_url) => nextcloud_url,
             _ => nextcloud_url,
         };
-        let redis_url = match get_env("REDIS_URL") {
-            Ok(redis_url) => redis_url,
-            _ => redis_url,
+        let redis = match get_env("REDIS_URL") {
+            Ok(redis_url) => redis_url.parse().wrap_err("Failed to parse REDIS_URL")?,
+            _ => redis,
         };
 
         Ok(Config {
-            database_url,
+            database,
             database_prefix,
             nextcloud_url,
-            redis_url,
+            redis,
         })
     }
 }
@@ -88,9 +82,116 @@ fn get_env(name: &str) -> Result<String> {
     std::env::var(name).wrap_err_with(|| format!("`{}` not set", name))
 }
 
-fn map_db_type(ty: &str) -> &str {
-    match ty {
-        "pgsql" => "postgres",
-        ty => ty,
+fn parse_db_options(parsed: &Value) -> Result<AnyConnectOptions> {
+    match parsed["dbtype"].as_str() {
+        Some("mysql") => {
+            let mut options = MySqlConnectOptions::new();
+            if let Some(username) = parsed["dbuser"].as_str() {
+                options = options.username(username);
+            }
+            if let Some(password) = parsed["dbpassword"].as_str() {
+                options = options.password(password);
+            }
+            let socket_addr = PathBuf::from("/var/run/mysqld/mysqld.sock");
+            match split_host(parsed["dbhost"].as_str().unwrap_or_default()) {
+                ("localhost", None, None) if socket_addr.exists() => {
+                    options = options.socket(socket_addr);
+                }
+                (addr, None, None) => {
+                    options = options.host(addr);
+                }
+                (addr, Some(port), None) => {
+                    options = options.host(addr).port(port);
+                }
+                (_, None, Some(socket)) => {
+                    options = options.socket(socket);
+                }
+                (_, Some(_), Some(_)) => {
+                    unreachable!()
+                }
+            }
+            if let Some(port) = parsed["dbport"].clone().into_int() {
+                options = options.port(port as u16);
+            }
+            if let Some(name) = parsed["dbname"].as_str() {
+                options = options.database(name);
+            }
+            Ok(options.into())
+        }
+        Some("pgsql") => {
+            let mut options = PgConnectOptions::new();
+            if let Some(username) = parsed["dbuser"].as_str() {
+                options = options.username(username);
+            }
+            if let Some(password) = parsed["dbpassword"].as_str() {
+                options = options.password(password);
+            }
+            match split_host(parsed["dbhost"].as_str().unwrap_or_default()) {
+                (addr, None, None) => {
+                    options = options.host(addr);
+                }
+                (addr, Some(port), None) => {
+                    options = options.host(addr).port(port);
+                }
+                (_, None, Some(socket)) => {
+                    options = options.socket(socket);
+                }
+                (_, Some(_), Some(_)) => {
+                    unreachable!()
+                }
+            }
+            if let Some(port) = parsed["dbport"].clone().into_int() {
+                options = options.port(port as u16);
+            }
+            if let Some(name) = parsed["dbname"].as_str() {
+                options = options.database(name);
+            }
+            Ok(options.into())
+        }
+        Some("sqlite3") => {
+            let mut options = SqliteConnectOptions::new();
+            if let Some(data_dir) = parsed["datadirectory"].as_str() {
+                let db_name = parsed["dbname"]
+                    .clone()
+                    .into_string()
+                    .unwrap_or_else(|| String::from("owncloud"));
+                options = options.filename(format!("{}/{}.db", data_dir, db_name));
+            }
+            Ok(options.into())
+        }
+        _ => Err(Report::msg("Unsupported database type")),
     }
+}
+
+fn split_host(host: &str) -> (&str, Option<u16>, Option<&str>) {
+    let mut parts = host.split(":");
+    let host = parts.next().unwrap();
+    match parts
+        .next()
+        .map(|port_or_socket| u16::from_str(port_or_socket).map_err(|_| port_or_socket))
+    {
+        Some(Ok(port)) => (host, Some(port), None),
+        Some(Err(socket)) => (host, None, Some(socket)),
+        None => (host, None, None),
+    }
+}
+
+fn parse_redis_options(parsed: &Value) -> Result<ConnectionInfo> {
+    let host = parsed["redis"]["host"].as_str().unwrap_or("127.0.0.1");
+    let db = parsed["redis"]["dbindex"].clone().into_int().unwrap_or(0);
+    let addr = if host.starts_with("/") {
+        ConnectionAddr::Unix(host.into())
+    } else {
+        ConnectionAddr::Tcp(
+            host.into(),
+            parsed["redis"]["port"].clone().into_int().unwrap_or(6379) as u16,
+        )
+    };
+    let passwd = parsed["redis"]["password"].as_str().map(String::from);
+    Ok(ConnectionInfo {
+        addr: Box::new(addr),
+        db,
+        username: None,
+        passwd,
+    })
 }

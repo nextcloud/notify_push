@@ -4,12 +4,9 @@ use color_eyre::{eyre::WrapErr, Result};
 use dashmap::DashMap;
 use rand::{thread_rng, Rng};
 use sqlx::any::AnyConnectOptions;
-use sqlx::mysql::MySqlConnectOptions;
 use sqlx::{Any, AnyPool, FromRow};
-use std::path::PathBuf;
 use std::time::Instant;
 use tokio::time::Duration;
-use warp::http::Uri;
 
 #[derive(Debug, Clone, FromRow)]
 pub struct UserStorageAccess {
@@ -54,22 +51,7 @@ impl StorageMapping {
         })
     }
 
-    fn parse_options(connect: &str) -> Result<AnyConnectOptions> {
-        let uri: Uri = connect.parse()?;
-        if uri.scheme_str() == Some("mysql") && uri.host() == Some("localhost") {
-            let socket_addr = PathBuf::from("/var/run/mysqld/mysqld.sock");
-            if socket_addr.exists() {
-                log::trace!("Using unix socket instead of tcp for mysql localhost connection");
-                let mysql_options: MySqlConnectOptions = connect.parse()?;
-                return Ok(mysql_options.socket(socket_addr).into());
-            }
-        }
-        Ok(connect.parse()?)
-    }
-
-    pub async fn new(connect: &str, prefix: String) -> Result<Self> {
-        let options =
-            Self::parse_options(connect).wrap_err("Failed to parse SQL connect string")?;
+    pub async fn new(options: AnyConnectOptions, prefix: String) -> Result<Self> {
         let connection = AnyPool::connect_with(options)
             .await
             .wrap_err("Failed to connect to Nextcloud database")?;
