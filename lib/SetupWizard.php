@@ -142,10 +142,15 @@ class SetupWizard {
 			'PORT' => 7867,
 			'ALLOW_SELF_SIGNED' => $selfSigned ? 'true' : 'false',
 			'LOG' => 'notify_push=info',
-			'NEXTCLOUD_URL' => $this->getNextcloudUrl()
+			'NEXTCLOUD_URL' => $this->getNextcloudUrl(),
 		]);
 		// give the server some time to start
-		usleep(500 * 1000);
+		for ($i = 0; $i < 20; $i++) {
+			usleep(100 * 1000);
+			if ($this->isBinaryRunningAt("localhost:7867")) {
+				break;
+			}
+		}
 		$status = proc_get_status($proc);
 		if (!$status['running']) {
 			proc_terminate($proc);
@@ -286,7 +291,8 @@ WantedBy = multi-user.target
 	}
 
 	public function apacheConfig(): string {
-		return "ProxyPass /push/ http://localhost:7867/
+		return "ProxyPass /push/ws ws://localhost:7867/ws
+ProxyPass /push/ http://localhost:7867/
 ProxyPassReverse /push/ http://localhost:7867/
 ";
 	}

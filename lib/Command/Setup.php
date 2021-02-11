@@ -201,6 +201,7 @@ class Setup extends Base {
 					$output->writeln("Run the following commands to enable the proxy modules");
 					$output->writeln("    <info>sudo a2enmod proxy</info>");
 					$output->writeln("    <info>sudo a2enmod proxy_http</info>");
+					$output->writeln("    <info>sudo a2enmod proxy_wstunnel</info>");
 					$output->writeln("");
 					$output->writeln("Then place the following within the <info><VirtualHost></info> block of the apache config for your nextcloud installation");
 					$output->writeln("which can usually be found within <info>/etc/apache2/sites-enabled/</info>");
