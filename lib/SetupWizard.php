@@ -51,7 +51,7 @@ class SetupWizard {
 		$this->config = $config;
 	}
 
-	private function getArch(): string {
+	public function getArch(): string {
 		$arch = php_uname('m');
 		if (strpos($arch, 'armv7') === 0) {
 			return 'armv7';
@@ -66,6 +66,10 @@ class SetupWizard {
 		$basePath = realpath(__DIR__ . '/../bin/');
 		$arch = $this->getArch();
 		return "$basePath/$arch/notify_push";
+	}
+
+	public function hasBundledBinaries() {
+		return is_dir(__DIR__ . '/../bin/x86_64');
 	}
 
 	public function hasBinary(): bool {
@@ -93,6 +97,13 @@ class SetupWizard {
 		$result = null;
 		$output = [];
 		exec("which systemctl 2>&1", $output, $result);
+		return $result === 0;
+	}
+
+	public function hasSELinux() {
+		$result = null;
+		$output = [];
+		exec("which getenforce 2>&1", $output, $result);
 		return $result === 0;
 	}
 

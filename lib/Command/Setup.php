@@ -68,8 +68,23 @@ class Setup extends Base {
 			}
 			return $result;
 		} else {
-			/** @var QuestionHelper $helper */
-			$helper = $this->getHelper('question');
+			if (!$this->setupWizard->hasBundledBinaries()) {
+				$output->writeln("<error>🗴 bundled binaries are not available.</error>");
+				$output->writeln("  If you're trying to setup the app from git, you can find build instruction in the README: https://github.com/nextcloud/notify_push");
+				$output->writeln("  And pre-build binaries for x86_64, armv7 and aarch64 in the github actions.");
+				$output->writeln("  Once you have a <info>notify_push</info> binary it should be placed in <info>" . realpath(__DIR__ . '/../../bin/' . $this->setupWizard->getArch())) . "</info>";
+				return 1;
+			}
+
+			$output->writeln("This setup wizard is intended for use on single server instances");
+			$output->writeln("where the nextcloud server, web server/reverse proxy and push daemon all run on the same machine.");
+			$output->writeln("If your setup is more complex or involves any kind of load balancing");
+			$output->writeln("you should follow the manual setup instruction on the README instead");
+			$output->writeln("<info>https://github.com/nextcloud/notify_push</info>");
+
+			if (!$this->enterToContinue($output)) {
+				return 0;
+			}
 
 			if (!$this->setupWizard->hasRedis()) {
 				$output->writeln("<error>🗴 redis is required.</error>");
@@ -82,13 +97,18 @@ class Setup extends Base {
 			}
 
 			if (!$this->setupWizard->hasBinary()) {
-				$output->writeln("<error>🗴 your system is not supported by the bundled binaries.</error>");
-				$this->readmeLink($output);
+				$output->writeln("<error>🗴 your system architecture(" . $this->setupWizard->getArch() .") is not supported by the bundled binaries.</error>");
+				$output->writeln("  you can find build instructions for the notify_push binary in the README: https://github.com/nextcloud/notify_push");
+				$output->writeln("  Once you have a <info>notify_push</info> binary it should be placed in <info>" . realpath(__DIR__ . '/../../bin/' . $this->setupWizard->getArch())) . "</info>";
 				return 1;
 			}
 
 			if (!$this->setupWizard->testBinary()) {
 				$output->writeln("<error>🗴 bundled binary not working on your system.</error>");
+				if ($this->setupWizard->hasSELinux()) {
+					$output->writeln("  It looks like your system has SELinux enabled which might be blocking execution of the binary.");
+					$output->writeln("  It looks like your system has SELinux enabled which might be blocking execution of the binary.");
+				}
 				$this->readmeLink($output);
 				return 1;
 			}
@@ -131,7 +151,9 @@ class Setup extends Base {
 				$output->writeln("");
 				$output->writeln("And run <info>sudo systemctl enable --now notify_push</info>");
 
-				$helper->ask($input, $output, new ConfirmationQuestion("Press enter to continue..."));
+				if (!$this->enterToContinue($output)) {
+					return 0;
+				}
 
 				if (!$this->setupWizard->isBinaryRunningAtDefaultPort()) {
 					$output->writeln("<error>🗴 push binary doesn't seem to be running, did you follow the above instructions?.</error>");
@@ -162,7 +184,7 @@ class Setup extends Base {
 					$output->writeln($this->setupWizard->nginxConfig());
 					$output->writeln("");
 					$output->writeln("And reload the config using <info>sudo nginx -s reload</info>");
-				} else if ($proxy === 'apache') {
+				} elseif ($proxy === 'apache') {
 					$output->writeln("Run the following commands to enable the proxy modules");
 					$output->writeln("    <info>sudo a2enmod proxy</info>");
 					$output->writeln("    <info>sudo a2enmod proxy_http</info>");
@@ -178,7 +200,9 @@ class Setup extends Base {
 					$this->readmeLink($output);
 					return 1;
 				}
-				$helper->ask($input, $output, new ConfirmationQuestion("Press enter to continue..."));
+				if (!$this->enterToContinue($output)) {
+					return 0;
+				}
 
 				if (!$this->setupWizard->isBinaryRunningBehindProxy()) {
 					$output->writeln("<error>🗴 push binary doesn't seem to be reachable trough the reverse proxy, did you follow the above instructions?.</error>");
@@ -221,5 +245,23 @@ class Setup extends Base {
 			}
 			$output->writeln($line);
 		}
+	}
+
+	private function enterToContinue(OutputInterface $output): bool {
+		$output->write("Press enter to continue or ESC to cancel...");
+		system('stty cbreak -echo');
+		$result = null;
+		while ($result === null) {
+			$this->abortIfInterrupted();
+			$key = fgetc(STDIN);
+			if ($key === "\e") {
+				$result = false;
+			} elseif ($key === "\n") {
+				$result = true;
+			}
+			usleep(100);
+		}
+		$output->writeln("");
+		return $result;
 	}
 }
