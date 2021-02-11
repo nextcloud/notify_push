@@ -73,7 +73,7 @@ class SelfTest {
 		$this->config->setAppValue('notify_push', 'cookie', (string)$this->cookie);
 
 		try {
-			$retrievedCookie = (int)$this->client->get($server . '/test/cookie', ['nextcloud' => ['allow_local_address' => true]])->getBody();
+			$retrievedCookie = (int)$this->client->get($server . '/test/cookie', ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
@@ -90,7 +90,7 @@ class SelfTest {
 		// test if the push server can load storage mappings from the db
 		[$storageId, $count] = $this->getStorageIdForTest();
 		try {
-			$retrievedCount = (int)$this->client->get($server . '/test/mapping/' . $storageId, ['nextcloud' => ['allow_local_address' => true]])->getBody();
+			$retrievedCount = (int)$this->client->get($server . '/test/mapping/' . $storageId, ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
@@ -106,7 +106,7 @@ class SelfTest {
 
 		// test if the push server can reach nextcloud by having it request the cookie
 		try {
-			$retrievedCookie = (int)$this->client->get($server . '/test/reverse_cookie', ['nextcloud' => ['allow_local_address' => true]])->getBody();
+			$retrievedCookie = (int)$this->client->get($server . '/test/reverse_cookie', ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
@@ -122,7 +122,7 @@ class SelfTest {
 
 		// test that the push server is a trusted proxy
 		try {
-			$remote = $this->client->get($server . '/test/remote/1.2.3.4', ['nextcloud' => ['allow_local_address' => true]])->getBody();
+			$remote = $this->client->get($server . '/test/remote/1.2.3.4', ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
@@ -140,7 +140,7 @@ class SelfTest {
 		// test that the binary is up to date
 		try {
 			$this->queue->getConnection()->del("notify_push_version");
-			$response = $this->client->post($server . '/test/version', ['nextcloud' => ['allow_local_address' => true]]);
+			$response = $this->client->post($server . '/test/version', ['nextcloud' => ['allow_local_address' => true], 'verify' => false]);
 			if ($response === "error") {
 				$output->writeln("<error>🗴 failed to get binary version, check the push server output for more information</error>");
 				return 1;

@@ -157,7 +157,7 @@ class SetupWizard {
 
 	public function isBinaryRunningBehindProxy(): bool {
 		try {
-			$result = $this->client->get($this->getProxiedBase() . "/test/cookie", ['nextcloud' => ['allow_local_address' => true]]);
+			$result = $this->client->get($this->getProxiedBase() . "/test/cookie", ['nextcloud' => ['allow_local_address' => true], 'verify' => false]);
 			return is_numeric($result->getBody());
 		} catch (\Exception $e) {
 			return false;
