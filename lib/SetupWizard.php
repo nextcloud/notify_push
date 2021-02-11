@@ -143,7 +143,7 @@ class SetupWizard {
 
 	public function isBinaryRunningAtDefaultPort(): bool {
 		try {
-			$result = $this->client->get("http://localhost:7867/test/cookie");
+			$result = $this->client->get("http://localhost:7867/test/cookie", ['nextcloud' => ['allow_local_address' => true]]);
 			return is_numeric($result->getBody());
 		} catch (\Exception $e) {
 			return false;
@@ -157,7 +157,7 @@ class SetupWizard {
 
 	public function isBinaryRunningBehindProxy(): bool {
 		try {
-			$result = $this->client->get($this->getProxiedBase() . "/test/cookie");
+			$result = $this->client->get($this->getProxiedBase() . "/test/cookie", ['nextcloud' => ['allow_local_address' => true]]);
 			return is_numeric($result->getBody());
 		} catch (\Exception $e) {
 			return false;
@@ -209,7 +209,7 @@ WantedBy = multi-user.target
 	public function guessProxy() {
 		$base = $this->config->getSystemValueString('overwrite.cli.url', '');
 		try {
-			$result = $this->client->get($base);
+			$result = $this->client->get($base, ['nextcloud' => ['allow_local_address' => true]]);
 			$server = strtolower($result->getHeader('server'));
 			if (strpos($server, 'apache') !== false) {
 				return 'apache';

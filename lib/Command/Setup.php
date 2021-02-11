@@ -124,6 +124,10 @@ class Setup extends Base {
 				$trustedProxies[] = '127.0.0.1';
 				$this->config->setSystemValue('trusted_proxies', $trustedProxies);
 			}
+			if (array_search('::1', $trustedProxies) === false) {
+				$trustedProxies[] = '::1';
+				$this->config->setSystemValue('trusted_proxies', $trustedProxies);
+			}
 
 			if (!$this->setupWizard->isBinaryRunningAtDefaultPort()) {
 				if (!$this->setupWizard->isPortFree()) {
