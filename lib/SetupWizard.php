@@ -112,6 +112,19 @@ class SetupWizard {
 		return rtrim(\OC::$configDir, '/') . '/config.php';
 	}
 
+	private function getNextcloudUrl() {
+		$baseUrl = $this->getBaseUrl();
+		if (parse_url($baseUrl, PHP_URL_SCHEME) === 'https') {
+			$host = parse_url($baseUrl, PHP_URL_HOST);
+			// using an ip address and http isn't supported by the push server
+			if (substr_count($host, '.') === 3) {
+				// since we run the push server on the same server, use localhost instead
+				return "http://localhost/" . parse_url($baseUrl, PHP_URL_PATH);
+			}
+		}
+		return $baseUrl;
+	}
+
 	/**
 	 * @param bool $selfSigned
 	 * @return bool|string
@@ -129,13 +142,15 @@ class SetupWizard {
 			'PORT' => 7867,
 			'ALLOW_SELF_SIGNED' => $selfSigned ? 'true' : 'false',
 			'LOG' => 'notify_push=info',
+			'NEXTCLOUD_URL' => $this->getNextcloudUrl()
 		]);
 		// give the server some time to start
-		usleep(100 * 1000);
+		usleep(500 * 1000);
 		$status = proc_get_status($proc);
 		if (!$status['running']) {
 			proc_terminate($proc);
-			return false;
+			rewind($pipes[1]);
+			return stream_get_contents($pipes[1]);
 		}
 		$testResult = $this->selfTestNonProxied();
 		if ($testResult !== true) {
@@ -226,11 +241,13 @@ class SetupWizard {
 		$config = $this->getConfigPath();
 		$user = posix_getpwuid(posix_getuid())['name'];
 		$selfSigned = $selfSigned ? "Environment=ALLOW_SELF_SIGNED=true\n" : "";
+		$ncUrl = $this->getNextcloudUrl();
 		$service = "[Unit]
 Description = Push daemon for Nextcloud clients
 
 [Service]
 Environment=PORT=7867
+Environment=NEXTCLOUD_URL=$ncUrl
 ${selfSigned}ExecStart=$path $config
 User=$user
 
