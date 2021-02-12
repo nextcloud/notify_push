@@ -81,11 +81,18 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
     let transmit = async move {
         let mut debounce = DebounceMap::default();
         loop {
-            // we dont care about dropped messages
-            if let Ok(msg) = rx.recv().await {
-                if debounce.should_send(&msg) {
-                    METRICS.add_message();
-                    user_ws_tx.send(msg.into()).await.ok();
+            match timeout(Duration::from_secs(30), rx.recv()).await {
+                Ok(Ok(msg)) => {
+                    if debounce.should_send(&msg) {
+                        METRICS.add_message();
+                        user_ws_tx.send(msg.into()).await.ok();
+                    }
+                }
+                Err(_timout) => {
+                    user_ws_tx.send(Message::ping(Vec::new())).await.ok();
+                }
+                Ok(Err(_)) => {
+                    // we dont care about dropped messages
                 }
             }
         }

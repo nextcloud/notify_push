@@ -32,21 +32,21 @@ fn main() -> Result<()> {
         .wrap_err("Failed to send password")?;
 
     loop {
-        let msg = socket.read_message()?;
-        let text = msg.to_text()?;
-        if text.starts_with("err: ") {
-            eprintln!("Received error: {}", &text[5..]);
-            return Ok(());
-        } else if text == "notify_file" {
-            println!("Received file update notification");
-        } else if text == "notify_activity" {
-            println!("Received activity notification");
-        } else if text == "notify_notification" {
-            println!("Received notification notification");
-        } else if text == "authenticated" {
-            println!("Authenticated");
-        } else {
-            println!("Received: {}", msg);
+        if let Message::Text(text) = socket.read_message()? {
+            if text.starts_with("err: ") {
+                eprintln!("Received error: {}", &text[5..]);
+                return Ok(());
+            } else if text == "notify_file" {
+                println!("Received file update notification");
+            } else if text == "notify_activity" {
+                println!("Received activity notification");
+            } else if text == "notify_notification" {
+                println!("Received notification notification");
+            } else if text == "authenticated" {
+                println!("Authenticated");
+            } else {
+                println!("Received: {}", text);
+            }
         }
     }
 }
