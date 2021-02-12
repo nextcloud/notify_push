@@ -35,8 +35,6 @@ impl ActiveConnections {
 
     pub async fn send_to_user(&self, user: &UserId, msg: MessageType) {
         if let Some(tx) = self.0.get(user) {
-            log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user);
-
             tx.send(msg).ok();
         }
     }
@@ -83,12 +81,14 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
         loop {
             match timeout(Duration::from_secs(30), rx.recv()).await {
                 Ok(Ok(msg)) => {
+                    log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user_id);
                     if debounce.should_send(&msg) {
                         METRICS.add_message();
                         user_ws_tx.send(msg.into()).await.ok();
                     }
                 }
                 Err(_timout) => {
+                    log::debug!(target: "notify_push::send", "Sending ping to {}", user_id);
                     user_ws_tx.send(Message::ping(Vec::new())).await.ok();
                 }
                 Ok(Err(_)) => {
