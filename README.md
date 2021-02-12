@@ -54,6 +54,7 @@ Description = Push daemon for Nextcloud clients
 [Service]
 Environment = PORT=7867 # Change if you already have something running on this port
 ExecStart = /path/to/push/binary/notify_push /path/to/nextcloud/config/config.php
+User=www-data
 
 [Install]
 WantedBy = multi-user.target
