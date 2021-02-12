@@ -103,7 +103,7 @@ If you're using nginx, add the following `location` block the the existing `serv
 
 ```nginx
 location /push/ {
-    proxy_pass http://localhost:7867/; # Replace the port if you picked a different port for the push service
+    proxy_pass http://localhost:7867/;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "Upgrade";
@@ -127,11 +127,13 @@ To use apache as a reverse proxy you first need to enable the proxy modules usin
 ```bash
 sudo a2enmod proxy
 sudo a2enmod proxy_http
+sudo a2enmod proxy_wstunnel
 ```
 
 Then add the following lines to the `<VirtualHost>` block used for the Nextcloud server.
 
-```dotenv
+```apacheconf
+ProxyPass /push/ws ws://localhost:7867/ws
 ProxyPass /push/ http://localhost:7867/
 ProxyPassReverse /push/ http://localhost:7867/
 ```
@@ -174,6 +176,11 @@ The push server can expose some basic metrics about the number of connected clie
 by setting the `METRICS_PORT` environment variable.
 
 Once set the metrics are available in a prometheus compatible format at `/metrics` on the configured port.
+
+### Self-signed certificates
+
+If your nextcloud is using a self-signed certificate then you either need to set the `NEXTCLOUD_URL` to a non-https, local url,
+or disable certificate verification by setting `ALLOW_SELF_SIGNED=true`.
 
 ## Developing
 
