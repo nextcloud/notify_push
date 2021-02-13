@@ -24,7 +24,7 @@ warp-real-ip = "0.2"
 php-literal-parser = "0.2"
 parse-display = "0.4"
 percent-encoding = "2.1.0"
-rand = "0.7.3"
+rand = "0.8.3"
 ahash = "0.7.0"
 flexi_logger = { version = "0.17", features = ["colors"] }
 tokio-stream = { version = "0.1", features = ["net"] }

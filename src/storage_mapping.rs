@@ -27,7 +27,7 @@ impl CachedAccess {
         Self {
             access,
             valid_till: Instant::now()
-                + Duration::from_millis(rng.gen_range(4 * 60 * 1000, 5 * 60 * 1000)),
+                + Duration::from_millis(rng.gen_range((4 * 60 * 1000)..(5 * 60 * 1000))),
         }
     }
 

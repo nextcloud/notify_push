@@ -1157,7 +1157,7 @@ dependencies = [
  "parse-display",
  "percent-encoding",
  "php-literal-parser",
- "rand 0.7.3",
+ "rand 0.8.3",
  "redis",
  "reqwest",
  "serde",
