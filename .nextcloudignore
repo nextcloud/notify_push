@@ -18,3 +18,4 @@ build.rs
 composer.*
 .php_cs.dist
 psalm.xml
+Dockerfile
