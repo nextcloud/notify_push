@@ -69,7 +69,7 @@ class SetupWizard {
 		return "$basePath/$arch/notify_push";
 	}
 
-	public function hasBundledBinaries() {
+	public function hasBundledBinaries(): bool {
 		return is_dir(__DIR__ . '/../bin/x86_64');
 	}
 
@@ -85,34 +85,34 @@ class SetupWizard {
 		return count($output) === 1 && $output[0] === "notify_push $appVersion";
 	}
 
-	public function isPortFree() {
+	public function isPortFree(): bool {
 		$port = 7867;
 		return !is_resource(@fsockopen('localhost', $port));
 	}
 
-	public function hasRedis() {
+	public function hasRedis(): bool {
 		return $this->queue instanceof RedisQueue;
 	}
 
-	public function hasSystemd() {
+	public function hasSystemd(): bool {
 		$result = null;
 		$output = [];
 		exec("which systemctl 2>&1", $output, $result);
 		return $result === 0;
 	}
 
-	public function hasSELinux() {
+	public function hasSELinux(): bool {
 		$result = null;
 		$output = [];
 		exec("which getenforce 2>&1", $output, $result);
 		return $result === 0;
 	}
 
-	private function getConfigPath() {
+	private function getConfigPath(): string {
 		return rtrim(\OC::$configDir, '/') . '/config.php';
 	}
 
-	private function getNextcloudUrl() {
+	private function getNextcloudUrl(): string {
 		$baseUrl = $this->getBaseUrl();
 		if (parse_url($baseUrl, PHP_URL_SCHEME) === 'https') {
 			$host = parse_url($baseUrl, PHP_URL_HOST);
@@ -241,7 +241,7 @@ class SetupWizard {
 		}
 	}
 
-	public function generateSystemdService(bool $selfSigned) {
+	public function generateSystemdService(bool $selfSigned): string {
 		$path = $this->getBinaryPath();
 		$config = $this->getConfigPath();
 		$user = posix_getpwuid(posix_getuid())['name'];
@@ -262,6 +262,9 @@ WantedBy = multi-user.target
 		return $service;
 	}
 
+	/**
+	 * @return false|string
+	 */
 	public function guessProxy() {
 		$base = $this->config->getSystemValueString('overwrite.cli.url', '');
 		try {

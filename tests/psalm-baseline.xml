@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<files psalm-version="4.x-dev@">
+  <file src="lib/AppInfo/Application.php">
+    <InvalidArgument occurrences="3">
+      <code>addListener</code>
+      <code>addListener</code>
+      <code>addListener</code>
+    </InvalidArgument>
+  </file>
+</files>

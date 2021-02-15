@@ -23,10 +23,10 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush;
 
-use OC\Cache\CappedMemoryCache;
 use OCA\NotifyPush\Queue\IQueue;
 use OCP\Activity\IConsumer;
 use OCP\Activity\IEvent;
+use OCP\EventDispatcher\Event;
 use OCP\Files\Cache\ICacheEvent;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
@@ -40,38 +40,30 @@ use OCP\Share\IShare;
 class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 	private $queue;
 
-	private $sendUpdates;
-
 	public function __construct(IQueue $queue) {
 		$this->queue = $queue;
-		$this->sendUpdates = new CappedMemoryCache();
 	}
 
-	public function cacheListener(ICacheEvent $event) {
-		$storage = $event->getStorageId();
-		$key = $storage . '::' . $event->getPath();
-		if ($this->sendUpdates[$key]) {
-			return;
+	public function cacheListener(Event $event): void {
+		if ($event instanceof ICacheEvent) {
+			$this->queue->push('notify_storage_update', [
+				'storage' => $event->getStorageId(),
+				'path' => $event->getPath(),
+			]);
 		}
-		$this->sendUpdates[$key] = true;
-
-		$this->queue->push('notify_storage_update', [
-			'storage' => $event->getStorageId(),
-			'path' => $event->getPath(),
-		]);
 	}
 
 	/***
 	 * @param UserAddedEvent|UserRemovedEvent $event
 	 */
-	public function groupListener($event) {
+	public function groupListener($event): void {
 		$this->queue->push('notify_group_membership_update', [
 			'user' => $event->getUser()->getUID(),
 			'group' => $event->getGroup()->getGID(),
 		]);
 	}
 
-	public function shareListener(ShareCreatedEvent $event) {
+	public function shareListener(ShareCreatedEvent $event): void {
 		$share = $event->getShare();
 
 		if ($share->getShareType() === IShare::TYPE_USER) {

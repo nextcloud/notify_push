@@ -23,14 +23,14 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\Command;
 
-use OC\Core\Command\Base;
 use OCA\NotifyPush\Queue\IQueue;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class Log extends Base {
+class Log extends Command {
 	private $queue;
 
 	public function __construct(
@@ -40,7 +40,9 @@ class Log extends Base {
 		$this->queue = $queue;
 	}
 
-
+	/**
+	 * @return void
+	 */
 	protected function configure() {
 		$this
 			->setName('notify_push:log')
@@ -65,4 +67,3 @@ class Log extends Base {
 		return 0;
 	}
 }
-

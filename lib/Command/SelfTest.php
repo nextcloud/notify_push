@@ -23,12 +23,12 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\Command;
 
-use OC\Core\Command\Base;
 use OCP\IConfig;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class SelfTest extends Base {
+class SelfTest extends Command {
 	private $test;
 	private $config;
 
@@ -42,6 +42,9 @@ class SelfTest extends Base {
 	}
 
 
+	/**
+	 * @return void
+	 */
 	protected function configure() {
 		$this
 			->setName('notify_push:self-test')

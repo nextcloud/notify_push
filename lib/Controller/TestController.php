@@ -69,10 +69,14 @@ class TestController extends Controller {
 
 	/**
 	 * @NoAdminRequired
+	 *
 	 * @PublicPage
+	 *
 	 * @NoCSRFRequired
+	 *
+	 * @return void
 	 */
-	public function version() {
+	public function version(): void {
 		if ($this->queue instanceof RedisQueue) {
 			$this->queue->getConnection()->set("notify_push_app_version", $this->appManager->getAppVersion('notify_push'));
 		}

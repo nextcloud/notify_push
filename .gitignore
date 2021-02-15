@@ -2,3 +2,5 @@ target
 .env
 bin
 build
+vendor
+*.cache

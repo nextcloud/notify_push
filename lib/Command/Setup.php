@@ -23,16 +23,14 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\Command;
 
-use OC\Core\Command\Base;
 use OCA\NotifyPush\SetupWizard;
 use OCP\IConfig;
-use Symfony\Component\Console\Helper\QuestionHelper;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\ConfirmationQuestion;
 
-class Setup extends Base {
+class Setup extends Command {
 	private $test;
 	private $config;
 	private $setupWizard;
@@ -48,6 +46,9 @@ class Setup extends Base {
 		$this->setupWizard = $setupWizard;
 	}
 
+	/**
+	 * @return void
+	 */
 	protected function configure() {
 		$this
 			->setName('notify_push:setup')
@@ -59,7 +60,6 @@ class Setup extends Base {
 	protected function execute(InputInterface $input, OutputInterface $output) {
 		$server = $input->getArgument('server');
 		if ($server) {
-
 			$result = $this->test->test($server, $output);
 
 			if ($result === 0) {
@@ -246,11 +246,11 @@ class Setup extends Base {
 		return 0;
 	}
 
-	private function readmeLink(OutputInterface $output) {
+	private function readmeLink(OutputInterface $output): void {
 		$output->writeln("  See the steps in the README for manual setup instructions: https://github.com/nextcloud/notify_push");
 	}
 
-	private function printTestResult(OutputInterface $output, string $result) {
+	private function printTestResult(OutputInterface $output, string $result): void {
 		$lines = explode("\n", $result);
 		foreach ($lines as $i => &$line) {
 			if ($i === 0) {
@@ -267,12 +267,6 @@ class Setup extends Base {
 		system('stty cbreak');
 		$result = null;
 		while ($result === null) {
-			try {
-				$this->abortIfInterrupted();
-			} catch (\Exception $e) {
-				system('stty -cbreak');
-				throw $e;
-			}
 			$key = fgetc(STDIN);
 			if ($key === "\e") {
 				$result = false;

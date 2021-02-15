@@ -23,7 +23,6 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\AppInfo;
 
-use OC\AppFramework\Utility\SimpleContainer;
 use OC\RedisFactory;
 use OCA\NotifyPush\Capabilities;
 use OCA\NotifyPush\CSPListener;
@@ -44,6 +43,7 @@ use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
 use OCP\Security\CSP\AddContentSecurityPolicyEvent;
 use OCP\Share\Events\ShareCreatedEvent;
+use Psr\Container\ContainerInterface;
 
 class Application extends App implements IBootstrap {
 	public const APP_ID = 'notify_push';
@@ -55,7 +55,7 @@ class Application extends App implements IBootstrap {
 	public function register(IRegistrationContext $context): void {
 		$context->registerCapability(Capabilities::class);
 
-		$context->registerService(IQueue::class, function (SimpleContainer $c) {
+		$context->registerService(IQueue::class, function (ContainerInterface $c) {
 			/** @var RedisFactory $redisFactory */
 			$redisFactory = $c->get(RedisFactory::class);
 			if ($redisFactory->isAvailable()) {
@@ -75,7 +75,7 @@ class Application extends App implements IBootstrap {
 		Listener $listener,
 		IManager $activityManager,
 		\OCP\Notification\IManager $notificationManager
-	) {
+	): void {
 		$eventDispatcher->addServiceListener(AddContentSecurityPolicyEvent::class, CSPListener::class);
 
 		$eventDispatcher->addListener(CacheEntryInsertedEvent::class, [$listener, 'cacheListener']);

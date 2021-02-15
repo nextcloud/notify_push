@@ -24,6 +24,9 @@ declare(strict_types=1);
 namespace OCA\NotifyPush\Queue;
 
 class NullQueue implements IQueue {
+	/**
+	 * @return void
+	 */
 	public function push(string $channel, $message) {
 		// noop
 	}
