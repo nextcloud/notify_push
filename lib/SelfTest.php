@@ -156,12 +156,13 @@ class SelfTest {
 			return 1;
 		}
 		$appVersion = $this->appManager->getAppVersion('notify_push');
+		$appVersionNoMinor = substr($appVersion, 0, strrpos($appVersion, '.'));
+		$binaryVersionNoMinor = substr($binaryVersion, 0, strrpos($binaryVersion, '.'));
 
-		if ($appVersion === $binaryVersion) {
+		if ($appVersionNoMinor === $binaryVersionNoMinor) {
 			$output->writeln("<info>✓ push server is running the same version as the app</info>");
 		} else {
 			$output->writeln("<error>🗴 push server (version $binaryVersion) is not the same version as the app (version $appVersion).</error>");
-			return 1;
 		}
 
 		return 0;
