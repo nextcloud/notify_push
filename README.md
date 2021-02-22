@@ -23,7 +23,7 @@ This app requires a redis server to be setup and for nextcloud to be configured 
 
 ## Quick setup
 
-The app comes with a setup wizard that should guide you trough the setup process for most setups.
+The app comes with a setup wizard that should guide you through the setup process for most setups.
 
 - Install the `notify_push` app from the appstore
 - Run `occ notify_push:setup` and follow the provided instructions
@@ -65,7 +65,7 @@ Adjusting the paths and ports as needed.
 #### Configuration
 
 The push server can be configured either by loading the config from the nextcloud `config.php`
-or by setting all options trough environment variables.
+or by setting all options through environment variables.
 
 Re-using the configuration from nextcloud is the recommended way, as it ensures that the configuration remains in sync.
 
@@ -79,7 +79,7 @@ variables:
 If both the `config.php` and environment variable is provided, the environment variable will overwrite the value from
 config.php
 
-The port the server listens to can only be configured trough the environment variable `PORT` and defaults to 80.
+The port the server listens to can only be configured through the environment variable `PORT` and defaults to 80.
 
 #### Starting the service
 
@@ -173,7 +173,7 @@ Alternatively you can set the log level of the push server in the `LOG` environm
 
 ### Metrics
 
-The push server can expose some basic metrics about the number of connected clients and the traffic flowing trough the server
+The push server can expose some basic metrics about the number of connected clients and the traffic flowing through the server
 by setting the `METRICS_PORT` environment variable.
 
 Once set the metrics are available in a prometheus compatible format at `/metrics` on the configured port.
@@ -263,7 +263,7 @@ test_client https://cloud.example.com username password
 
 The server binary is built using rust and cargo.
 
-- Install `rust` trough your package manager or [rustup](https://rustup.rs/)
+- Install `rust` through your package manager or [rustup](https://rustup.rs/)
 - Run `cargo build`
 
 Any build intended for production use or distribution
