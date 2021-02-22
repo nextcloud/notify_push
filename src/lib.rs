@@ -105,7 +105,11 @@ impl App {
             .get_users_for_storage_path(1, "")
             .await
             .wrap_err("Failed to test database access")?;
-        let mut redis = self.redis.get_async_connection().await?;
+        let mut redis = self
+            .redis
+            .get_async_connection()
+            .await
+            .wrap_err("Failed to connect to redis")?;
         redis
             .del("notify_push_app_version")
             .await
