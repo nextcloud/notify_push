@@ -5,38 +5,37 @@ authors = ["Robin Appelman <robin@icewind.nl>"]
 edition = "2018"
 
 [dependencies]
-redis = { version = "0.19.0", features = ["tokio-comp", "aio"] }
-serde = { version = "1.0.117", features = ["derive"] }
-serde_json = "1.0.59"
-thiserror = "1.0.22"
-warp = "0.3.0"
-tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "signal"] }
+redis = { version = "0.20", features = ["tokio-comp", "aio"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+warp = "0.3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 futures = "0.3"
-log = "0.4.11"
-sqlx = { version = "0.5.0", features = ["runtime-tokio-rustls", "any", "macros", "mysql", "sqlite", "postgres"] }
-dotenv = "0.15.0"
-dashmap = "4.0"
-once_cell = "1.5.2"
+log = "0.4"
+sqlx = { version = "0.5", features = ["runtime-tokio-rustls", "any", "macros", "mysql", "sqlite", "postgres"] }
+dotenv = "0.15"
+dashmap = "4"
+once_cell = "1"
 color-eyre = "0.5"
-smallvec = "1.6.0"
-reqwest = { version = "0.11.0", default-features = false, features = ["rustls-tls", "json"] }
+smallvec = "1"
+reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "json"] }
 warp-real-ip = "0.2"
 php-literal-parser = "0.2"
 parse-display = "0.4"
-percent-encoding = "2.1.0"
-rand = "0.8.3"
-ahash = "0.7.0"
+percent-encoding = "2"
+rand = "0.8"
+ahash = "0.7"
 flexi_logger = { version = "0.17", features = ["colors"] }
 tokio-stream = { version = "0.1", features = ["net"] }
-funty = "=1.1.0" # https://github.com/bitvecto-rs/bitvec/issues/105
 
 [dev-dependencies]
-mini-redis = "0.4.0"
-tokio-tungstenite = "0.13.0"
-http-auth-basic = "0.1.1"
+mini-redis = "0.4"
+tokio-tungstenite = "0.13"
+http-auth-basic = "0.1"
 
 [build-dependencies]
-nextcloud_appinfo = "0.6.0"
+nextcloud_appinfo = "0.6"
 
 [profile.dev.package.backtrace]
 opt-level = 3
