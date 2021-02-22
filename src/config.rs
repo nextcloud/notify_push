@@ -187,11 +187,29 @@ fn parse_redis_options(parsed: &Value) -> ConnectionInfo {
             parsed["redis"]["port"].clone().into_int().unwrap_or(6379) as u16,
         )
     };
-    let passwd = parsed["redis"]["password"].as_str().map(String::from);
+    let passwd = parsed["redis"]["password"]
+        .as_str()
+        .filter(|pass| !pass.is_empty())
+        .map(String::from);
     ConnectionInfo {
         addr: Box::new(addr),
         db,
         username: None,
         passwd,
     }
+}
+
+#[test]
+fn test_redis_empty_password_none() {
+    let config =
+        php_literal_parser::from_str(r#"["redis" => ["host" => "redis", "password" => "pass"]]"#)
+            .unwrap();
+    let redis = parse_redis_options(&config);
+    assert_eq!(redis.passwd, Some("pass".to_string()));
+
+    let config =
+        php_literal_parser::from_str(r#"["redis" => ["host" => "redis", "password" => ""]]"#)
+            .unwrap();
+    let redis = parse_redis_options(&config);
+    assert_eq!(redis.passwd, None);
 }
