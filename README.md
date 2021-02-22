@@ -191,7 +191,7 @@ Nextcloud server.
 ### Nextcloud web interface
 
 If you want to listen to incoming events from the web interface of your Nextcloud app,
-you can use the [`@nextcloude/notify_push`](https://www.npmjs.com/package/@nextcloud/notify_push) javascript library.
+you can use the [`@nextcloud/notify_push`](https://www.npmjs.com/package/@nextcloud/notify_push) javascript library.
 Which will handle all the details for authenticating and connecting to the push server.
 
 ### Clients
