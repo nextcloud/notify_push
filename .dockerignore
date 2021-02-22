@@ -1,3 +1,6 @@
 target
 lib
 test_client
+build
+vendor
+bin
