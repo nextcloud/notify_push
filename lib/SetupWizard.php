@@ -79,6 +79,7 @@ class SetupWizard {
 
 	public function testBinary(): bool {
 		$path = $this->getBinaryPath();
+		@chmod($path, 0755);
 		$appVersion = $this->appManager->getAppVersion("notify_push");
 		$output = [];
 		exec("$path --version", $output);
