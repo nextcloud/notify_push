@@ -47,7 +47,7 @@ impl Config {
             .clone()
             .into_string()
             .ok_or_else(|| Report::msg("'overwrite.cli.url' not set"))?;
-        let redis = parse_redis_options(&parsed).wrap_err("Failed to create redis config")?;
+        let redis = parse_redis_options(&parsed);
 
         // allow env overwrites
         let database = match get_env("DATABASE_URL") {
@@ -164,7 +164,7 @@ fn parse_db_options(parsed: &Value) -> Result<AnyConnectOptions> {
 }
 
 fn split_host(host: &str) -> (&str, Option<u16>, Option<&str>) {
-    let mut parts = host.split(":");
+    let mut parts = host.split(':');
     let host = parts.next().unwrap();
     match parts
         .next()
@@ -176,10 +176,10 @@ fn split_host(host: &str) -> (&str, Option<u16>, Option<&str>) {
     }
 }
 
-fn parse_redis_options(parsed: &Value) -> Result<ConnectionInfo> {
+fn parse_redis_options(parsed: &Value) -> ConnectionInfo {
     let host = parsed["redis"]["host"].as_str().unwrap_or("127.0.0.1");
     let db = parsed["redis"]["dbindex"].clone().into_int().unwrap_or(0);
-    let addr = if host.starts_with("/") {
+    let addr = if host.starts_with('/') {
         ConnectionAddr::Unix(host.into())
     } else {
         ConnectionAddr::Tcp(
@@ -188,10 +188,10 @@ fn parse_redis_options(parsed: &Value) -> Result<ConnectionInfo> {
         )
     };
     let passwd = parsed["redis"]["password"].as_str().map(String::from);
-    Ok(ConnectionInfo {
+    ConnectionInfo {
         addr: Box::new(addr),
         db,
         username: None,
         passwd,
-    })
+    }
 }
