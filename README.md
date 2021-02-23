@@ -72,7 +72,8 @@ Re-using the configuration from nextcloud is the recommended way, as it ensures 
 If using the `config.php` isn't possible, you can configure the push server by setting the following environment
 variables:
 
-- `DATABASE_URL` connection url for the Nextcloud database, e.g `postgres://user:password@db_host/db_name`
+- `DATABASE_URL` connection url for the Nextcloud database, e.g. `postgres://user:password@db_host/db_name`
+- `DATABASE_PREFIX` database prefix configured in Nextcloud, e.g. `oc_`
 - `REDIS_URL` connection url for redis, e.g. `redis://redis_host`
 - `NEXTCLOUD_URL` url for the nextcloud instance, e.g. `https://cloud.example.com`
 
