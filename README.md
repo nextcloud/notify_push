@@ -1,4 +1,4 @@
-# notify_push
+# Client Push
 
 Update notifications for nextcloud clients
 
@@ -25,7 +25,7 @@ This app requires a redis server to be setup and for nextcloud to be configured 
 
 The app comes with a setup wizard that should guide you through the setup process for most setups.
 
-- Install the `notify_push` app from the appstore
+- Install the "Client Push" (`notify_push`) app from the appstore
 - Run `occ notify_push:setup` and follow the provided instructions
 
 ## Manual setup
@@ -79,7 +79,7 @@ variables:
 If both the `config.php` and environment variable is provided, the environment variable will overwrite the value from
 config.php
 
-The port the server listens to can only be configured through the environment variable `PORT` and defaults to 80.
+The port the server listens to can only be configured through the environment variable `PORT` and defaults to 7867.
 
 #### Starting the service
 

@@ -18,6 +18,6 @@ RUN cargo build --release
 FROM scratch
 
 COPY --from=build /home/rust/src/target/x86_64-unknown-linux-musl/release/notify_push /
-EXPOSE 80
+EXPOSE 7867
 
 CMD ["/notify_push"]

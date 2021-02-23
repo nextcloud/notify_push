@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
     let port = dotenv::var("PORT")
         .ok()
         .and_then(|port| port.parse().ok())
-        .unwrap_or(80u16);
+        .unwrap_or(7867u16);
 
     let metrics_port = dotenv::var("METRICS_PORT")
         .ok()
