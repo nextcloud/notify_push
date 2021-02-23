@@ -27,6 +27,9 @@ Once the app is installed, the push binary needs to be setup. You can either use
 	</dependencies>
 
 	<repair-steps>
+		<post-migration>
+			<step>OCA\NotifyPush\Migration\Install</step>
+		</post-migration>
 		<install>
 			<step>OCA\NotifyPush\Migration\Install</step>
 		</install>
