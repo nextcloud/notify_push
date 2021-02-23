@@ -87,7 +87,7 @@ impl DebounceMap {
         }
     }
 
-    const fn get_debounce_time(ty: &MessageType) -> Duration {
+    fn get_debounce_time(ty: &MessageType) -> Duration {
         match ty {
             MessageType::File => Duration::from_secs(5),
             MessageType::Activity => Duration::from_secs(15),
