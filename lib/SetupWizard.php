@@ -81,9 +81,10 @@ class SetupWizard {
 		$path = $this->getBinaryPath();
 		@chmod($path, 0755);
 		$appVersion = $this->appManager->getAppVersion("notify_push");
+		$appVersion = substr($appVersion, 0, strrpos($appVersion, '.'));
 		$output = [];
 		exec("$path --version", $output);
-		return count($output) === 1 && $output[0] === "notify_push $appVersion";
+		return count($output) === 1 && strpos($output[0], "notify_push $appVersion") === 0;
 	}
 
 	public function isPortFree(): bool {
