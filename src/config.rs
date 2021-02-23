@@ -38,7 +38,7 @@ impl Config {
             .wrap_err_with(|| format!("Failed to read config file {}", path))?;
         let literal = content.trim_start_matches("<?php\n$CONFIG =").to_string();
         let parsed = php_literal_parser::from_str(&literal)
-            .map_err(|err| Report::msg(err.to_string()))
+            .map_err(|err| Report::msg(err.with_source(&literal).to_string()))
             .wrap_err("Failed to parse config file")?;
 
         let database = parse_db_options(&parsed).wrap_err("Failed to create database config")?;
