@@ -27,7 +27,7 @@ use OCA\NotifyPush\SetupWizard;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
 
-class Install  implements IRepairStep {
+class Install implements IRepairStep {
 	private $setupWizard;
 
 	public function __construct(SetupWizard $setupWizard) {
