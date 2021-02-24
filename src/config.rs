@@ -5,6 +5,7 @@ use sqlx::any::AnyConnectOptions;
 use sqlx::mysql::MySqlConnectOptions;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::sqlite::SqliteConnectOptions;
+use std::fmt::Debug;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -42,7 +43,10 @@ impl Config {
             .wrap_err("Failed to parse config file")?;
 
         let database = parse_db_options(&parsed).wrap_err("Failed to create database config")?;
-        let database_prefix = parsed["dbtableprefix"].to_string();
+        let database_prefix = parsed["dbtableprefix"]
+            .as_str()
+            .unwrap_or("oc_")
+            .to_string();
         let nextcloud_url = parsed["overwrite.cli.url"]
             .clone()
             .into_string()
@@ -212,4 +216,57 @@ fn test_redis_empty_password_none() {
             .unwrap();
     let redis = parse_redis_options(&config);
     assert_eq!(redis.passwd, None);
+}
+
+#[cfg(test)]
+fn assert_debug_equal<T: Debug, U: Debug>(a: T, b: U) {
+    assert_eq!(format!("{:?}", a), format!("{:?}", b),);
+}
+
+#[test]
+fn test_parse_config_basic() {
+    let config = Config::from_file("tests/configs/basic.php").unwrap();
+    assert_eq!("https://cloud.example.com", config.nextcloud_url);
+    assert_eq!("oc_", config.database_prefix);
+    assert_debug_equal(
+        AnyConnectOptions::from_str("mysql://nextcloud:secret@127.0.0.1/nextcloud").unwrap(),
+        config.database,
+    );
+    assert_debug_equal(
+        ConnectionInfo::from_str("redis://localhost").unwrap(),
+        config.redis,
+    );
+}
+
+#[test]
+fn test_parse_implicit_prefix() {
+    let config = Config::from_file("tests/configs/implicit_prefix.php").unwrap();
+    assert_eq!("oc_", config.database_prefix);
+}
+
+#[test]
+fn test_parse_empty_redis_password() {
+    let config = Config::from_file("tests/configs/empty_redis_password.php").unwrap();
+    assert_debug_equal(
+        ConnectionInfo::from_str("redis://localhost").unwrap(),
+        config.redis,
+    );
+}
+
+#[test]
+fn test_parse_full_redis() {
+    let config = Config::from_file("tests/configs/full_redis.php").unwrap();
+    assert_debug_equal(
+        ConnectionInfo::from_str("redis://:moresecret@redis:1234/1").unwrap(),
+        config.redis,
+    );
+}
+
+#[test]
+fn test_parse_redis_socket() {
+    let config = Config::from_file("tests/configs/redis_socket.php").unwrap();
+    assert_debug_equal(
+        ConnectionInfo::from_str("redis+unix:///redis").unwrap(),
+        config.redis,
+    );
 }
