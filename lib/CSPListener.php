@@ -28,12 +28,15 @@ use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\IConfig;
 use OCP\Security\CSP\AddContentSecurityPolicyEvent;
+use Psr\Log\LoggerInterface;
 
 class CSPListener implements IEventListener {
 	private $config;
+	private $logger;
 
-	public function __construct(IConfig $config) {
+	public function __construct(IConfig $config, LoggerInterface $logger) {
 		$this->config = $config;
+		$this->logger = $logger;
 	}
 
 	public function handle(Event $event): void {
@@ -44,13 +47,21 @@ class CSPListener implements IEventListener {
 		$csp = new ContentSecurityPolicy();
 
 		$baseEndpoint = $this->config->getAppValue('notify_push', 'base_endpoint');
+		if (!$baseEndpoint) {
+			return;
+		}
 		$endPointUrl = parse_url($baseEndpoint);
+
+		if (!isset($endPointUrl['host'])) {
+			$this->logger->warning("Malformed push server configured: " . $baseEndpoint);
+			return;
+		}
 
 		$connect = $endPointUrl['host'];
 		if (isset($endPointUrl['port'])) {
 			$connect .= ':'. $endPointUrl['port'];
 		}
-		if ($endPointUrl['scheme'] === 'https') {
+		if (isset($endPointUrl['scheme']) && $endPointUrl['scheme'] === 'https') {
 			$connect = 'wss://' . $connect;
 		} else {
 			$connect = 'ws://' . $connect;
