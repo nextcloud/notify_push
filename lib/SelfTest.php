@@ -32,6 +32,9 @@ use OCP\IDBConnection;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class SelfTest {
+	const ERROR_OTHER = 1;
+	const ERROR_TRUSTED_PROXY = 2;
+
 	private $client;
 	private $cookie;
 	private $config;
@@ -54,19 +57,19 @@ class SelfTest {
 		$this->appManager = $appManager;
 	}
 
-	public function test(string $server, OutputInterface $output): int {
+	public function test(string $server, OutputInterface $output, bool $ignoreProxyError = false): int {
 		if ($this->queue instanceof RedisQueue) {
 			$output->writeln("<info>✓ redis is configured</info>");
 		} else {
 			$output->writeln("<error>🗴 redis is not configured</error>");
-			return 1;
+			return self::ERROR_OTHER;
 		}
 
 		if (strpos($server, 'http://') === 0) {
 			$output->writeln("<comment>🗴 using unencrypted https for push server is strongly discouraged</comment>");
 		} elseif (strpos($server, 'https://') !== 0) {
 			$output->writeln("<error>🗴 malformed server url</error>");
-			return 1;
+			return self::ERROR_OTHER;
 		}
 		if (strpos($server, 'localhost') !== false) {
 			$output->writeln("<comment>🗴 push server url is set to localhost, the push server will not be reachable from other machines</comment>");
@@ -80,7 +83,7 @@ class SelfTest {
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
-			return 1;
+			return self::ERROR_OTHER;
 		}
 
 		if ($this->cookie === $retrievedCookie) {
@@ -88,7 +91,7 @@ class SelfTest {
 		} else {
 			$expected = $this->cookie;
 			$output->writeln("<error>🗴 push server is not receiving redis messages (received $expected, got $retrievedCookie)</error>");
-			return 1;
+			return self::ERROR_OTHER;
 		}
 
 		// test if the push server can load storage mappings from the db
@@ -98,14 +101,14 @@ class SelfTest {
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
-			return 1;
+			return self::ERROR_OTHER;
 		}
 
 		if ((int)$count === $retrievedCount) {
 			$output->writeln("<info>✓ push server can load mount info from database</info>");
 		} else {
 			$output->writeln("<error>🗴 push server can't load mount info from database</error>");
-			return 1;
+			return self::ERROR_OTHER;
 		}
 
 		// test if the push server can reach nextcloud by having it request the cookie
@@ -114,14 +117,14 @@ class SelfTest {
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
-			return 1;
+			return self::ERROR_OTHER;
 		}
 
 		if ($this->cookie === $retrievedCookie) {
 			$output->writeln("<info>✓ push server can connect to the Nextcloud server</info>");
 		} else {
 			$output->writeln("<error>🗴 push server can't connect to the Nextcloud server</error>");
-			return 1;
+			return self::ERROR_OTHER;
 		}
 
 		// test that the push server is a trusted proxy
@@ -130,15 +133,18 @@ class SelfTest {
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
-			return 1;
+			return self::ERROR_OTHER;
 		}
 
-		if ($remote === '1.2.3.4') {
+		if ($ignoreProxyError || $remote === '1.2.3.4') {
 			$output->writeln("<info>✓ push server is a trusted proxy</info>");
 		} else {
 			$output->writeln("<error>🗴 push server is not a trusted proxy, please add '$remote' to the list of trusted proxies" .
 				" or configure any existing reverse proxy to forward the 'x-forwarded-for' send by the push server.</error>");
-			return 1;
+			$output->writeln("  If you're having issues getting the trusted proxy setup working, you can try bypassing any existing reverse proxy");
+			$output->writeln("  in your setup by setting the `NEXTCLOUD_URL` environment variable to point directly to the internal Nextcloud webserver url");
+			$output->writeln("  (You will still need the ip address of the push server added as trusted proxy)");
+			return self::ERROR_TRUSTED_PROXY;
 		}
 
 		// test that the binary is up to date
@@ -147,14 +153,14 @@ class SelfTest {
 			$response = $this->client->post($server . '/test/version', ['nextcloud' => ['allow_local_address' => true], 'verify' => false]);
 			if ($response === "error") {
 				$output->writeln("<error>🗴 failed to get binary version, check the push server output for more information</error>");
-				return 1;
+				return self::ERROR_OTHER;
 			}
 			usleep(10 * 1000);
 			$binaryVersion = $this->queue->getConnection()->get("notify_push_version");
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 failed to get binary version: $msg</error>");
-			return 1;
+			return self::ERROR_OTHER;
 		}
 		$appVersion = $this->appManager->getAppVersion('notify_push');
 		$appVersionNoMinor = substr($appVersion, 0, strrpos($appVersion, '.'));
@@ -164,7 +170,7 @@ class SelfTest {
 			$output->writeln("<info>✓ push server is running the same version as the app</info>");
 		} else {
 			$output->writeln("<error>🗴 push server (version $binaryVersion) is not the same version as the app (version $appVersion).</error>");
-			return 1;
+			return self::ERROR_OTHER;
 		}
 
 		return 0;

@@ -159,7 +159,7 @@ class SetupWizard {
 			rewind($pipes[1]);
 			return stream_get_contents($pipes[1]);
 		}
-		$testResult = $this->selfTestNonProxied();
+		$testResult = $this->selfTestNonProxied(true);
 		if ($testResult !== true) {
 			proc_terminate($proc);
 			rewind($pipes[1]);
@@ -220,11 +220,13 @@ class SetupWizard {
 	}
 
 	/**
+	 * @param bool $ignoreProxyError
 	 * @return bool|string
 	 */
-	public function selfTestNonProxied() {
+	public function selfTestNonProxied(bool $ignoreProxyError = false) {
 		$output = new BufferedOutput();
-		if ($this->test->test("http://localhost:7867", $output) === 0) {
+		$result = $this->test->test("http://localhost:7867", $output, $ignoreProxyError);
+		if ($result === 0) {
 			return true;
 		} else {
 			return $output->fetch();
