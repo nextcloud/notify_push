@@ -26,7 +26,8 @@ This app requires a redis server to be setup and for nextcloud to be configured 
 The app comes with a setup wizard that should guide you through the setup process for most setups.
 
 - Install the "Client Push" (`notify_push`) app from the appstore
-- Run `occ notify_push:setup` and follow the provided instructions
+- Run `occ notify_push:setup` and follow the provided instructions,
+  If the setup wizard fails you can find manual instructions below.
 
 ## Manual setup
 
