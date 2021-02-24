@@ -297,3 +297,12 @@ fn test_parse_comment_whitespace() {
         config.redis,
     );
 }
+
+#[test]
+fn test_parse_port_in_host() {
+    let config = Config::from_file("tests/configs/port_in_host.php").unwrap();
+    assert_debug_equal(
+        AnyConnectOptions::from_str("mysql://nextcloud:secret@127.0.0.1:1234/nextcloud").unwrap(),
+        config.database,
+    );
+}
