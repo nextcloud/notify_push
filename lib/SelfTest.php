@@ -86,7 +86,8 @@ class SelfTest {
 		if ($this->cookie === $retrievedCookie) {
 			$output->writeln("<info>✓ push server is receiving redis messages</info>");
 		} else {
-			$output->writeln("<error>🗴 push server is not receiving redis messages</error>");
+			$expected = $this->cookie;
+			$output->writeln("<error>🗴 push server is not receiving redis messages (received $expected, got $retrievedCookie)</error>");
 			return 1;
 		}
 
