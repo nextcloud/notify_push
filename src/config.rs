@@ -197,7 +197,10 @@ fn split_host(host: &str) -> (&str, Option<u16>, Option<&str>) {
 }
 
 fn parse_redis_options(parsed: &Value) -> ConnectionInfo {
-    let host = parsed["redis"]["host"].as_str().unwrap_or("127.0.0.1");
+    let mut host = parsed["redis"]["host"].as_str().unwrap_or("127.0.0.1");
+    if host == "localhost" {
+        host = "127.0.0.1";
+    }
     let db = parsed["redis"]["dbindex"].clone().into_int().unwrap_or(0);
     let addr = if host.starts_with('/') {
         ConnectionAddr::Unix(host.into())
@@ -249,7 +252,7 @@ fn test_parse_config_basic() {
         config.database,
     );
     assert_debug_equal(
-        ConnectionInfo::from_str("redis://localhost").unwrap(),
+        ConnectionInfo::from_str("redis://127.0.0.1").unwrap(),
         config.redis,
     );
 }
@@ -264,7 +267,7 @@ fn test_parse_implicit_prefix() {
 fn test_parse_empty_redis_password() {
     let config = Config::from_file("tests/configs/empty_redis_password.php").unwrap();
     assert_debug_equal(
-        ConnectionInfo::from_str("redis://localhost").unwrap(),
+        ConnectionInfo::from_str("redis://127.0.0.1").unwrap(),
         config.redis,
     );
 }
@@ -297,7 +300,7 @@ fn test_parse_comment_whitespace() {
         config.database,
     );
     assert_debug_equal(
-        ConnectionInfo::from_str("redis://localhost").unwrap(),
+        ConnectionInfo::from_str("redis://127.0.0.1").unwrap(),
         config.redis,
     );
 }
