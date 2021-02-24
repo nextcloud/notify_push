@@ -6,7 +6,7 @@ use sqlx::mysql::MySqlConnectOptions;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::sqlite::SqliteConnectOptions;
 use std::fmt::Debug;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -154,7 +154,17 @@ fn parse_db_options(parsed: &Value) -> Result<AnyConnectOptions> {
                     options = options.host(addr).port(port);
                 }
                 (_, None, Some(socket)) => {
-                    options = options.socket(socket);
+                    let mut socket_path = Path::new(socket);
+
+                    // sqlx wants the folder the socket is in, not the socket itself
+                    if socket_path
+                        .file_name()
+                        .map(|name| name.to_str().unwrap().starts_with(".s"))
+                        .unwrap_or(false)
+                    {
+                        socket_path = socket_path.parent().unwrap();
+                    }
+                    options = options.socket(socket_path);
                 }
                 (_, Some(_), Some(_)) => {
                     unreachable!()
@@ -310,6 +320,36 @@ fn test_parse_port_in_host() {
     let config = Config::from_file("tests/configs/port_in_host.php").unwrap();
     assert_debug_equal(
         AnyConnectOptions::from_str("mysql://nextcloud:secret@127.0.0.1:1234/nextcloud").unwrap(),
+        config.database,
+    );
+}
+
+#[test]
+fn test_parse_postgres_socket() {
+    let config = Config::from_file("tests/configs/postgres_socket.php").unwrap();
+    assert_debug_equal(
+        AnyConnectOptions::from(
+            PgConnectOptions::new()
+                .socket("/var/run/postgresql")
+                .username("redacted")
+                .password("redacted")
+                .database("nextcloud"),
+        ),
+        config.database,
+    );
+}
+
+#[test]
+fn test_parse_postgres_socket_folder() {
+    let config = Config::from_file("tests/configs/postgres_socket_folder.php").unwrap();
+    assert_debug_equal(
+        AnyConnectOptions::from(
+            PgConnectOptions::new()
+                .socket("/var/run/postgresql")
+                .username("redacted")
+                .password("redacted")
+                .database("nextcloud"),
+        ),
         config.database,
     );
 }
