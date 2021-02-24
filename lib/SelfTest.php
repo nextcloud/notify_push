@@ -164,6 +164,7 @@ class SelfTest {
 			$output->writeln("<info>✓ push server is running the same version as the app</info>");
 		} else {
 			$output->writeln("<error>🗴 push server (version $binaryVersion) is not the same version as the app (version $appVersion).</error>");
+			return 1;
 		}
 
 		return 0;
