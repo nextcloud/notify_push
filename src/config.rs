@@ -37,9 +37,17 @@ impl Config {
     pub fn from_file(path: &str) -> Result<Self> {
         let content = std::fs::read_to_string(path)
             .wrap_err_with(|| format!("Failed to read config file {}", path))?;
-        let literal = content.trim_start_matches("<?php\n$CONFIG =").to_string();
-        let parsed = php_literal_parser::from_str(&literal)
-            .map_err(|err| Report::msg(err.with_source(&literal).to_string()))
+        let php = match content.find("$CONFIG") {
+            Some(pos) => content[pos + "$CONFIG".len()..]
+                .trim()
+                .trim_start_matches("="),
+            None => {
+                return Err(Report::msg("$CONFIG not found"))
+                    .wrap_err("Failed to parse config file")
+            }
+        };
+        let parsed = php_literal_parser::from_str(php)
+            .map_err(|err| Report::msg(err.with_source(php).to_string()))
             .wrap_err("Failed to parse config file")?;
 
         let database = parse_db_options(&parsed).wrap_err("Failed to create database config")?;
@@ -267,6 +275,21 @@ fn test_parse_redis_socket() {
     let config = Config::from_file("tests/configs/redis_socket.php").unwrap();
     assert_debug_equal(
         ConnectionInfo::from_str("redis+unix:///redis").unwrap(),
+        config.redis,
+    );
+}
+
+#[test]
+fn test_parse_comment_whitespace() {
+    let config = Config::from_file("tests/configs/comment_whitespace.php").unwrap();
+    assert_eq!("https://cloud.example.com", config.nextcloud_url);
+    assert_eq!("oc_", config.database_prefix);
+    assert_debug_equal(
+        AnyConnectOptions::from_str("mysql://nextcloud:secret@127.0.0.1/nextcloud").unwrap(),
+        config.database,
+    );
+    assert_debug_equal(
+        ConnectionInfo::from_str("redis://localhost").unwrap(),
         config.redis,
     );
 }
