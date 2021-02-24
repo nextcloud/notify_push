@@ -106,12 +106,16 @@ fn parse_db_options(parsed: &Value) -> Result<AnyConnectOptions> {
             }
             let socket_addr1 = PathBuf::from("/var/run/mysqld/mysqld.sock");
             let socket_addr2 = PathBuf::from("/tmp/mysql.sock");
+            let socket_addr3 = PathBuf::from("/run/mysql/mysql.sock");
             match split_host(parsed["dbhost"].as_str().unwrap_or_default()) {
                 ("localhost", None, None) if socket_addr1.exists() => {
                     options = options.socket(socket_addr1);
                 }
                 ("localhost", None, None) if socket_addr2.exists() => {
                     options = options.socket(socket_addr2);
+                }
+                ("localhost", None, None) if socket_addr3.exists() => {
+                    options = options.socket(socket_addr3);
                 }
                 (addr, None, None) => {
                     options = options.host(addr);
