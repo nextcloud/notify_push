@@ -32,8 +32,8 @@ use OCP\IDBConnection;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class SelfTest {
-	const ERROR_OTHER = 1;
-	const ERROR_TRUSTED_PROXY = 2;
+	public const ERROR_OTHER = 1;
+	public const ERROR_TRUSTED_PROXY = 2;
 
 	private $client;
 	private $cookie;
