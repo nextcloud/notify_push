@@ -45,6 +45,10 @@ async fn main() -> Result<()> {
         .and_then(|port| port.parse().ok())
         .unwrap_or(7867u16);
 
+    let socket_path = dotenv::var("SOCKETPATH")
+        .ok()
+        .unwrap_or(String::from(""));
+
     let metrics_port = dotenv::var("METRICS_PORT")
         .ok()
         .and_then(|port| port.parse().ok());
@@ -65,8 +69,12 @@ async fn main() -> Result<()> {
     let app = Arc::new(App::new(config, log_handle, allow_self_signed).await?);
     app.self_test().await?;
 
-    log::trace!("Listening on port {}", port);
-    let server = spawn(serve(app.clone(), port, serve_cancel_handle));
+    if socket_path.is_empty() {
+        log::trace!("Listening on port {}", port);
+    } else {
+        log::trace!("Listening on socket {}", socket_path);
+    }
+    let server = spawn(serve(app.clone(), port, socket_path, serve_cancel_handle));
 
     if let Some(metrics_port) = metrics_port {
         log::trace!("Metrics listening on port {}", port);

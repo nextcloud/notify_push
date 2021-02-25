@@ -16,6 +16,7 @@ use futures::{pin_mut, FutureExt};
 use redis::{AsyncCommands, Client};
 use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
+use std::{fs, os::unix::fs::PermissionsExt};
 use std::convert::Infallible;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -23,6 +24,8 @@ use std::time::{Duration, Instant};
 use tokio::sync::oneshot;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
+use tokio::net::UnixListener;
+use tokio_stream::wrappers::UnixListenerStream;
 use warp::filters::addr::remote;
 use warp::Filter;
 use warp_real_ip::get_forwarded_for;
@@ -198,7 +201,7 @@ impl App {
     }
 }
 
-pub async fn serve(app: Arc<App>, port: u16, cancel: oneshot::Receiver<()>) {
+pub async fn serve(app: Arc<App>, port: u16, socket_path: String, cancel: oneshot::Receiver<()>) {
     let app = warp::any().map(move || app.clone());
 
     let cors = warp::cors().allow_any_origin();
@@ -300,9 +303,21 @@ pub async fn serve(app: Arc<App>, port: u16, cancel: oneshot::Receiver<()>) {
         .or(remote_test)
         .or(version);
 
-    let (_, server) =
-        warp::serve(routes).bind_with_graceful_shutdown(([0, 0, 0, 0], port), cancel.map(|_| ()));
-    server.await;
+    if socket_path.is_empty() {
+        let (_, server) =
+            warp::serve(routes).bind_with_graceful_shutdown(([0, 0, 0, 0], port), cancel.map(|_| ()));
+        server.await;
+    } else {
+        fs::remove_file(&socket_path).unwrap_or_default();
+
+        let listener = UnixListener::bind(&socket_path).unwrap();
+        fs::set_permissions(&socket_path, PermissionsExt::from_mode(0o666)).unwrap();
+
+        let stream = UnixListenerStream::new(listener);
+        let server =
+            warp::serve(routes).serve_incoming_with_graceful_shutdown(stream, cancel.map(|_| ()));
+        server.await;
+    }
 }
 
 pub async fn listen_loop(app: Arc<App>, cancel: oneshot::Receiver<()>) {

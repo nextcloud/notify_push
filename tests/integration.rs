@@ -168,7 +168,7 @@ impl Services {
         let (listen_tx, listen_rx) = oneshot::channel();
 
         spawn(async move {
-            let serve = serve(app.clone(), port, serve_rx);
+            let serve = serve(app.clone(), port, String::from(""), serve_rx);
             let listen = listen_loop(app.clone(), listen_rx);
 
             pin_mut!(serve);
