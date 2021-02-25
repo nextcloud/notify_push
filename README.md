@@ -93,6 +93,10 @@ and enable it to automatically start on boot using
 
 `sudo systemctl enable notify_push`
 
+Every time this app receives an update you should restart the systemd service using
+
+`sudo systemctl restart notify_push`
+
 ### Reverse proxy
 
 It is **strongly** recommended to setup the push service behind a reverse proxy, this both removes the need to open
