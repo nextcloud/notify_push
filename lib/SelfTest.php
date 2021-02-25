@@ -187,4 +187,29 @@ class SelfTest {
 
 		return $query->execute()->fetch(\PDO::FETCH_NUM);
 	}
+
+	protected function matchesTrustedProxy(string $trustedProxy, string $remoteAddress): bool {
+		$cidrre = '/^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\/([0-9]{1,2})$/';
+
+		if (preg_match($cidrre, $trustedProxy, $match)) {
+			$net = $match[1];
+			$shiftbits = min(32, max(0, 32 - intval($match[2])));
+			$netnum = ip2long($net) >> $shiftbits;
+			$ipnum = ip2long($remoteAddress) >> $shiftbits;
+
+			return $ipnum === $netnum;
+		}
+
+		return $trustedProxy === $remoteAddress;
+	}
+
+	protected function isTrustedProxy(array $trustedProxies, string $remoteAddress): bool {
+		foreach ($trustedProxies as $tp) {
+			if ($this->matchesTrustedProxy($tp, $remoteAddress)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
 }

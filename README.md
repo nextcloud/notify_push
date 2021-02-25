@@ -78,10 +78,12 @@ variables:
 - `REDIS_URL` connection url for redis, e.g. `redis://redis_host`
 - `NEXTCLOUD_URL` url for the nextcloud instance, e.g. `https://cloud.example.com`
 
-If both the `config.php` and environment variable is provided, the environment variable will overwrite the value from
-config.php
+Or you can specify the options as command line arguments, see `notify_push --help` for information about the command line arguments.
 
-The port the server listens to can only be configured through the environment variable `PORT` and defaults to 7867.
+If a config option is set in multiple sources, the values from the command line argument overwrite values from the environment
+which in turns overwrites the values from the `config.php`.
+
+The port the server listens to can only be configured through the environment variable `PORT`, or `--port` argument and defaults to 7867.
 
 #### Starting the service
 
