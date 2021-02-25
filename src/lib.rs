@@ -127,9 +127,7 @@ impl App {
                     version
                 );
             }
-            Err(e) => {
-                log::warn!("failed to detect app version app: {:#}", e);
-            }
+            Err(_) => {}
         }
 
         Ok(())
