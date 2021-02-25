@@ -84,7 +84,9 @@ impl TryFrom<PartialConfig> for Config {
         let bind = match config.socket {
             Some(socket) => Bind::Unix(socket),
             None => {
-                let ip = config.bind.unwrap_or(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+                let ip = config
+                    .bind
+                    .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
                 let port = config.port.unwrap_or(7867);
                 Bind::Tcp((ip, port).into())
             }
@@ -93,14 +95,16 @@ impl TryFrom<PartialConfig> for Config {
         Ok(Config {
             database: config
                 .database
-                .ok_or(Report::msg("No database url configured"))?,
+                .ok_or_else(|| Report::msg("No database url configured"))?,
             database_prefix: config
                 .database_prefix
                 .unwrap_or_else(|| String::from("oc_")),
-            redis: config.redis.ok_or(Report::msg("No redis url configured"))?,
+            redis: config
+                .redis
+                .ok_or_else(|| Report::msg("No redis url configured"))?,
             nextcloud_url: config
                 .nextcloud_url
-                .ok_or(Report::msg("No nextcloud url configured"))?,
+                .ok_or_else(|| Report::msg("No nextcloud url configured"))?,
             metrics_port: config.metrics_port,
             log_level: config.log_level.unwrap_or_else(|| String::from("warn")),
             bind,
@@ -117,7 +121,7 @@ impl Config {
             .transpose()?
             .unwrap_or_default();
         let from_env = PartialConfig::from_env()?;
-        let from_opt = PartialConfig::from_opt(opt)?;
+        let from_opt = PartialConfig::from_opt(opt);
 
         from_opt.merge(from_env).merge(from_config).try_into()
     }
@@ -165,7 +169,7 @@ impl PartialConfig {
         parse_config_file(file)
     }
 
-    fn from_opt(opt: Opt) -> Result<Self> {
+    fn from_opt(opt: Opt) -> Self {
         let database = opt.database_url;
         let database_prefix = opt.database_prefix;
         let redis = opt.redis_url;
@@ -176,7 +180,7 @@ impl PartialConfig {
         let bind = opt.bind;
         let socket = opt.socket_path;
 
-        Ok(PartialConfig {
+        PartialConfig {
             database,
             database_prefix,
             redis,
@@ -186,7 +190,7 @@ impl PartialConfig {
             log_level,
             bind,
             socket,
-        })
+        }
     }
 
     fn merge(self, fallback: Self) -> Self {

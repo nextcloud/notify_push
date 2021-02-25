@@ -19,7 +19,7 @@ pub(super) fn parse_config_file(path: impl AsRef<Path>) -> Result<PartialConfig>
     let php = match content.find("$CONFIG") {
         Some(pos) => content[pos + "$CONFIG".len()..]
             .trim()
-            .trim_start_matches("="),
+            .trim_start_matches('='),
         None => {
             return Err(Report::msg("$CONFIG not found")).wrap_err("Failed to parse config file")
         }
