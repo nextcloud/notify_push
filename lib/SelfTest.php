@@ -141,6 +141,8 @@ class SelfTest {
 		} else {
 			$output->writeln("<error>🗴 push server is not a trusted proxy, please add '$remote' to the list of trusted proxies" .
 				" or configure any existing reverse proxy to forward the 'x-forwarded-for' send by the push server.</error>");
+			$output->writeln("  See https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/reverse_proxy_configuration.html#defining-trusted-proxies for how to set trusted proxies.");
+			$output->writeln("");
 			$output->writeln("  If you're having issues getting the trusted proxy setup working, you can try bypassing any existing reverse proxy");
 			$output->writeln("  in your setup by setting the `NEXTCLOUD_URL` environment variable to point directly to the internal Nextcloud webserver url");
 			$output->writeln("  (You will still need the ip address of the push server added as trusted proxy)");
