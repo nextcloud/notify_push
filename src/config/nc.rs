@@ -207,11 +207,18 @@ fn assert_debug_equal<T: Debug, U: Debug>(a: T, b: U) {
 }
 
 #[cfg(test)]
+use std::convert::TryInto;
+#[cfg(test)]
 use std::fmt::Debug;
+
+#[cfg(test)]
+fn config_from_file(path: &str) -> crate::config::Config {
+    PartialConfig::from_file(path).unwrap().try_into().unwrap()
+}
 
 #[test]
 fn test_parse_config_basic() {
-    let config = Config::from_file("tests/configs/basic.php").unwrap();
+    let config = config_from_file("tests/configs/basic.php");
     assert_eq!("https://cloud.example.com", config.nextcloud_url);
     assert_eq!("oc_", config.database_prefix);
     assert_debug_equal(
@@ -226,13 +233,13 @@ fn test_parse_config_basic() {
 
 #[test]
 fn test_parse_implicit_prefix() {
-    let config = Config::from_file("tests/configs/implicit_prefix.php").unwrap();
+    let config = config_from_file("tests/configs/implicit_prefix.php");
     assert_eq!("oc_", config.database_prefix);
 }
 
 #[test]
 fn test_parse_empty_redis_password() {
-    let config = Config::from_file("tests/configs/empty_redis_password.php").unwrap();
+    let config = config_from_file("tests/configs/empty_redis_password.php");
     assert_debug_equal(
         ConnectionInfo::from_str("redis://127.0.0.1").unwrap(),
         config.redis,
@@ -241,7 +248,7 @@ fn test_parse_empty_redis_password() {
 
 #[test]
 fn test_parse_full_redis() {
-    let config = Config::from_file("tests/configs/full_redis.php").unwrap();
+    let config = config_from_file("tests/configs/full_redis.php");
     assert_debug_equal(
         ConnectionInfo::from_str("redis://:moresecret@redis:1234/1").unwrap(),
         config.redis,
@@ -250,7 +257,7 @@ fn test_parse_full_redis() {
 
 #[test]
 fn test_parse_redis_socket() {
-    let config = Config::from_file("tests/configs/redis_socket.php").unwrap();
+    let config = config_from_file("tests/configs/redis_socket.php");
     assert_debug_equal(
         ConnectionInfo::from_str("redis+unix:///redis").unwrap(),
         config.redis,
@@ -259,7 +266,7 @@ fn test_parse_redis_socket() {
 
 #[test]
 fn test_parse_comment_whitespace() {
-    let config = Config::from_file("tests/configs/comment_whitespace.php").unwrap();
+    let config = config_from_file("tests/configs/comment_whitespace.php");
     assert_eq!("https://cloud.example.com", config.nextcloud_url);
     assert_eq!("oc_", config.database_prefix);
     assert_debug_equal(
@@ -274,7 +281,7 @@ fn test_parse_comment_whitespace() {
 
 #[test]
 fn test_parse_port_in_host() {
-    let config = Config::from_file("tests/configs/port_in_host.php").unwrap();
+    let config = config_from_file("tests/configs/port_in_host.php");
     assert_debug_equal(
         AnyConnectOptions::from_str("mysql://nextcloud:secret@127.0.0.1:1234/nextcloud").unwrap(),
         config.database,
@@ -283,7 +290,7 @@ fn test_parse_port_in_host() {
 
 #[test]
 fn test_parse_postgres_socket() {
-    let config = Config::from_file("tests/configs/postgres_socket.php").unwrap();
+    let config = config_from_file("tests/configs/postgres_socket.php");
     assert_debug_equal(
         AnyConnectOptions::from(
             PgConnectOptions::new()
@@ -298,7 +305,7 @@ fn test_parse_postgres_socket() {
 
 #[test]
 fn test_parse_postgres_socket_folder() {
-    let config = Config::from_file("tests/configs/postgres_socket_folder.php").unwrap();
+    let config = config_from_file("tests/configs/postgres_socket_folder.php");
     assert_debug_equal(
         AnyConnectOptions::from(
             PgConnectOptions::new()

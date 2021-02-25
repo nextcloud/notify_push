@@ -48,13 +48,13 @@ async fn main() -> Result<()> {
         DEBOUNCE_ENABLE.store(false, Ordering::Relaxed);
     }
 
-    let port = config.port;
     let metrics_port = config.metrics_port;
+    let bind = config.bind.clone();
     let app = Arc::new(App::new(config, log_handle, allow_self_signed).await?);
     app.self_test().await?;
 
-    log::trace!("Listening on port {}", port);
-    let server = spawn(serve(app.clone(), port, serve_cancel_handle));
+    log::trace!("Listening on {}", bind);
+    let server = spawn(serve(app.clone(), bind, serve_cancel_handle));
 
     if let Some(metrics_port) = metrics_port {
         log::trace!("Metrics listening on port {}", metrics_port);

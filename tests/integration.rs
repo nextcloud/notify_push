@@ -4,7 +4,7 @@ use futures::future::select;
 use futures::{pin_mut, FutureExt};
 use futures::{SinkExt, StreamExt};
 use http_auth_basic::Credentials;
-use notify_push::config::Config;
+use notify_push::config::{Bind, Config};
 use notify_push::{listen_loop, serve, App};
 use once_cell::sync::Lazy;
 use redis::AsyncCommands;
@@ -146,6 +146,9 @@ impl Services {
                 .parse()
                 .unwrap(),
             nextcloud_url: format!("http://{}/", self.nextcloud),
+            metrics_port: None,
+            log_level: "".to_string(),
+            bind: Bind::Tcp(self.nextcloud.clone()),
         }
     }
 
@@ -158,17 +161,19 @@ impl Services {
 
     async fn spawn_server(&self) -> ServerHandle {
         let app = Arc::new(self.app().await);
-        let port = async {
+        let addr = async {
             let tcp = listen_available_port().await.unwrap();
-            tcp.local_addr().unwrap().port()
+            tcp.local_addr()
         }
-        .await;
+        .await
+        .unwrap();
 
         let (serve_tx, serve_rx) = oneshot::channel();
         let (listen_tx, listen_rx) = oneshot::channel();
 
+        let bind = Bind::Tcp(addr);
         spawn(async move {
-            let serve = serve(app.clone(), port, serve_rx);
+            let serve = serve(app.clone(), bind, serve_rx);
             let listen = listen_loop(app.clone(), listen_rx);
 
             pin_mut!(serve);
@@ -182,7 +187,7 @@ impl Services {
         ServerHandle {
             _serve_handle: serve_tx,
             _listen_handle: listen_tx,
-            port,
+            port: addr.port(),
         }
     }
 

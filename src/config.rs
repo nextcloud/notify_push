@@ -7,6 +7,8 @@ use redis::ConnectionInfo;
 use sqlx::any::AnyConnectOptions;
 use std::convert::{TryFrom, TryInto};
 use std::env::var;
+use std::fmt::{Display, Formatter};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use structopt::StructOpt;
@@ -32,6 +34,12 @@ pub struct Opt {
     /// The port to serve metrics on
     #[structopt(short = "m", long)]
     pub metrics_port: Option<u16>,
+    /// The ip address to bind to
+    #[structopt(long)]
+    pub bind: Option<IpAddr>,
+    /// Listen to a unix socket instead of TCP
+    #[structopt(long)]
+    pub socket_path: Option<PathBuf>,
     /// The path to the nextcloud config file
     #[structopt(name = "CONFIG_FILE", parse(from_os_str))]
     pub config_file: Option<PathBuf>,
@@ -49,15 +57,39 @@ pub struct Config {
     pub database_prefix: String,
     pub redis: ConnectionInfo,
     pub nextcloud_url: String,
-    pub port: u16,
     pub metrics_port: Option<u16>,
     pub log_level: String,
+    pub bind: Bind,
+}
+
+#[derive(Debug, Clone)]
+pub enum Bind {
+    Tcp(SocketAddr),
+    Unix(PathBuf),
+}
+
+impl Display for Bind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Bind::Tcp(addr) => addr.fmt(f),
+            Bind::Unix(path) => path.to_string_lossy().fmt(f),
+        }
+    }
 }
 
 impl TryFrom<PartialConfig> for Config {
     type Error = Report;
 
     fn try_from(config: PartialConfig) -> Result<Self> {
+        let bind = match config.socket {
+            Some(socket) => Bind::Unix(socket),
+            None => {
+                let ip = config.bind.unwrap_or(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+                let port = config.port.unwrap_or(7867);
+                Bind::Tcp((ip, port).into())
+            }
+        };
+
         Ok(Config {
             database: config
                 .database
@@ -69,9 +101,9 @@ impl TryFrom<PartialConfig> for Config {
             nextcloud_url: config
                 .nextcloud_url
                 .ok_or(Report::msg("No nextcloud url configured"))?,
-            port: config.port.unwrap_or(7867),
             metrics_port: config.metrics_port,
             log_level: config.log_level.unwrap_or_else(|| String::from("warn")),
+            bind,
         })
     }
 }
@@ -100,6 +132,8 @@ struct PartialConfig {
     pub port: Option<u16>,
     pub metrics_port: Option<u16>,
     pub log_level: Option<String>,
+    pub bind: Option<IpAddr>,
+    pub socket: Option<PathBuf>,
 }
 
 impl PartialConfig {
@@ -111,6 +145,8 @@ impl PartialConfig {
         let port = parse_var("PORT").ok().wrap_err("Invalid PORT")?;
         let metrics_port = parse_var("METRICS_PORT").wrap_err("Invalid METRICS_PORT")?;
         let log_level = var("LOG").ok();
+        let bind = parse_var("BIND").wrap_err("Invalid BIND")?;
+        let socket = var("SOCKET_PATH").map(PathBuf::from).ok();
 
         Ok(PartialConfig {
             database,
@@ -120,6 +156,8 @@ impl PartialConfig {
             port,
             metrics_port,
             log_level,
+            bind,
+            socket,
         })
     }
 
@@ -135,6 +173,8 @@ impl PartialConfig {
         let port = opt.port;
         let metrics_port = opt.metrics_port;
         let log_level = opt.log_level;
+        let bind = opt.bind;
+        let socket = opt.socket_path;
 
         Ok(PartialConfig {
             database,
@@ -144,6 +184,8 @@ impl PartialConfig {
             port,
             metrics_port,
             log_level,
+            bind,
+            socket,
         })
     }
 
@@ -156,6 +198,8 @@ impl PartialConfig {
             port: self.port.or(fallback.port),
             metrics_port: self.metrics_port.or(fallback.metrics_port),
             log_level: self.log_level.or(fallback.log_level),
+            bind: self.bind.or(fallback.bind),
+            socket: self.socket.or(fallback.socket),
         }
     }
 }

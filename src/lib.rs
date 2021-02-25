@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{Bind, Config};
 use crate::connection::{handle_user_socket, ActiveConnections};
 use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
@@ -17,12 +17,16 @@ use redis::{AsyncCommands, Client};
 use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
 use std::convert::Infallible;
+use std::fs;
 use std::net::{IpAddr, SocketAddr};
+use std::os::unix::fs::PermissionsExt;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
+use tokio::net::UnixListener;
 use tokio::sync::oneshot;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
+use tokio_stream::wrappers::UnixListenerStream;
 use warp::filters::addr::remote;
 use warp::Filter;
 use warp_real_ip::get_forwarded_for;
@@ -198,7 +202,7 @@ impl App {
     }
 }
 
-pub async fn serve(app: Arc<App>, port: u16, cancel: oneshot::Receiver<()>) {
+pub async fn serve(app: Arc<App>, bind: Bind, cancel: oneshot::Receiver<()>) {
     let app = warp::any().map(move || app.clone());
 
     let cors = warp::cors().allow_any_origin();
@@ -300,9 +304,24 @@ pub async fn serve(app: Arc<App>, port: u16, cancel: oneshot::Receiver<()>) {
         .or(remote_test)
         .or(version);
 
-    let (_, server) =
-        warp::serve(routes).bind_with_graceful_shutdown(([0, 0, 0, 0], port), cancel.map(|_| ()));
-    server.await;
+    let cancel = cancel.map(|_| ());
+    match bind {
+        Bind::Tcp(addr) => {
+            let (_, server) = warp::serve(routes).bind_with_graceful_shutdown(addr, cancel);
+            server.await;
+        }
+        Bind::Unix(socket_path) => {
+            fs::remove_file(&socket_path).unwrap_or_default();
+
+            let listener = UnixListener::bind(&socket_path).unwrap();
+            fs::set_permissions(&socket_path, PermissionsExt::from_mode(0o666)).unwrap();
+
+            let stream = UnixListenerStream::new(listener);
+            warp::serve(routes)
+                .serve_incoming_with_graceful_shutdown(stream, cancel)
+                .await;
+        }
+    };
 }
 
 pub async fn listen_loop(app: Arc<App>, cancel: oneshot::Receiver<()>) {
