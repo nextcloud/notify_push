@@ -287,7 +287,7 @@ WantedBy = multi-user.target
 
 	public function nginxConfig(): string {
 		return "location /push/ {
-	proxy_pass http://localhost:7867/;
+	proxy_pass http://127.0.0.1:7867/;
 	proxy_http_version 1.1;
 	proxy_set_header Upgrade \$http_upgrade;
 	proxy_set_header Connection \"Upgrade\";
@@ -298,9 +298,9 @@ WantedBy = multi-user.target
 	}
 
 	public function apacheConfig(): string {
-		return "ProxyPass /push/ws ws://localhost:7867/ws
-ProxyPass /push/ http://localhost:7867/
-ProxyPassReverse /push/ http://localhost:7867/
+		return "ProxyPass /push/ws ws://127.0.0.1:7867/ws
+ProxyPass /push/ http://127.0.0.1:7867/
+ProxyPassReverse /push/ http://127.0.0.1:7867/
 ";
 	}
 }

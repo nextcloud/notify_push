@@ -113,7 +113,7 @@ If you're using nginx, add the following `location` block the the existing `serv
 
 ```nginx
 location /push/ {
-    proxy_pass http://localhost:7867/;
+    proxy_pass http://127.0.0.1:7867/;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "Upgrade";
@@ -143,9 +143,9 @@ sudo a2enmod proxy_wstunnel
 Then add the following lines to the `<VirtualHost>` block used for the Nextcloud server.
 
 ```apacheconf
-ProxyPass /push/ws ws://localhost:7867/ws
-ProxyPass /push/ http://localhost:7867/
-ProxyPassReverse /push/ http://localhost:7867/
+ProxyPass /push/ws ws://127.0.0.1:7867/ws
+ProxyPass /push/ http://127.0.0.1:7867/
+ProxyPassReverse /push/ http://127.0.0.1:7867/
 ```
 
 Afterwards you can restart apache using
