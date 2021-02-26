@@ -40,6 +40,9 @@ pub struct Opt {
     /// Listen to a unix socket instead of TCP
     #[structopt(long)]
     pub socket_path: Option<PathBuf>,
+    /// Disable validating of certificates when connecting to the nextcloud instance
+    #[structopt(long)]
+    pub allow_self_signed: bool,
     /// The path to the nextcloud config file
     #[structopt(name = "CONFIG_FILE", parse(from_os_str))]
     pub config_file: Option<PathBuf>,
@@ -60,6 +63,7 @@ pub struct Config {
     pub metrics_port: Option<u16>,
     pub log_level: String,
     pub bind: Bind,
+    pub allow_self_signed: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -108,6 +112,7 @@ impl TryFrom<PartialConfig> for Config {
             metrics_port: config.metrics_port,
             log_level: config.log_level.unwrap_or_else(|| String::from("warn")),
             bind,
+            allow_self_signed: config.allow_self_signed.unwrap_or(false),
         })
     }
 }
@@ -138,6 +143,7 @@ struct PartialConfig {
     pub log_level: Option<String>,
     pub bind: Option<IpAddr>,
     pub socket: Option<PathBuf>,
+    pub allow_self_signed: Option<bool>,
 }
 
 impl PartialConfig {
@@ -151,6 +157,7 @@ impl PartialConfig {
         let log_level = var("LOG").ok();
         let bind = parse_var("BIND").wrap_err("Invalid BIND")?;
         let socket = var("SOCKET_PATH").map(PathBuf::from).ok();
+        let allow_self_signed = var("ALLOW_SELF_SIGNED").map(|val| val == "true").ok();
 
         Ok(PartialConfig {
             database,
@@ -162,6 +169,7 @@ impl PartialConfig {
             log_level,
             bind,
             socket,
+            allow_self_signed,
         })
     }
 
@@ -170,26 +178,21 @@ impl PartialConfig {
     }
 
     fn from_opt(opt: Opt) -> Self {
-        let database = opt.database_url;
-        let database_prefix = opt.database_prefix;
-        let redis = opt.redis_url;
-        let nextcloud_url = opt.nextcloud_url;
-        let port = opt.port;
-        let metrics_port = opt.metrics_port;
-        let log_level = opt.log_level;
-        let bind = opt.bind;
-        let socket = opt.socket_path;
-
         PartialConfig {
-            database,
-            database_prefix,
-            redis,
-            nextcloud_url,
-            port,
-            metrics_port,
-            log_level,
-            bind,
-            socket,
+            database: opt.database_url,
+            database_prefix: opt.database_prefix,
+            redis: opt.redis_url,
+            nextcloud_url: opt.nextcloud_url,
+            port: opt.port,
+            metrics_port: opt.metrics_port,
+            log_level: opt.log_level,
+            bind: opt.bind,
+            socket: opt.socket_path,
+            allow_self_signed: if opt.allow_self_signed {
+                Some(true)
+            } else {
+                None
+            },
         }
     }
 
@@ -204,6 +207,7 @@ impl PartialConfig {
             log_level: self.log_level.or(fallback.log_level),
             bind: self.bind.or(fallback.bind),
             socket: self.socket.or(fallback.socket),
+            allow_self_signed: self.allow_self_signed.or(fallback.allow_self_signed),
         }
     }
 }

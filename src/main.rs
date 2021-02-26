@@ -35,12 +35,7 @@ async fn main() -> Result<()> {
 
     log::trace!("Running with config: {:?}", config);
 
-    let allow_self_signed = dotenv::var("ALLOW_SELF_SIGNED")
-        .ok()
-        .map(|allow| allow.to_ascii_lowercase() == "true")
-        .unwrap_or(false);
-
-    if allow_self_signed {
+    if config.allow_self_signed {
         log::info!("Running with certificate validation disabled");
     }
 
@@ -50,7 +45,7 @@ async fn main() -> Result<()> {
 
     let metrics_port = config.metrics_port;
     let bind = config.bind.clone();
-    let app = Arc::new(App::new(config, log_handle, allow_self_signed).await?);
+    let app = Arc::new(App::new(config, log_handle).await?);
     app.self_test().await?;
 
     log::trace!("Listening on {}", bind);
