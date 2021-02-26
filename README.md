@@ -51,6 +51,7 @@ content.
 ```ini
 [Unit]
 Description = Push daemon for Nextcloud clients
+Documentation=https://github.com/nextcloud/notify_push
 
 [Service]
 Environment = PORT=7867 # Change if you already have something running on this port
@@ -99,6 +100,43 @@ and enable it to automatically start on boot using
 Every time this app receives an update you should restart the systemd service using
 
 `sudo systemctl restart notify_push`
+
+Alternatively, you can do this automatically via systemctl by creating the following systemd service and path:
+
+`/etc/systemd/system/notify_push-watcher.service`
+```ini
+[Unit]
+Description=Restart Push daemon for Nextcloud clients when it receives updates
+Documentation=https://github.com/nextcloud/notify_push
+Requires=notify_push.service
+After=notify_push.service
+StartLimitIntervalSec=10
+StartLimitBurst=5
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl restart notify_push.service
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`/etc/systemd/system/notify_push-watcher.path`
+```ini
+[Unit]
+Description=Restart Push daemon for Nextcloud clients when it receives updates
+Documentation=https://github.com/nextcloud/notify_push
+PartOf=notify_push-watcher.service
+
+[Path]
+PathModified=/path/to/push/binary/notify_push
+Unit=notify_push-watcher.service
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Adjusting the path as needed.
 
 ### Reverse proxy
 
