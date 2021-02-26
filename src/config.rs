@@ -52,6 +52,9 @@ pub struct Opt {
     /// The log level
     #[structopt(long)]
     pub log_level: Option<String>,
+    /// Print the parsed config and exit
+    #[structopt(long)]
+    pub dump_config: bool,
 }
 
 #[derive(Debug)]

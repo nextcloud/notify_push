@@ -22,7 +22,13 @@ async fn main() -> Result<()> {
         println!("notify_push {}", env!("NOTIFY_PUSH_VERSION"));
         return Ok(());
     }
+    let dump_config = opt.dump_config;
     let config = Config::from_opt(opt).wrap_err("Failed to parse config")?;
+
+    if dump_config {
+        println!("{:#?}", config);
+        return Ok(());
+    }
 
     let log_handle = Logger::with_str(&config.log_level)
         .log_target(LogTarget::StdOut)
