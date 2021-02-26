@@ -149,6 +149,7 @@ impl Services {
             metrics_port: None,
             log_level: "".to_string(),
             bind: Bind::Tcp(self.nextcloud.clone()),
+            allow_self_signed: false,
         }
     }
 
