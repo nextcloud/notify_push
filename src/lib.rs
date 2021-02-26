@@ -236,9 +236,18 @@ pub async fn serve(app: Arc<App>, bind: Bind, cancel: oneshot::Receiver<()>) {
     let reverse_cookie_test = warp::path!("test" / "reverse_cookie")
         .and(app.clone())
         .and_then(|app: Arc<App>| async move {
-            let cookie = app.nc_client.get_test_cookie().await.unwrap_or(0);
-            log::debug!("got remote test cookie {}", cookie);
-            Result::<_, Infallible>::Ok(cookie.to_string())
+            let response = match app.nc_client.get_test_cookie().await {
+                Ok(cookie) => {
+                    log::debug!("got remote test cookie {}", cookie);
+                    cookie.to_string()
+                }
+                Err(e) => {
+                    log::warn!("Error while trying to get cookie from Nextcloud {:#}", e);
+                    format!("{:#}", e)
+                }
+            };
+
+            Result::<_, Infallible>::Ok(response)
         });
 
     let mapping_test = warp::path!("test" / "mapping" / u32)

@@ -60,16 +60,30 @@ impl Client {
     }
 
     pub async fn get_test_cookie(&self) -> Result<u32> {
-        Ok(self
+        let response = self
             .http
             .get(
                 self.base_url
                     .join("index.php/apps/notify_push/test/cookie")?,
             )
             .send()
-            .await?
-            .json()
-            .await?)
+            .await?;
+        let status = response.status();
+        let text = response.text().await?;
+        if status.is_client_error() {
+            if text.contains("admin-trusted-domains") {
+                Err(Report::msg(format!(
+                    "{} is not configured as a trusted domain",
+                    self.base_url.host_str().unwrap_or_default()
+                )))
+            } else {
+                Err(Report::msg(status.to_string()))
+            }
+        } else {
+            Ok(text
+                .parse()
+                .wrap_err("Response from nextcloud is not a number")?)
+        }
     }
 
     pub async fn test_set_remote(&self, addr: IpAddr) -> Result<IpAddr> {

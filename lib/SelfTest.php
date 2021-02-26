@@ -113,17 +113,21 @@ class SelfTest {
 
 		// test if the push server can reach nextcloud by having it request the cookie
 		try {
-			$retrievedCookie = (int)$this->client->get($server . '/test/reverse_cookie', ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
+			$response = $this->client->get($server . '/test/reverse_cookie', ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
+			$retrievedCookie = (int)$response;
+
+			if ($this->cookie === $retrievedCookie) {
+				$output->writeln("<info>✓ push server can connect to the Nextcloud server</info>");
+			} else {
+				$output->writeln("<error>🗴 push server can't connect to the Nextcloud server</error>");
+				if (!is_numeric($response)) {
+					$output->writeln("<error>  $response</error>");
+				}
+				return self::ERROR_OTHER;
+			}
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
-			return self::ERROR_OTHER;
-		}
-
-		if ($this->cookie === $retrievedCookie) {
-			$output->writeln("<info>✓ push server can connect to the Nextcloud server</info>");
-		} else {
-			$output->writeln("<error>🗴 push server can't connect to the Nextcloud server</error>");
 			return self::ERROR_OTHER;
 		}
 
