@@ -143,9 +143,26 @@ class SelfTest {
 		if ($ignoreProxyError || $remote === '1.2.3.4') {
 			$output->writeln("<info>✓ push server is a trusted proxy</info>");
 		} else {
+			$trustedProxies = $this->config->getSystemValue('trusted_proxies', []);
+			$headers = $this->config->getSystemValue('forwarded_for_headers', [
+				'HTTP_X_FORWARDED_FOR'
+				// only have one default, so we cannot ship an insecure product out of the box
+			]);
+			$receivedHeader = $this->queue->getConnection()->get("notify_push_forwarded_header");
+			$remote = $this->queue->getConnection()->get("notify_push_remote");
+
+			if (array_search('HTTP_X_FORWARDED_FOR', $headers) === false) {
+				$output->writeln("<error>🗴 Nextcloud is configured to not use the `x-http-forwarded-for` header.</error>");
+				$output->writeln("<error>  Please add 'HTTP_X_FORWARDED_FOR' the the 'forwarded_for_headers' in your config.php.</error>");
+				return self::ERROR_TRUSTED_PROXY;
+			}
+
 			$output->writeln("<error>🗴 push server is not a trusted proxy, please add '$remote' to the list of trusted proxies" .
 				" or configure any existing reverse proxy to forward the 'x-forwarded-for' send by the push server.</error>");
 			$output->writeln("  See https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/reverse_proxy_configuration.html#defining-trusted-proxies for how to set trusted proxies.");
+			$output->writeln("  The following trusted proxies are currently configured: " . implode(', ', $trustedProxies));
+			$output->writeln("  The following x-forwarded-for header was received by Nextcloud: $receivedHeader");
+			$output->writeln("    from the following remote: $remote");
 			$output->writeln("");
 			$output->writeln("  If you're having issues getting the trusted proxy setup working, you can try bypassing any existing reverse proxy");
 			$output->writeln("  in your setup by setting the `NEXTCLOUD_URL` environment variable to point directly to the internal Nextcloud webserver url");
