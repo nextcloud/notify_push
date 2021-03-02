@@ -144,10 +144,7 @@ class SelfTest {
 			$output->writeln("<info>✓ push server is a trusted proxy</info>");
 		} else {
 			$trustedProxies = $this->config->getSystemValue('trusted_proxies', []);
-			$headers = $this->config->getSystemValue('forwarded_for_headers', [
-				'HTTP_X_FORWARDED_FOR'
-				// only have one default, so we cannot ship an insecure product out of the box
-			]);
+			$headers = $this->config->getSystemValue('forwarded_for_headers', ['HTTP_X_FORWARDED_FOR']);
 			$receivedHeader = $this->queue->getConnection()->get("notify_push_forwarded_header");
 			$remote = $this->queue->getConnection()->get("notify_push_remote");
 

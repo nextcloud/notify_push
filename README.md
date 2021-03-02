@@ -268,6 +268,8 @@ the [github actions](https://github.com/nextcloud/notify_push/actions) page.
 test_client https://cloud.example.com username password
 ```
 
+Note that this does not support two-factor authentication of non-default login flows, you can use an app-password in those cases.
+
 ### Building
 
 The server binary is built using rust and cargo, `0.1.3` requires a minimum of rust `1.46` while later versions can be build with `1.45`.
