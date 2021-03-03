@@ -262,7 +262,9 @@ discover_endpoint(nextcloud_url, username, password).then((endpoint) => {
 ### Test client
 
 For development purposes a test client is provided which can be downloaded from
-the [github actions](https://github.com/nextcloud/notify_push/actions) page.
+the [github actions](https://github.com/nextcloud/notify_push/actions/workflows/rust.yml) page.<br>
+(Click on a run from the list, e.g. [this one](https://github.com/nextcloud/notify_push/actions/runs/615473236), scroll to the bottom and click on `test_client` to download the binary.)<br>
+Please note: the Test client only works on x86_64 Linux currently.
 
 ```bash
 test_client https://cloud.example.com username password
