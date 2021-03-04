@@ -17,6 +17,7 @@ jobs:
                 php-version: 7.4
                 tools: composer:v1
                 coverage: none
+                extensions: redis
           - name: Install dependencies
             run: composer i
           - name: Install dependencies
