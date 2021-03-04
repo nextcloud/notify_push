@@ -34,6 +34,7 @@ structopt = "0.3"
 mini-redis = "0.4"
 tokio-tungstenite = "0.13"
 http-auth-basic = "0.1"
+test_client = { path = "test_client" }
 
 [build-dependencies]
 nextcloud_appinfo = "0.6"
@@ -43,3 +44,5 @@ opt-level = 3
 
 [profile.release]
 lto = true
+
+[workspace]

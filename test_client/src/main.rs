@@ -1,9 +1,13 @@
 use color_eyre::{eyre::WrapErr, Report, Result};
+use flexi_logger::Logger;
+use serde_json::Value;
+use std::env::var;
 use tungstenite::http::Request;
 use tungstenite::{connect, Message};
 
 fn main() -> Result<()> {
     color_eyre::install()?;
+    Logger::with_str(&var("LOG").unwrap_or_else(|_| String::from("warn"))).start()?;
 
     let mut args = std::env::args();
 
@@ -52,19 +56,36 @@ fn main() -> Result<()> {
 }
 
 fn get_endpoint(nc_url: &str, user: &str, password: &str) -> Result<String> {
-    let json = ureq::get(&format!("{}/ocs/v2.php/cloud/capabilities", nc_url))
+    let raw = ureq::get(&format!("{}/ocs/v2.php/cloud/capabilities", nc_url))
         .auth(user, password)
         .set("Accept", "application/json")
         .set("OCS-APIREQUEST", "true")
         .call()
-        .into_json()
-        .wrap_err("Failed to decode json capabilities response")?;
-    Ok(
-        json["ocs"]["data"]["capabilities"]["notify_push"]["endpoints"]["websocket"]
-            .as_str()
-            .map(|url| url.to_string())
-            .ok_or(Report::msg(
-                "notify_push app not enabled, invalid credentials or invalid capabilities response",
-            ))?,
-    )
+        .into_string()?;
+    log::debug!("Capabilities response: {}", raw);
+    let json: Value = serde_json::from_str(&raw)
+        .wrap_err_with(|| format!("Failed to decode json capabilities response: {}", raw))?;
+    if let Some(capabilities) = json["ocs"]["data"]["capabilities"].as_object() {
+        log::info!(
+            "Supported capabilities: {:?}",
+            capabilities.keys().collect::<Vec<_>>()
+        );
+        if let Some(notify_push) = capabilities.get("notify_push") {
+            notify_push["endpoints"]["websocket"]
+                .as_str()
+                .map(|url| url.to_string())
+                .ok_or(Report::msg("invalid notify_push capabilities"))
+        } else if !capabilities.contains_key("files_sharing") {
+            Err(Report::msg("capabilities response doesn't contain expect items, credentials are probably invalid"))
+        } else {
+            Err(Report::msg(
+                "notify_push app doesn't seem to be enabled or setup",
+            ))
+        }
+    } else {
+        Err(Report::msg(format!(
+            "invalid capabilities response: {}",
+            json
+        )))
+    }
 }
