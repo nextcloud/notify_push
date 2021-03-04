@@ -4,7 +4,6 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xmlns="https://getpsalm.org/schema/config"
 	xsi:schemaLocation="https://getpsalm.org/schema/config"
-	errorBaseline="tests/psalm-baseline.xml"
 	phpVersion="7.3"
 >
 	<projectFiles>
@@ -13,22 +12,7 @@
 	<extraFiles>
 		<directory name="vendor/christophwurst/nextcloud"/>
 	</extraFiles>
-	<issueHandlers>
-		<UndefinedClass>
-			<errorLevel type="suppress">
-				<referencedClass name="OC" />
-				<referencedClass name="OC\RedisFactory" />
-			</errorLevel>
-		</UndefinedClass>
-		<UndefinedDocblockClass>
-			<errorLevel type="suppress">
-				<referencedClass name="OC\RedisFactory"/>
-			</errorLevel>
-		</UndefinedDocblockClass>
-		<MissingDependency>
-			<errorLevel type="suppress">
-				<file name="lib/AppInfo/Application.php"/>
-			</errorLevel>
-		</MissingDependency>
-	</issueHandlers>
+	<stubs>
+		<file name="tests/stub.phpstub" preloadClasses="true"/>
+	</stubs>
 </psalm>

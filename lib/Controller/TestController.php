@@ -23,6 +23,7 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\Controller;
 
+use OC\AppFramework\Http\Request;
 use OCA\NotifyPush\Queue\IQueue;
 use OCA\NotifyPush\Queue\RedisQueue;
 use OCP\App\IAppManager;
@@ -65,8 +66,10 @@ class TestController extends Controller {
 	 */
 	public function remote(): DataDisplayResponse {
 		if ($this->queue instanceof RedisQueue) {
-			$this->queue->getConnection()->set("notify_push_forwarded_header", $this->request->getHeader('x-forwarded-for'));
-			$this->queue->getConnection()->set("notify_push_remote", $this->request->server['REMOTE_ADDR']);
+			if ($this->request instanceof Request) {
+				$this->queue->getConnection()->set("notify_push_forwarded_header", $this->request->getHeader('x-forwarded-for'));
+				$this->queue->getConnection()->set("notify_push_remote", $this->request->server['REMOTE_ADDR']);
+			}
 		}
 		return new DataDisplayResponse($this->request->getRemoteAddress());
 	}
