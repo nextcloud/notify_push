@@ -85,7 +85,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: test_client
-          path: test_client/target/x86_64-unknown-linux-musl/release/test_client
+          path: target/x86_64-unknown-linux-musl/release/test_client
 
   msrv:
     name: Check MSRV
