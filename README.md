@@ -109,7 +109,7 @@ You can probably use the same webserver that you're already using for your nextc
 
 #### Nginx
 
-If you're using nginx, add the following `location` block the the existing `server` block of the nextcloud server.
+If you're using nginx, add the following `location` block to the existing `server` block of the nextcloud server.
 
 ```nginx
 location /push/ {
