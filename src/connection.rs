@@ -6,6 +6,8 @@ use color_eyre::{Report, Result};
 use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
 use std::net::IpAddr;
+use std::num::NonZeroUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast::{channel, Receiver, Sender};
@@ -76,6 +78,13 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
 
     METRICS.add_connection();
 
+    // Every time we send a ping, we set this to a random non-zero value
+    // when a pong is returned, we check it against the expected value and reset this to 0
+    // If we get the wrong pong back, or the expected value hasn't been cleared
+    // when we send the next ping, we close the connection
+    let expect_pong = AtomicUsize::default();
+    let expect_pong = &expect_pong;
+
     let transmit = async move {
         let mut debounce = DebounceMap::default();
         loop {
@@ -88,8 +97,17 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
                     }
                 }
                 Err(_timout) => {
+                    let data = rand::random::<NonZeroUsize>().into();
+                    let last_ping = expect_pong.swap(data, Ordering::SeqCst);
+                    if last_ping > 0 {
+                        log::info!("{} didn't reply to ping, closing", user_id);
+                        break;
+                    }
                     log::debug!(target: "notify_push::send", "Sending ping to {}", user_id);
-                    user_ws_tx.send(Message::ping(Vec::new())).await.ok();
+                    user_ws_tx
+                        .send(Message::ping(data.to_le_bytes()))
+                        .await
+                        .ok();
                 }
                 Ok(Err(_)) => {
                     // we dont care about dropped messages
@@ -101,8 +119,15 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
     let receive = async move {
         // handle messages until the client closes the connection
         while let Some(result) = user_ws_rx.next().await {
-            let _msg = match result {
-                Ok(msg) => msg,
+            match result {
+                Ok(msg) if msg.is_pong() => {
+                    let expected = expect_pong.swap(0, Ordering::SeqCst);
+                    if msg.as_bytes() != expected.to_le_bytes() {
+                        log::info!("received wrong pong, closing");
+                        break;
+                    }
+                }
+                Ok(_) => {}
                 Err(e) => {
                     let formatted = e.to_string();
                     // hack while warp only has opaque error types
