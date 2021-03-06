@@ -52,7 +52,9 @@ async fn main() -> Result<()> {
     let metrics_port = config.metrics_port;
     let bind = config.bind.clone();
     let app = Arc::new(App::new(config, log_handle).await?);
-    app.self_test().await?;
+    if let Err(e) = app.self_test().await {
+        log::error!("Self test failed: {:#}", e);
+    }
 
     log::trace!("Listening on {}", bind);
     let server = spawn(serve(app.clone(), bind, serve_cancel_handle));
