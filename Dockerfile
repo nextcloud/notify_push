@@ -4,6 +4,8 @@ COPY Cargo.toml Cargo.lock ./
 
 # Build with a dummy main to pre-build dependencies
 RUN mkdir src && \
+ sudo chown -R rust:rust . && \
+ sed -i '/test_client/d' Cargo.toml && \
  echo "fn main(){}" > src/main.rs && \
  cargo build --release && \
  rm -r src
