@@ -34,6 +34,6 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/${{ matrix.target }}/release/notify-redis
-          asset_name: notify-redis-${{ matrix.target }}
+          file: target/${{ matrix.target }}/release/notify_push
+          asset_name: notify_push-${{ matrix.target }}
           tag: ${{ github.ref }}
