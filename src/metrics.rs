@@ -1,4 +1,5 @@
-use futures::FutureExt;
+use crate::config::Bind;
+use crate::serve_at;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::oneshot;
@@ -68,7 +69,7 @@ impl Metrics {
     }
 }
 
-pub async fn serve_metrics(port: u16, cancel: oneshot::Receiver<()>) {
+pub async fn serve_metrics(bind: Bind, cancel: oneshot::Receiver<()>) {
     let metrics = warp::path!("metrics").map(|| {
         let mut response = String::with_capacity(128);
         let _ = writeln!(
@@ -99,7 +100,5 @@ pub async fn serve_metrics(port: u16, cancel: oneshot::Receiver<()>) {
         response
     });
 
-    let (_, server) =
-        warp::serve(metrics).bind_with_graceful_shutdown(([0, 0, 0, 0], port), cancel.map(|_| ()));
-    server.await;
+    serve_at(metrics, bind, cancel).await;
 }

@@ -146,7 +146,7 @@ impl Services {
                 .parse()
                 .unwrap(),
             nextcloud_url: format!("http://{}/", self.nextcloud),
-            metrics_port: None,
+            metrics_bind: None,
             log_level: "".to_string(),
             bind: Bind::Tcp(self.nextcloud.clone()),
             allow_self_signed: false,

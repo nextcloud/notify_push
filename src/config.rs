@@ -40,6 +40,9 @@ pub struct Opt {
     /// Listen to a unix socket instead of TCP
     #[structopt(long)]
     pub socket_path: Option<PathBuf>,
+    /// Listen to a unix socket instead of TCP for serving metrics
+    #[structopt(long)]
+    pub metrics_socket_path: Option<PathBuf>,
     /// Disable validating of certificates when connecting to the nextcloud instance
     #[structopt(long)]
     pub allow_self_signed: bool,
@@ -63,7 +66,7 @@ pub struct Config {
     pub database_prefix: String,
     pub redis: ConnectionInfo,
     pub nextcloud_url: String,
-    pub metrics_port: Option<u16>,
+    pub metrics_bind: Option<Bind>,
     pub log_level: String,
     pub bind: Bind,
     pub allow_self_signed: bool,
@@ -99,6 +102,17 @@ impl TryFrom<PartialConfig> for Config {
             }
         };
 
+        let metrics_bind = match (config.metrics_socket, config.metrics_port) {
+            (Some(socket), _) => Some(Bind::Unix(socket)),
+            (None, Some(port)) => {
+                let ip = config
+                    .bind
+                    .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+                Some(Bind::Tcp((ip, port).into()))
+            }
+            _ => None,
+        };
+
         Ok(Config {
             database: config
                 .database
@@ -112,7 +126,7 @@ impl TryFrom<PartialConfig> for Config {
             nextcloud_url: config
                 .nextcloud_url
                 .ok_or_else(|| Report::msg("No nextcloud url configured"))?,
-            metrics_port: config.metrics_port,
+            metrics_bind,
             log_level: config.log_level.unwrap_or_else(|| String::from("warn")),
             bind,
             allow_self_signed: config.allow_self_signed.unwrap_or(false),
@@ -143,6 +157,7 @@ struct PartialConfig {
     pub nextcloud_url: Option<String>,
     pub port: Option<u16>,
     pub metrics_port: Option<u16>,
+    pub metrics_socket: Option<PathBuf>,
     pub log_level: Option<String>,
     pub bind: Option<IpAddr>,
     pub socket: Option<PathBuf>,
@@ -157,6 +172,8 @@ impl PartialConfig {
         let nextcloud_url = var("NEXTCLOUD_URL").ok();
         let port = parse_var("PORT").ok().wrap_err("Invalid PORT")?;
         let metrics_port = parse_var("METRICS_PORT").wrap_err("Invalid METRICS_PORT")?;
+        let metrics_socket =
+            parse_var("METRICS_SOCKET_PATH").wrap_err("Invalid METRICS_SOCKET_PATH")?;
         let log_level = var("LOG").ok();
         let bind = parse_var("BIND").wrap_err("Invalid BIND")?;
         let socket = var("SOCKET_PATH").map(PathBuf::from).ok();
@@ -169,6 +186,7 @@ impl PartialConfig {
             nextcloud_url,
             port,
             metrics_port,
+            metrics_socket,
             log_level,
             bind,
             socket,
@@ -188,6 +206,7 @@ impl PartialConfig {
             nextcloud_url: opt.nextcloud_url,
             port: opt.port,
             metrics_port: opt.metrics_port,
+            metrics_socket: opt.metrics_socket_path,
             log_level: opt.log_level,
             bind: opt.bind,
             socket: opt.socket_path,
@@ -207,6 +226,7 @@ impl PartialConfig {
             nextcloud_url: self.nextcloud_url.or(fallback.nextcloud_url),
             port: self.port.or(fallback.port),
             metrics_port: self.metrics_port.or(fallback.metrics_port),
+            metrics_socket: self.metrics_socket.or(fallback.metrics_socket),
             log_level: self.log_level.or(fallback.log_level),
             bind: self.bind.or(fallback.bind),
             socket: self.socket.or(fallback.socket),

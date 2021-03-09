@@ -18,6 +18,7 @@ use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
 use std::convert::Infallible;
 use std::fs;
+use std::future::Future;
 use std::net::{IpAddr, SocketAddr};
 use std::os::unix::fs::PermissionsExt;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -28,7 +29,7 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tokio_stream::wrappers::UnixListenerStream;
 use warp::filters::addr::remote;
-use warp::Filter;
+use warp::{Filter, Reply};
 use warp_real_ip::get_forwarded_for;
 
 pub mod config;
@@ -309,10 +310,19 @@ pub async fn serve(app: Arc<App>, bind: Bind, cancel: oneshot::Receiver<()>) {
         .or(remote_test)
         .or(version);
 
+    serve_at(routes, bind, cancel).await;
+}
+
+async fn serve_at<F, C>(filter: F, bind: Bind, cancel: C)
+where
+    C: Future + Send + Sync + 'static,
+    F: Filter + Clone + Send + Sync + 'static,
+    F::Extract: Reply,
+{
     let cancel = cancel.map(|_| ());
     match bind {
         Bind::Tcp(addr) => {
-            let (_, server) = warp::serve(routes).bind_with_graceful_shutdown(addr, cancel);
+            let (_, server) = warp::serve(filter).bind_with_graceful_shutdown(addr, cancel);
             server.await;
         }
         Bind::Unix(socket_path) => {
@@ -322,11 +332,11 @@ pub async fn serve(app: Arc<App>, bind: Bind, cancel: oneshot::Receiver<()>) {
             fs::set_permissions(&socket_path, PermissionsExt::from_mode(0o666)).unwrap();
 
             let stream = UnixListenerStream::new(listener);
-            warp::serve(routes)
+            warp::serve(filter)
                 .serve_incoming_with_graceful_shutdown(stream, cancel)
                 .await;
         }
-    };
+    }
 }
 
 pub async fn listen_loop(app: Arc<App>, cancel: oneshot::Receiver<()>) {
