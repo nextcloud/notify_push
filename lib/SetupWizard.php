@@ -80,11 +80,9 @@ class SetupWizard {
 	public function testBinary(): bool {
 		$path = $this->getBinaryPath();
 		@chmod($path, 0755);
-		$appVersion = $this->appManager->getAppVersion("notify_push");
-		$appVersion = substr($appVersion, 0, strrpos($appVersion, '.'));
 		$output = [];
 		exec("$path --version", $output);
-		return count($output) === 1 && strpos($output[0], "notify_push $appVersion") === 0;
+		return count($output) === 1 && strpos($output[0], "notify_push") === 0;
 	}
 
 	public function isPortFree(): bool {
