@@ -113,6 +113,13 @@ impl TryFrom<PartialConfig> for Config {
             _ => None,
         };
 
+        let mut nextcloud_url = config
+            .nextcloud_url
+            .ok_or_else(|| Report::msg("No nextcloud url configured"))?;
+        if !nextcloud_url.ends_with('/') {
+            nextcloud_url.push('/');
+        }
+
         Ok(Config {
             database: config
                 .database
@@ -123,9 +130,7 @@ impl TryFrom<PartialConfig> for Config {
             redis: config
                 .redis
                 .ok_or_else(|| Report::msg("No redis url configured"))?,
-            nextcloud_url: config
-                .nextcloud_url
-                .ok_or_else(|| Report::msg("No nextcloud url configured"))?,
+            nextcloud_url,
             metrics_bind,
             log_level: config.log_level.unwrap_or_else(|| String::from("warn")),
             bind,

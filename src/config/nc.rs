@@ -219,7 +219,7 @@ fn config_from_file(path: &str) -> crate::config::Config {
 #[test]
 fn test_parse_config_basic() {
     let config = config_from_file("tests/configs/basic.php");
-    assert_eq!("https://cloud.example.com", config.nextcloud_url);
+    assert_eq!("https://cloud.example.com/", config.nextcloud_url);
     assert_eq!("oc_", config.database_prefix);
     assert_debug_equal(
         AnyConnectOptions::from_str("mysql://nextcloud:secret@127.0.0.1/nextcloud").unwrap(),
@@ -267,7 +267,7 @@ fn test_parse_redis_socket() {
 #[test]
 fn test_parse_comment_whitespace() {
     let config = config_from_file("tests/configs/comment_whitespace.php");
-    assert_eq!("https://cloud.example.com", config.nextcloud_url);
+    assert_eq!("https://cloud.example.com/", config.nextcloud_url);
     assert_eq!("oc_", config.database_prefix);
     assert_debug_equal(
         AnyConnectOptions::from_str("mysql://nextcloud:secret@127.0.0.1/nextcloud").unwrap(),
