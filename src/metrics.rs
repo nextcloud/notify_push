@@ -1,5 +1,6 @@
 use crate::config::Bind;
 use crate::serve_at;
+use serde::Serialize;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::oneshot;
@@ -7,7 +8,7 @@ use warp::Filter;
 
 pub static METRICS: Metrics = Metrics::new();
 
-#[derive(Default)]
+#[derive(Default, Serialize)]
 pub struct Metrics {
     active_connection_count: AtomicUsize,
     total_connection_count: AtomicUsize,

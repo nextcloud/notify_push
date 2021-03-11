@@ -4,6 +4,7 @@ use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
 };
 use crate::message::MessageType;
+use crate::metrics::METRICS;
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
 use ahash::RandomState;
@@ -195,6 +196,20 @@ impl App {
                 self.log_handle.lock().await.pop_temp_spec();
                 log::info!("Restored log level");
             }
+            Event::Query(event::Query::Metrics) => match self.redis.get_async_connection().await {
+                Ok(mut redis) => {
+                    if let Err(e) = redis
+                        .set::<&str, String, ()>(
+                            "notify_push_metrics",
+                            serde_json::to_string(&METRICS).unwrap(),
+                        )
+                        .await
+                    {
+                        log::warn!("Failed to set metrics: {}", e);
+                    }
+                }
+                Err(e) => log::warn!("Failed to set metrics: {}", e),
+            },
         }
     }
 }

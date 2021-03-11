@@ -49,6 +49,12 @@ pub enum Config {
     LogRestore,
 }
 
+#[derive(Debug, Deserialize, Display)]
+#[serde(rename_all = "snake_case")]
+pub enum Query {
+    Metrics,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Custom {
     pub user: UserId,
@@ -77,6 +83,8 @@ pub enum Event {
     Custom(Custom),
     #[display("config update")]
     Config(Config),
+    #[display("{0} query")]
+    Query(Query),
 }
 
 #[derive(Debug, Error)]
@@ -119,6 +127,9 @@ impl TryFrom<Msg> for Event {
             "notify_config" => Ok(Event::Config(serde_json::from_slice(
                 msg.get_payload_bytes(),
             )?)),
+            "notify_query" => Ok(Event::Query(serde_json::from_slice(
+                msg.get_payload_bytes(),
+            )?)),
             _ => Err(MessageDecodeError::UnsupportedEventType),
         }
     }
@@ -142,6 +153,7 @@ pub async fn subscribe(
         "notify_pre_auth",
         "notify_custom",
         "notify_config",
+        "notify_query",
     ];
     for channel in channels.iter() {
         pubsub
