@@ -26,7 +26,10 @@ namespace OCA\NotifyPush\Queue;
 class RedisQueue implements IQueue {
 	private $redis;
 
-	public function __construct(\Redis $redis) {
+	/**
+	 * @param \Redis|\RedisCluster $redis
+	 */
+	public function __construct($redis) {
 		$this->redis = $redis;
 	}
 

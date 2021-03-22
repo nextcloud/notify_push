@@ -37,7 +37,7 @@ pub(super) fn parse_config_file(path: impl AsRef<Path>) -> Result<PartialConfig>
         .clone()
         .into_string()
         .ok_or_else(|| Report::msg("'overwrite.cli.url' not set"))?;
-    let redis = parse_redis_options(&parsed);
+    let redis = parse_redis_options(&parsed)?;
 
     Ok(PartialConfig {
         database: Some(database),
@@ -160,30 +160,48 @@ fn split_host(host: &str) -> (&str, Option<u16>, Option<&str>) {
     }
 }
 
-fn parse_redis_options(parsed: &Value) -> ConnectionInfo {
-    let mut host = parsed["redis"]["host"].as_str().unwrap_or("127.0.0.1");
+fn parse_redis_options(parsed: &Value) -> Result<ConnectionInfo> {
+    let redis_options = if parsed["redis.cluster"].is_array() {
+        &parsed["redis.cluster"]
+    } else {
+        &parsed["redis"]
+    };
+    let mut host = if redis_options["seeds"].is_array() {
+        let sorted_seeds: BTreeMap<_, _> = redis_options["seeds"].iter().collect();
+
+        sorted_seeds
+            .values()
+            .copied()
+            .flat_map(Value::as_str)
+            .next()
+            .ok_or(Report::msg("Invalid redis.cluster configuration"))?
+    } else {
+        redis_options["host"].as_str().unwrap_or("127.0.0.1")
+    };
     if host == "localhost" {
         host = "127.0.0.1";
     }
-    let db = parsed["redis"]["dbindex"].clone().into_int().unwrap_or(0);
+    let db = redis_options["dbindex"].clone().into_int().unwrap_or(0);
     let addr = if host.starts_with('/') {
         ConnectionAddr::Unix(host.into())
     } else {
-        ConnectionAddr::Tcp(
-            host.into(),
-            parsed["redis"]["port"].clone().into_int().unwrap_or(6379) as u16,
-        )
+        let (host, port, _) = if let Some(port) = redis_options["port"].as_int() {
+            (host, Some(port as u16), None)
+        } else {
+            split_host(host)
+        };
+        ConnectionAddr::Tcp(host.into(), port.unwrap_or(6379))
     };
-    let passwd = parsed["redis"]["password"]
+    let passwd = redis_options["password"]
         .as_str()
         .filter(|pass| !pass.is_empty())
         .map(String::from);
-    ConnectionInfo {
+    Ok(ConnectionInfo {
         addr: Box::new(addr),
         db,
         username: None,
         passwd,
-    }
+    })
 }
 
 #[test]
@@ -191,13 +209,13 @@ fn test_redis_empty_password_none() {
     let config =
         php_literal_parser::from_str(r#"["redis" => ["host" => "redis", "password" => "pass"]]"#)
             .unwrap();
-    let redis = parse_redis_options(&config);
+    let redis = parse_redis_options(&config).unwrap();
     assert_eq!(redis.passwd, Some("pass".to_string()));
 
     let config =
         php_literal_parser::from_str(r#"["redis" => ["host" => "redis", "password" => ""]]"#)
             .unwrap();
-    let redis = parse_redis_options(&config);
+    let redis = parse_redis_options(&config).unwrap();
     assert_eq!(redis.passwd, None);
 }
 
@@ -206,6 +224,7 @@ fn assert_debug_equal<T: Debug, U: Debug>(a: T, b: U) {
     assert_eq!(format!("{:?}", a), format!("{:?}", b),);
 }
 
+use std::collections::BTreeMap;
 #[cfg(test)]
 use std::convert::TryInto;
 #[cfg(test)]
@@ -315,5 +334,14 @@ fn test_parse_postgres_socket_folder() {
                 .database("nextcloud"),
         ),
         config.database,
+    );
+}
+
+#[test]
+fn test_parse_redis_cluster() {
+    let config = config_from_file("tests/configs/redis.cluster.php");
+    assert_debug_equal(
+        ConnectionInfo::from_str("redis://:xxx@db1:6380").unwrap(),
+        config.redis,
     );
 }
