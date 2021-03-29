@@ -5,6 +5,7 @@ use crate::event::{
 };
 use crate::message::MessageType;
 use crate::metrics::METRICS;
+use crate::redis::Redis;
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
 use ahash::RandomState;
@@ -14,7 +15,6 @@ use flexi_logger::LoggerHandle;
 use futures::future::select;
 use futures::StreamExt;
 use futures::{pin_mut, FutureExt};
-use redis::{AsyncCommands, Client};
 use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
 use std::convert::Infallible;
@@ -39,6 +39,7 @@ pub mod event;
 pub mod message;
 pub mod metrics;
 pub mod nc;
+pub mod redis;
 pub mod storage_mapping;
 pub mod user;
 
@@ -48,7 +49,7 @@ pub struct App {
     storage_mapping: StorageMapping,
     pre_auth: DashMap<String, (Instant, UserId), RandomState>,
     test_cookie: AtomicU32,
-    redis: Client,
+    redis: Redis,
     log_handle: Mutex<LoggerHandle>,
 }
 
@@ -61,7 +62,7 @@ impl App {
         let storage_mapping = StorageMapping::new(config.database, config.database_prefix).await?;
         let pre_auth = DashMap::default();
 
-        let redis = Client::open(config.redis)?;
+        let redis = Redis::new(config.redis)?;
 
         Ok(App {
             connections,
@@ -88,7 +89,7 @@ impl App {
             StorageMapping::from_connection(connection, config.database_prefix).await?;
         let pre_auth = DashMap::default();
 
-        let redis = Client::open(config.redis)?;
+        let redis = Redis::new(config.redis)?;
 
         Ok(App {
             connections,
@@ -109,7 +110,7 @@ impl App {
             .wrap_err("Failed to test database access")?;
         let mut redis = self
             .redis
-            .get_async_connection()
+            .connect()
             .await
             .wrap_err("Failed to connect to redis")?;
         redis
@@ -120,7 +121,7 @@ impl App {
             .request_app_version()
             .await
             .wrap_err("Failed to request app version")?;
-        match redis.get::<_, String>("notify_push_app_version").await {
+        match redis.get("notify_push_app_version").await {
             Ok(version) if version == env!("NOTIFY_PUSH_VERSION") => {}
             Ok(version) => {
                 log::warn!(
@@ -196,12 +197,12 @@ impl App {
                 self.log_handle.lock().await.pop_temp_spec();
                 log::info!("Restored log level");
             }
-            Event::Query(event::Query::Metrics) => match self.redis.get_async_connection().await {
+            Event::Query(event::Query::Metrics) => match self.redis.connect().await {
                 Ok(mut redis) => {
                     if let Err(e) = redis
-                        .set::<&str, String, ()>(
+                        .set(
                             "notify_push_metrics",
-                            serde_json::to_string(&METRICS).unwrap(),
+                            &serde_json::to_string(&METRICS).unwrap(),
                         )
                         .await
                     {
@@ -303,10 +304,10 @@ pub async fn serve(app: Arc<App>, bind: Bind, cancel: oneshot::Receiver<()>) {
         .and(warp::post())
         .and(app.clone())
         .and_then(|app: Arc<App>| async move {
-            Result::<_, Infallible>::Ok(match app.redis.get_async_connection().await {
+            Result::<_, Infallible>::Ok(match app.redis.connect().await {
                 Ok(mut client) => {
                     client
-                        .set::<_, _, ()>("notify_push_version", env!("NOTIFY_PUSH_VERSION"))
+                        .set("notify_push_version", env!("NOTIFY_PUSH_VERSION"))
                         .await
                         .ok();
                     "set"

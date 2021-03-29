@@ -21,7 +21,7 @@ pub struct Opt {
     pub database_url: Option<AnyConnectOptions>,
     /// The redis connect url
     #[structopt(long)]
-    pub redis_url: Option<ConnectionInfo>,
+    pub redis_url: Vec<ConnectionInfo>,
     /// The table prefix for Nextcloud's database tables
     #[structopt(long)]
     pub database_prefix: Option<String>,
@@ -64,7 +64,7 @@ pub struct Opt {
 pub struct Config {
     pub database: AnyConnectOptions,
     pub database_prefix: String,
-    pub redis: ConnectionInfo,
+    pub redis: Vec<ConnectionInfo>,
     pub nextcloud_url: String,
     pub metrics_bind: Option<Bind>,
     pub log_level: String,
@@ -127,9 +127,7 @@ impl TryFrom<PartialConfig> for Config {
             database_prefix: config
                 .database_prefix
                 .unwrap_or_else(|| String::from("oc_")),
-            redis: config
-                .redis
-                .ok_or_else(|| Report::msg("No redis url configured"))?,
+            redis: config.redis,
             nextcloud_url,
             metrics_bind,
             log_level: config.log_level.unwrap_or_else(|| String::from("warn")),
@@ -158,7 +156,7 @@ impl Config {
 struct PartialConfig {
     pub database: Option<AnyConnectOptions>,
     pub database_prefix: Option<String>,
-    pub redis: Option<ConnectionInfo>,
+    pub redis: Vec<ConnectionInfo>,
     pub nextcloud_url: Option<String>,
     pub port: Option<u16>,
     pub metrics_port: Option<u16>,
@@ -187,7 +185,7 @@ impl PartialConfig {
         Ok(PartialConfig {
             database,
             database_prefix,
-            redis,
+            redis: redis.into_iter().collect(),
             nextcloud_url,
             port,
             metrics_port,
@@ -227,7 +225,11 @@ impl PartialConfig {
         PartialConfig {
             database: self.database.or(fallback.database),
             database_prefix: self.database_prefix.or(fallback.database_prefix),
-            redis: self.redis.or(fallback.redis),
+            redis: if self.redis.is_empty() {
+                fallback.redis
+            } else {
+                self.redis
+            },
             nextcloud_url: self.nextcloud_url.or(fallback.nextcloud_url),
             port: self.port.or(fallback.port),
             metrics_port: self.metrics_port.or(fallback.metrics_port),

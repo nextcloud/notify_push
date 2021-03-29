@@ -43,7 +43,7 @@ pub(super) fn parse_config_file(path: impl AsRef<Path>) -> Result<PartialConfig>
         database: Some(database),
         database_prefix: Some(database_prefix),
         nextcloud_url: Some(nextcloud_url),
-        redis: Some(redis),
+        redis,
         ..PartialConfig::default()
     })
 }
@@ -160,48 +160,49 @@ fn split_host(host: &str) -> (&str, Option<u16>, Option<&str>) {
     }
 }
 
-fn parse_redis_options(parsed: &Value) -> Result<ConnectionInfo> {
-    let redis_options = if parsed["redis.cluster"].is_array() {
-        &parsed["redis.cluster"]
+fn parse_redis_options(parsed: &Value) -> Result<Vec<ConnectionInfo>> {
+    let (redis_options, addresses) = if parsed["redis.cluster"].is_array() {
+        let redis_options = &parsed["redis.cluster"];
+        let seeds = redis_options["seeds"].values();
+        let addresses = seeds
+            .filter_map(|seed| seed.as_str())
+            .map(split_host)
+            .filter_map(|(host, port, _)| Some(ConnectionAddr::Tcp(host.into(), port?)))
+            .collect::<Vec<_>>();
+        (redis_options, addresses)
     } else {
-        &parsed["redis"]
-    };
-    let mut host = if redis_options["seeds"].is_array() {
-        let sorted_seeds: BTreeMap<_, _> = redis_options["seeds"].iter().collect();
-
-        sorted_seeds
-            .values()
-            .copied()
-            .flat_map(Value::as_str)
-            .next()
-            .ok_or(Report::msg("Invalid redis.cluster configuration"))?
-    } else {
-        redis_options["host"].as_str().unwrap_or("127.0.0.1")
-    };
-    if host == "localhost" {
-        host = "127.0.0.1";
-    }
-    let db = redis_options["dbindex"].clone().into_int().unwrap_or(0);
-    let addr = if host.starts_with('/') {
-        ConnectionAddr::Unix(host.into())
-    } else {
-        let (host, port, _) = if let Some(port) = redis_options["port"].as_int() {
-            (host, Some(port as u16), None)
+        let redis_options = &parsed["redis"];
+        let mut host = redis_options["host"].as_str().unwrap_or("127.0.0.1");
+        let addresses = if host.starts_with('/') {
+            vec![ConnectionAddr::Unix(host.into())]
         } else {
-            split_host(host)
+            if host == "localhost" {
+                host = "127.0.0.1";
+            }
+            let (host, port, _) = if let Some(port) = redis_options["port"].as_int() {
+                (host, Some(port as u16), None)
+            } else {
+                split_host(host)
+            };
+            vec![ConnectionAddr::Tcp(host.into(), port.unwrap_or(6379))]
         };
-        ConnectionAddr::Tcp(host.into(), port.unwrap_or(6379))
+        (redis_options, addresses)
     };
+
+    let db = redis_options["dbindex"].clone().into_int().unwrap_or(0);
     let passwd = redis_options["password"]
         .as_str()
         .filter(|pass| !pass.is_empty())
         .map(String::from);
-    Ok(ConnectionInfo {
-        addr: Box::new(addr),
-        db,
-        username: None,
-        passwd,
-    })
+    Ok(addresses
+        .into_iter()
+        .map(|addr| ConnectionInfo {
+            addr: Box::new(addr),
+            db,
+            username: None,
+            passwd: passwd.clone(),
+        })
+        .collect())
 }
 
 #[test]
@@ -224,7 +225,6 @@ fn assert_debug_equal<T: Debug, U: Debug>(a: T, b: U) {
     assert_eq!(format!("{:?}", a), format!("{:?}", b),);
 }
 
-use std::collections::BTreeMap;
 #[cfg(test)]
 use std::convert::TryInto;
 #[cfg(test)]
