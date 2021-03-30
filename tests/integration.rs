@@ -11,7 +11,7 @@ use redis::AsyncCommands;
 use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::Mutex;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::oneshot;
 use tokio::task::spawn;
@@ -23,14 +23,16 @@ use tokio_tungstenite::WebSocketStream;
 use warp::http::StatusCode;
 use warp::{Filter, Reply};
 
-static LAST_PORT: AtomicU16 = AtomicU16::new(1024);
+static LAST_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(1024));
 
 async fn listen_available_port() -> Option<TcpListener> {
-    let start = LAST_PORT.load(Ordering::SeqCst) + 1;
-    for port in start..65535 {
-        LAST_PORT.store(port, Ordering::SeqCst);
+    let mut last_port = LAST_PORT.lock().unwrap();
+    for port in (*last_port + 1)..65535 {
         match TcpListener::bind(("127.0.0.1", port)).await {
-            Ok(tcp) => return Some(tcp),
+            Ok(tcp) => {
+                *last_port = port;
+                return Some(tcp);
+            }
             _ => {}
         }
     }
