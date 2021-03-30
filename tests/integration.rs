@@ -142,9 +142,9 @@ impl Services {
         Config {
             database: "sqlite::memory:?cache=shared".parse().unwrap(),
             database_prefix: "oc_".to_string(),
-            redis: format!("redis://{}", self.redis.to_string())
+            redis: vec![format!("redis://{}", self.redis.to_string())
                 .parse()
-                .unwrap(),
+                .unwrap()],
             nextcloud_url: format!("http://{}/", self.nextcloud),
             metrics_bind: None,
             log_level: "".to_string(),
@@ -193,7 +193,7 @@ impl Services {
     }
 
     async fn redis_client(&self) -> redis::aio::Connection {
-        let client = redis::Client::open(self.config().redis).unwrap();
+        let client = redis::Client::open(self.config().redis.first().unwrap().clone()).unwrap();
         client.get_async_connection().await.unwrap()
     }
 

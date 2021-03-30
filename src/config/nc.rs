@@ -210,17 +210,26 @@ fn test_redis_empty_password_none() {
     let config =
         php_literal_parser::from_str(r#"["redis" => ["host" => "redis", "password" => "pass"]]"#)
             .unwrap();
-    let redis = parse_redis_options(&config).unwrap();
+    let redis = parse_redis_options(&config)
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap();
     assert_eq!(redis.passwd, Some("pass".to_string()));
 
     let config =
         php_literal_parser::from_str(r#"["redis" => ["host" => "redis", "password" => ""]]"#)
             .unwrap();
-    let redis = parse_redis_options(&config).unwrap();
+    let redis = parse_redis_options(&config)
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap();
     assert_eq!(redis.passwd, None);
 }
 
 #[cfg(test)]
+#[track_caller]
 fn assert_debug_equal<T: Debug, U: Debug>(a: T, b: U) {
     assert_eq!(format!("{:?}", a), format!("{:?}", b),);
 }
@@ -245,7 +254,7 @@ fn test_parse_config_basic() {
         config.database,
     );
     assert_debug_equal(
-        ConnectionInfo::from_str("redis://127.0.0.1").unwrap(),
+        vec![ConnectionInfo::from_str("redis://127.0.0.1").unwrap()],
         config.redis,
     );
 }
@@ -260,7 +269,7 @@ fn test_parse_implicit_prefix() {
 fn test_parse_empty_redis_password() {
     let config = config_from_file("tests/configs/empty_redis_password.php");
     assert_debug_equal(
-        ConnectionInfo::from_str("redis://127.0.0.1").unwrap(),
+        vec![ConnectionInfo::from_str("redis://127.0.0.1").unwrap()],
         config.redis,
     );
 }
@@ -269,7 +278,7 @@ fn test_parse_empty_redis_password() {
 fn test_parse_full_redis() {
     let config = config_from_file("tests/configs/full_redis.php");
     assert_debug_equal(
-        ConnectionInfo::from_str("redis://:moresecret@redis:1234/1").unwrap(),
+        vec![ConnectionInfo::from_str("redis://:moresecret@redis:1234/1").unwrap()],
         config.redis,
     );
 }
@@ -278,7 +287,7 @@ fn test_parse_full_redis() {
 fn test_parse_redis_socket() {
     let config = config_from_file("tests/configs/redis_socket.php");
     assert_debug_equal(
-        ConnectionInfo::from_str("redis+unix:///redis").unwrap(),
+        vec![ConnectionInfo::from_str("redis+unix:///redis").unwrap()],
         config.redis,
     );
 }
@@ -293,7 +302,7 @@ fn test_parse_comment_whitespace() {
         config.database,
     );
     assert_debug_equal(
-        ConnectionInfo::from_str("redis://127.0.0.1").unwrap(),
+        vec![ConnectionInfo::from_str("redis://127.0.0.1").unwrap()],
         config.redis,
     );
 }
@@ -339,9 +348,19 @@ fn test_parse_postgres_socket_folder() {
 
 #[test]
 fn test_parse_redis_cluster() {
-    let config = config_from_file("tests/configs/redis.cluster.php");
+    let mut config = config_from_file("tests/configs/redis.cluster.php");
+    config
+        .redis
+        .sort_by(|a, b| a.addr.to_string().cmp(&b.addr.to_string()));
     assert_debug_equal(
-        ConnectionInfo::from_str("redis://:xxx@db1:6380").unwrap(),
+        vec![
+            ConnectionInfo::from_str("redis://:xxx@db1:6380").unwrap(),
+            ConnectionInfo::from_str("redis://:xxx@db1:6381").unwrap(),
+            ConnectionInfo::from_str("redis://:xxx@db1:6382").unwrap(),
+            ConnectionInfo::from_str("redis://:xxx@db2:6380").unwrap(),
+            ConnectionInfo::from_str("redis://:xxx@db2:6381").unwrap(),
+            ConnectionInfo::from_str("redis://:xxx@db2:6382").unwrap(),
+        ],
         config.redis,
     );
 }
