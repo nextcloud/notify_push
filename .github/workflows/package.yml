@@ -1,0 +1,37 @@
+on: [push, pull_request]
+
+name: Package
+
+env:
+  APP_NAME: notify_push
+
+jobs:
+  package:
+    name: Package nightly release
+    runs-on: ubuntu-20.04
+    steps:
+      - name: musl-tools
+        run: |
+          sudo apt-get install musl-tools
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          target: x86_64-unknown-linux-musl
+      - name: cross
+        run: |
+          cargo install cross
+      - name: Setup krankler
+        run: |
+          wget https://github.com/ChristophWurst/krankerl/releases/download/v0.13.0/krankerl
+          chmod +x krankerl
+      - name: Package app
+        run: |
+          ./krankerl package
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.APP_NAME }}.tar.gz
+          path: build/artifacts/${{ env.APP_NAME }}.tar.gz
