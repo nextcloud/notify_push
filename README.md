@@ -172,7 +172,7 @@ By default, the push server only logs warnings, you can temporarily change the l
 occ notify_push:log <level>
 ```
 
-Where level is `error`, `warn`, `info`, debug` or `trace`, or restore the log level to the previous value using
+Where level is `error`, `warn`, `info`, `debug` or `trace`, or restore the log level to the previous value using
 
 ```bash
 occ notify_push:log --restore
