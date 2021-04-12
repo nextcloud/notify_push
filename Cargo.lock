@@ -1339,9 +1339,9 @@ checksum = "f658886ed52e196e850cfbbfddab9eaa7f6d90dd0929e264c31e5cec07e09e57"
 
 [[package]]
 name = "php-literal-parser"
-version = "0.2.7"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29372eb3a15b01e4295e3138bb508f9b169145ae72a27cd256c8c314f5caad44"
+checksum = "d19d60decb22e671f8412244a9e65c60fdf79c73a9c56aba9bec10c70d198b6c"
 dependencies = [
  "logos",
  "memchr",
