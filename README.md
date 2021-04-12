@@ -306,3 +306,5 @@ Cross compiling for other platform is done easiest using [`cross`](https://githu
 ```bash
 cross build --release --target=aarch64-unknown-linux-musl
 ```
+
+If you're running into an issue building the `termion` dependency on a non-linux OS, try building with `--no-default-features`.
