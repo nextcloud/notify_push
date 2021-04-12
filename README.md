@@ -192,6 +192,21 @@ Once set the metrics are available in a prometheus compatible format at `/metric
 If your nextcloud is using a self-signed certificate then you either need to set the `NEXTCLOUD_URL` to a non-https, local url,
 or disable certificate verification by setting `ALLOW_SELF_SIGNED=true`.
 
+## Troubleshooting
+
+When running into issues you should always first ensure that you're on the latest release, as your issue might either
+already be fixed or additional diagnostics might have been added.
+
+### "push server is not a trusted proxy"
+
+- Ensure you haven't added a duplicate `trusted_proxies` list to your `config.php`.
+- If you're modified your `forwarded_for_headers` config, ensure that `HTTP_X_FORWARDED_FOR` is included.
+- If your nextcloud hostname resolves do a dynamic ip you can try setting the `NEXTCLOUD_URL` to the internal ip of the server.
+  
+  Alternatively, editing the `/etc/hosts` file to point your nextcloud domain to the internal ip can work in some setups.
+- If you're running your setup in docker and your containers are linked, you should be able to use the name of the nextcloud container as hostname in the `NEXTCLOUD_URL`
+
+
 ## Developing
 
 As developer of a Nextcloud app or client you can use the `notify_push` app to receive real time notifications from the
