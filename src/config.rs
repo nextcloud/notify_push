@@ -3,6 +3,7 @@ mod nc;
 use crate::config::nc::parse_config_file;
 use color_eyre::eyre::ContextCompat;
 use color_eyre::{eyre::WrapErr, Report, Result};
+use derivative::Derivative;
 use redis::ConnectionInfo;
 use sqlx::any::AnyConnectOptions;
 use std::convert::{TryFrom, TryInto};
@@ -40,6 +41,9 @@ pub struct Opt {
     /// Listen to a unix socket instead of TCP
     #[structopt(long)]
     pub socket_path: Option<PathBuf>,
+    /// File permissions for
+    #[structopt(long)]
+    pub socket_permissions: Option<String>,
     /// Listen to a unix socket instead of TCP for serving metrics
     #[structopt(long)]
     pub metrics_socket_path: Option<PathBuf>,
@@ -72,17 +76,25 @@ pub struct Config {
     pub allow_self_signed: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub enum Bind {
     Tcp(SocketAddr),
-    Unix(PathBuf),
+    Unix(
+        PathBuf,
+        #[derivative(Debug(format_with = "format_permissions"))] u32,
+    ),
+}
+
+fn format_permissions(permissions: &u32, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "0{:o}", permissions)
 }
 
 impl Display for Bind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Bind::Tcp(addr) => addr.fmt(f),
-            Bind::Unix(path) => path.to_string_lossy().fmt(f),
+            Bind::Unix(path, _) => path.to_string_lossy().fmt(f),
         }
     }
 }
@@ -91,8 +103,20 @@ impl TryFrom<PartialConfig> for Config {
     type Error = Report;
 
     fn try_from(config: PartialConfig) -> Result<Self> {
+        let socket_permissions = config
+            .socket_permissions
+            .map(|perm| {
+                if perm.len() != 4 && !perm.starts_with("0") {
+                    return Err(Report::msg(
+                        "socket permissions should be provided in the octal form `0xxx`",
+                    ));
+                }
+                Ok(u32::from_str_radix(&perm, 8)?)
+            })
+            .transpose()?
+            .unwrap_or(0o666);
         let bind = match config.socket {
-            Some(socket) => Bind::Unix(socket),
+            Some(socket) => Bind::Unix(socket, socket_permissions),
             None => {
                 let ip = config
                     .bind
@@ -103,7 +127,7 @@ impl TryFrom<PartialConfig> for Config {
         };
 
         let metrics_bind = match (config.metrics_socket, config.metrics_port) {
-            (Some(socket), _) => Some(Bind::Unix(socket)),
+            (Some(socket), _) => Some(Bind::Unix(socket, socket_permissions)),
             (None, Some(port)) => {
                 let ip = config
                     .bind
@@ -164,6 +188,7 @@ struct PartialConfig {
     pub log_level: Option<String>,
     pub bind: Option<IpAddr>,
     pub socket: Option<PathBuf>,
+    pub socket_permissions: Option<String>,
     pub allow_self_signed: Option<bool>,
 }
 
@@ -180,6 +205,7 @@ impl PartialConfig {
         let log_level = var("LOG").ok();
         let bind = parse_var("BIND").wrap_err("Invalid BIND")?;
         let socket = var("SOCKET_PATH").map(PathBuf::from).ok();
+        let socket_permissions = var("SOCKET_PERMISSIONS").ok();
         let allow_self_signed = var("ALLOW_SELF_SIGNED").map(|val| val == "true").ok();
 
         Ok(PartialConfig {
@@ -193,6 +219,7 @@ impl PartialConfig {
             log_level,
             bind,
             socket,
+            socket_permissions,
             allow_self_signed,
         })
     }
@@ -213,6 +240,7 @@ impl PartialConfig {
             log_level: opt.log_level,
             bind: opt.bind,
             socket: opt.socket_path,
+            socket_permissions: opt.socket_permissions,
             allow_self_signed: if opt.allow_self_signed {
                 Some(true)
             } else {
@@ -237,6 +265,7 @@ impl PartialConfig {
             log_level: self.log_level.or(fallback.log_level),
             bind: self.bind.or(fallback.bind),
             socket: self.socket.or(fallback.socket),
+            socket_permissions: self.socket_permissions.or(fallback.socket_permissions),
             allow_self_signed: self.allow_self_signed.or(fallback.allow_self_signed),
         }
     }

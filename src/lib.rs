@@ -341,11 +341,11 @@ where
             let (_, server) = warp::serve(filter).bind_with_graceful_shutdown(addr, cancel);
             server.await;
         }
-        Bind::Unix(socket_path) => {
-            fs::remove_file(&socket_path).unwrap_or_default();
+        Bind::Unix(socket_path, permissions) => {
+            fs::remove_file(&socket_path).ok();
 
             let listener = UnixListener::bind(&socket_path).unwrap();
-            fs::set_permissions(&socket_path, PermissionsExt::from_mode(0o666)).unwrap();
+            fs::set_permissions(&socket_path, PermissionsExt::from_mode(permissions)).unwrap();
 
             let stream = UnixListenerStream::new(listener);
             warp::serve(filter)

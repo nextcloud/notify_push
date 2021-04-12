@@ -29,6 +29,7 @@ ahash = "0.7"
 flexi_logger = { version = "0.17", features = ["colors"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 structopt = "0.3"
+derivative = "2"
 
 [dev-dependencies]
 mini-redis = "0.4"
