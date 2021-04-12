@@ -351,6 +351,7 @@ where
             warp::serve(filter)
                 .serve_incoming_with_graceful_shutdown(stream, cancel)
                 .await;
+            fs::remove_file(&socket_path).ok();
         }
     }
 }
