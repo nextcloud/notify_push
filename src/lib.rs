@@ -12,7 +12,7 @@ use ahash::RandomState;
 use color_eyre::{eyre::WrapErr, Result};
 use dashmap::DashMap;
 use flexi_logger::LoggerHandle;
-use futures::future::select;
+use futures::future::{select, Either};
 use futures::StreamExt;
 use futures::{pin_mut, FutureExt};
 use smallvec::alloc::sync::Arc;
@@ -215,7 +215,11 @@ impl App {
     }
 }
 
-pub async fn serve(app: Arc<App>, bind: Bind, cancel: oneshot::Receiver<()>) {
+pub fn serve(
+    app: Arc<App>,
+    bind: Bind,
+    cancel: oneshot::Receiver<()>,
+) -> Result<impl Future<Output = ()> + Send> {
     let app = warp::any().map(move || app.clone());
 
     let cors = warp::cors().allow_any_origin();
@@ -326,10 +330,10 @@ pub async fn serve(app: Arc<App>, bind: Bind, cancel: oneshot::Receiver<()>) {
         .or(remote_test)
         .or(version);
 
-    serve_at(routes, bind, cancel).await;
+    serve_at(routes, bind, cancel)
 }
 
-async fn serve_at<F, C>(filter: F, bind: Bind, cancel: C)
+fn serve_at<F, C>(filter: F, bind: Bind, cancel: C) -> Result<impl Future<Output = ()> + Send>
 where
     C: Future + Send + Sync + 'static,
     F: Filter + Clone + Send + Sync + 'static,
@@ -339,19 +343,27 @@ where
     match bind {
         Bind::Tcp(addr) => {
             let (_, server) = warp::serve(filter).bind_with_graceful_shutdown(addr, cancel);
-            server.await;
+            Ok(Either::Left(server))
         }
         Bind::Unix(socket_path, permissions) => {
             fs::remove_file(&socket_path).ok();
 
-            let listener = UnixListener::bind(&socket_path).unwrap();
-            fs::set_permissions(&socket_path, PermissionsExt::from_mode(permissions)).unwrap();
+            let listener = UnixListener::bind(&socket_path).wrap_err_with(|| {
+                format!(
+                    "Failed to setup socket at {}",
+                    socket_path.to_string_lossy()
+                )
+            })?;
+            fs::set_permissions(&socket_path, PermissionsExt::from_mode(permissions))?;
 
             let stream = UnixListenerStream::new(listener);
-            warp::serve(filter)
-                .serve_incoming_with_graceful_shutdown(stream, cancel)
-                .await;
-            fs::remove_file(&socket_path).ok();
+            Ok(Either::Right(
+                warp::serve(filter)
+                    .serve_incoming_with_graceful_shutdown(stream, cancel)
+                    .map(move |_| {
+                        fs::remove_file(&socket_path).ok();
+                    }),
+            ))
         }
     }
 }

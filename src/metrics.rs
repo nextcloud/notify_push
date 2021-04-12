@@ -1,7 +1,9 @@
 use crate::config::Bind;
 use crate::serve_at;
+use color_eyre::Result;
 use serde::{Serialize, Serializer};
 use std::fmt::Write;
+use std::future::Future;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::oneshot;
 use warp::Filter;
@@ -112,7 +114,10 @@ impl Metrics {
     }
 }
 
-pub async fn serve_metrics(bind: Bind, cancel: oneshot::Receiver<()>) {
+pub fn serve_metrics(
+    bind: Bind,
+    cancel: oneshot::Receiver<()>,
+) -> Result<impl Future<Output = ()> + Send> {
     let metrics = warp::path!("metrics").map(|| {
         let mut response = String::with_capacity(128);
         let _ = writeln!(
@@ -143,5 +148,5 @@ pub async fn serve_metrics(bind: Bind, cancel: oneshot::Receiver<()>) {
         response
     });
 
-    serve_at(metrics, bind, cancel).await;
+    serve_at(metrics, bind, cancel)
 }

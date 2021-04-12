@@ -57,11 +57,11 @@ async fn main() -> Result<()> {
     }
 
     log::trace!("Listening on {}", bind);
-    let server = spawn(serve(app.clone(), bind, serve_cancel_handle));
+    let server = spawn(serve(app.clone(), bind, serve_cancel_handle)?);
 
     if let Some(metrics_bind) = metrics_bind {
         log::trace!("Metrics listening {}", metrics_bind);
-        spawn(serve_metrics(metrics_bind, metrics_cancel_handle));
+        spawn(serve_metrics(metrics_bind, metrics_cancel_handle)?);
     }
 
     spawn(listen_loop(app, listen_cancel_handle));
