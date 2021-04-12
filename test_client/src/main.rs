@@ -57,10 +57,16 @@ fn main() -> Result<()> {
 
 fn get_endpoint(nc_url: &str, user: &str, password: &str) -> Result<String> {
     let raw = ureq::get(&format!("{}/ocs/v2.php/cloud/capabilities", nc_url))
-        .auth(user, password)
+        .set(
+            "Authorization",
+            &format!(
+                "Basic {}",
+                base64::encode(&format!("{}:{}", user, password))
+            ),
+        )
         .set("Accept", "application/json")
         .set("OCS-APIREQUEST", "true")
-        .call()
+        .call()?
         .into_string()?;
     log::debug!("Capabilities response: {}", raw);
     let json: Value = serde_json::from_str(&raw)

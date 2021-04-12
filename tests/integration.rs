@@ -19,7 +19,7 @@ use tokio::time::timeout;
 use tokio::time::{sleep, Duration};
 use tokio_stream::wrappers::TcpListenerStream;
 use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::WebSocketStream;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use warp::http::StatusCode;
 use warp::{Filter, Reply};
 
@@ -230,14 +230,18 @@ struct ServerHandle {
 }
 
 impl ServerHandle {
-    async fn connect(&self) -> WebSocketStream<TcpStream> {
+    async fn connect(&self) -> WebSocketStream<MaybeTlsStream<TcpStream>> {
         tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{}/ws", self.port))
             .await
             .unwrap()
             .0
     }
 
-    async fn connect_auth(&self, username: &str, password: &str) -> WebSocketStream<TcpStream> {
+    async fn connect_auth(
+        &self,
+        username: &str,
+        password: &str,
+    ) -> WebSocketStream<MaybeTlsStream<TcpStream>> {
         let mut client =
             tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{}/ws", self.port))
                 .await
@@ -280,7 +284,10 @@ async fn test_auth_failure() {
 }
 
 #[track_caller]
-async fn assert_next_message(client: &mut WebSocketStream<TcpStream>, expected: &str) {
+async fn assert_next_message(
+    client: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    expected: &str,
+) {
     assert_eq!(
         timeout(Duration::from_millis(200), client.next())
             .await
@@ -292,7 +299,7 @@ async fn assert_next_message(client: &mut WebSocketStream<TcpStream>, expected: 
 }
 
 #[track_caller]
-async fn assert_no_message(client: &mut WebSocketStream<TcpStream>) {
+async fn assert_no_message(client: &mut WebSocketStream<MaybeTlsStream<TcpStream>>) {
     assert!(timeout(Duration::from_millis(10), client.next())
         .await
         .is_err());

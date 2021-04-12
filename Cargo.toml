@@ -32,7 +32,7 @@ structopt = "0.3"
 
 [dev-dependencies]
 mini-redis = "0.4"
-tokio-tungstenite = "0.13"
+tokio-tungstenite = "0.14"
 http-auth-basic = "0.1"
 test_client = { path = "test_client" }
 
