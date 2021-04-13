@@ -278,7 +278,7 @@ discover_endpoint(nextcloud_url, username, password).then((endpoint) => {
 
 For development purposes a test client is provided which can be downloaded from
 the [github actions](https://github.com/nextcloud/notify_push/actions/workflows/rust.yml) page.<br>
-(Click on a run from the list, e.g. [this one](https://github.com/nextcloud/notify_push/actions/runs/615473236), scroll to the bottom and click on `test_client` to download the binary.)<br>
+(Click on a run from the list, e.g. [this one](https://github.com/nextcloud/notify_push/actions/runs/743948106), scroll to the bottom and click on `test_client` to download the binary.)<br>
 Please note: the Test client only works on x86_64 Linux currently.
 
 ```bash
@@ -289,7 +289,7 @@ Note that this does not support two-factor authentication of non-default login f
 
 ### Building
 
-The server binary is built using rust and cargo, `0.1.3` requires a minimum of rust `1.46` while later versions can be build with `1.45`.
+The server binary is built using rust and cargo, and requires a minimum of rust `1.45`.
 
 - Install `rust` through your package manager or [rustup](https://rustup.rs/)
 - Run `cargo build`
