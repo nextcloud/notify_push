@@ -112,7 +112,7 @@ You can probably use the same webserver that you're already using for your nextc
 If you're using nginx, add the following `location` block to the existing `server` block of the nextcloud server.
 
 ```nginx
-location /push/ {
+location ^~ /push/ {
     proxy_pass http://127.0.0.1:7867/;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
