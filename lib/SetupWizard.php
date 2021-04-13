@@ -284,7 +284,7 @@ WantedBy = multi-user.target
 	}
 
 	public function nginxConfig(): string {
-		return "location /push/ {
+		return "location ^~ /push/ {
 	proxy_pass http://127.0.0.1:7867/;
 	proxy_http_version 1.1;
 	proxy_set_header Upgrade \$http_upgrade;
