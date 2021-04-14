@@ -15,6 +15,7 @@ jobs:
       matrix:
         target:
           - x86_64-unknown-linux-musl
+          - i686-unknown-linux-musl
           - armv7-unknown-linux-musleabihf
           - aarch64-unknown-linux-musl
 
