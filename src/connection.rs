@@ -44,7 +44,7 @@ impl ActiveConnections {
 
 pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpAddr>) {
     let user_id = match timeout(
-        Duration::from_secs(1),
+        Duration::from_secs(15),
         socket_auth(&mut ws, forwarded_for, &app),
     )
     .await
