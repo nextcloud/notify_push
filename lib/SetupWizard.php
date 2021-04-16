@@ -296,7 +296,8 @@ WantedBy = multi-user.target
 	}
 
 	public function apacheConfig(): string {
-		return "ProxyPass /push/ws ws://127.0.0.1:7867/ws
+		return "RewriteEngine on
+RewriteRule ^/push/ws/?(.*) \"ws://127.0.0.1:7867/ws/\$1\" [P,L]
 ProxyPass /push/ http://127.0.0.1:7867/
 ProxyPassReverse /push/ http://127.0.0.1:7867/
 ";

@@ -143,7 +143,8 @@ sudo a2enmod proxy_wstunnel
 Then add the following lines to the `<VirtualHost>` block used for the Nextcloud server.
 
 ```apacheconf
-ProxyPass /push/ws ws://127.0.0.1:7867/ws
+RewriteEngine on
+RewriteRule ^/push/ws/?(.*) "ws://127.0.0.1:7867/ws/$1" [P,L]
 ProxyPass /push/ http://127.0.0.1:7867/
 ProxyPassReverse /push/ http://127.0.0.1:7867/
 ```
