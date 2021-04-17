@@ -154,7 +154,7 @@ Afterwards you can restart apache using
 sudo systemctl restart apache2
 ```
 
-#### Caddy
+#### Caddy v2
 
 ```Caddyfile
 route /push/* {
