@@ -148,6 +148,18 @@ ProxyPass /push/ http://127.0.0.1:7867/
 ProxyPassReverse /push/ http://127.0.0.1:7867/
 ```
 
+Either add the servers IP address to the `trusted_proxies` list or add the X-Forwarded-For HTTP header. In order to add the header enable the Apache 2.4 built in module using
+
+```bash
+sudo a2enmod remoteip
+```
+
+Then add the following line to the `<VirtualHost>` block used for the Nextcloud server.
+
+```apacheconf
+RemoteIPHeader X-Forwarded-For
+```
+
 Afterwards you can restart apache using
 
 ```bash
