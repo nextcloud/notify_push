@@ -3,7 +3,7 @@ use color_eyre::{eyre::WrapErr, Report, Result};
 use php_literal_parser::Value;
 use redis::{ConnectionAddr, ConnectionInfo};
 use sqlx::any::AnyConnectOptions;
-use sqlx::mysql::MySqlConnectOptions;
+use sqlx::mysql::{MySqlConnectOptions, MySqlSslMode};
 use sqlx::postgres::PgConnectOptions;
 use sqlx::sqlite::SqliteConnectOptions;
 use std::path::{Path, PathBuf};
@@ -148,9 +148,15 @@ fn parse_db_options(parsed: &Value) -> Result<AnyConnectOptions> {
                 }
                 (addr, None, None) => {
                     options = options.host(addr);
+                    if IpAddr::from_str(addr).is_ok() {
+                        options = options.ssl_mode(MySqlSslMode::Disabled);
+                    }
                 }
                 (addr, Some(port), None) => {
                     options = options.host(addr).port(port);
+                    if IpAddr::from_str(addr).is_ok() {
+                        options = options.ssl_mode(MySqlSslMode::Disabled);
+                    }
                 }
                 (_, None, Some(socket)) => {
                     options = options.socket(socket);
@@ -165,6 +171,7 @@ fn parse_db_options(parsed: &Value) -> Result<AnyConnectOptions> {
             if let Some(name) = parsed["dbname"].as_str() {
                 options = options.database(name);
             }
+
             Ok(options.into())
         }
         Some("pgsql") => {
@@ -314,6 +321,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 #[cfg(test)]
 use std::fmt::Debug;
+use std::net::IpAddr;
 
 #[cfg(test)]
 fn config_from_file(path: &str) -> crate::config::Config {
@@ -326,7 +334,10 @@ fn test_parse_config_basic() {
     assert_eq!("https://cloud.example.com/", config.nextcloud_url);
     assert_eq!("oc_", config.database_prefix);
     assert_debug_equal(
-        AnyConnectOptions::from_str("mysql://nextcloud:secret@127.0.0.1/nextcloud").unwrap(),
+        AnyConnectOptions::from_str(
+            "mysql://nextcloud:secret@127.0.0.1/nextcloud?ssl-mode=disabled",
+        )
+        .unwrap(),
         config.database,
     );
     assert_debug_equal(
@@ -374,7 +385,10 @@ fn test_parse_comment_whitespace() {
     assert_eq!("https://cloud.example.com/", config.nextcloud_url);
     assert_eq!("oc_", config.database_prefix);
     assert_debug_equal(
-        AnyConnectOptions::from_str("mysql://nextcloud:secret@127.0.0.1/nextcloud").unwrap(),
+        AnyConnectOptions::from_str(
+            "mysql://nextcloud:secret@127.0.0.1/nextcloud?ssl-mode=disabled",
+        )
+        .unwrap(),
         config.database,
     );
     assert_debug_equal(
@@ -387,7 +401,10 @@ fn test_parse_comment_whitespace() {
 fn test_parse_port_in_host() {
     let config = config_from_file("tests/configs/port_in_host.php");
     assert_debug_equal(
-        AnyConnectOptions::from_str("mysql://nextcloud:secret@127.0.0.1:1234/nextcloud").unwrap(),
+        AnyConnectOptions::from_str(
+            "mysql://nextcloud:secret@127.0.0.1:1234/nextcloud?ssl-mode=disabled",
+        )
+        .unwrap(),
         config.database,
     );
 }
@@ -447,11 +464,26 @@ fn test_parse_config_multiple() {
     assert_eq!("https://cloud.example.com/", config.nextcloud_url);
     assert_eq!("oc_", config.database_prefix);
     assert_debug_equal(
-        AnyConnectOptions::from_str("mysql://nextcloud:secret@127.0.0.1/nextcloud").unwrap(),
+        AnyConnectOptions::from_str(
+            "mysql://nextcloud:secret@127.0.0.1/nextcloud?ssl-mode=disabled",
+        )
+        .unwrap(),
         config.database,
     );
     assert_debug_equal(
         vec![ConnectionInfo::from_str("redis://127.0.0.1").unwrap()],
         config.redis,
+    );
+}
+
+#[test]
+fn test_parse_config_mysql_fqdn() {
+    let config = config_from_file("tests/configs/mysql_fqdn.php");
+    assert_debug_equal(
+        AnyConnectOptions::from_str(
+            "mysql://nextcloud:secret@db.example.com/nextcloud?ssl-mode=preferred",
+        )
+        .unwrap(),
+        config.database,
     );
 }
