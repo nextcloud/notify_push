@@ -23,6 +23,6 @@ $CONFIG = [
         'password' => 'xxx',
         'timeout' => 0.0,
         'read_timeout' => 0.0,
-        'failover_mode' => 1,
+        'failover_mode' => \RedisCluster::FAILOVER_ERROR
       ),
 ];

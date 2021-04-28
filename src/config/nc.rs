@@ -9,13 +9,27 @@ use sqlx::sqlite::SqliteConnectOptions;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+static CONFIG_CONSTANTS: &'static [(&'static str, &'static str)] = &[
+    (r"\RedisCluster::FAILOVER_NONE", "0"),
+    (r"\RedisCluster::FAILOVER_ERROR", "1"),
+    (r"\RedisCluster::DISTRIBUTE", "2"),
+    (r"\RedisCluster::FAILOVER_DISTRIBUTE_SLAVES", "3"),
+];
+
 pub(super) fn parse_config_file(path: impl AsRef<Path>) -> Result<PartialConfig> {
-    let content = std::fs::read_to_string(&path).wrap_err_with(|| {
+    let mut content = std::fs::read_to_string(&path).wrap_err_with(|| {
         format!(
             "Failed to read config file {}",
             path.as_ref().to_string_lossy()
         )
     })?;
+
+    for (search, replace) in CONFIG_CONSTANTS {
+        if content.contains(search) {
+            content = content.replace(search, replace);
+        }
+    }
+
     let php = match content.find("$CONFIG") {
         Some(pos) => content[pos + "$CONFIG".len()..]
             .trim()
