@@ -16,7 +16,24 @@ static CONFIG_CONSTANTS: &'static [(&'static str, &'static str)] = &[
     (r"\RedisCluster::FAILOVER_DISTRIBUTE_SLAVES", "3"),
 ];
 
-pub(super) fn parse_config_file(path: impl AsRef<Path>) -> Result<PartialConfig> {
+fn glob_config_files(path: impl AsRef<Path>) -> Result<Vec<PathBuf>> {
+    let mut configs = vec![path.as_ref().into()];
+    if let Some(parent) = path.as_ref().parent() {
+        for file in parent.read_dir()? {
+            let file = file?;
+            let path = file.path();
+            match path.to_str() {
+                Some(path_str) if path_str.ends_with(".config.php") => {
+                    configs.push(path);
+                }
+                _ => {}
+            }
+        }
+    }
+    Ok(configs)
+}
+
+fn parse_php(path: impl AsRef<Path>) -> Result<Value> {
     let mut content = std::fs::read_to_string(&path).wrap_err_with(|| {
         format!(
             "Failed to read config file {}",
@@ -35,12 +52,56 @@ pub(super) fn parse_config_file(path: impl AsRef<Path>) -> Result<PartialConfig>
             .trim()
             .trim_start_matches('='),
         None => {
-            return Err(Report::msg("$CONFIG not found")).wrap_err("Failed to parse config file")
+            return Err(Report::msg("$CONFIG not found")).wrap_err_with(|| {
+                format!(
+                    "Failed to parse config file {}",
+                    path.as_ref().to_string_lossy()
+                )
+            })
         }
     };
-    let parsed = php_literal_parser::from_str(php)
+    php_literal_parser::from_str(php)
         .map_err(|err| Report::msg(err.with_source(php).to_string()))
-        .wrap_err("Failed to parse config file")?;
+        .wrap_err_with(|| {
+            format!(
+                "Failed to parse config file {}",
+                path.as_ref().to_string_lossy()
+            )
+        })
+}
+
+fn merge_configs(input: Vec<(PathBuf, Value)>) -> Result<Value> {
+    let mut merged = HashMap::with_capacity(16);
+
+    for (path, config) in input {
+        match config.into_hashmap() {
+            Some(map) => {
+                for (key, value) in map {
+                    merged.insert(key, value);
+                }
+            }
+            None => {
+                return Err(Report::msg(format!(
+                    "Invalid configuration file {}, not an array",
+                    path.to_string_lossy()
+                )))
+            }
+        }
+    }
+
+    Ok(Value::Array(merged))
+}
+
+pub(super) fn parse_config_file(path: impl AsRef<Path>) -> Result<PartialConfig> {
+    let files = glob_config_files(path)?;
+    let parsed_files = files
+        .into_iter()
+        .map(|path| {
+            let parsed = parse_php(&path)?;
+            Result::<_, Report>::Ok((path, parsed))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let parsed = merge_configs(parsed_files)?;
 
     let database = parse_db_options(&parsed).wrap_err("Failed to create database config")?;
     let database_prefix = parsed["dbtableprefix"]
@@ -248,6 +309,7 @@ fn assert_debug_equal<T: Debug, U: Debug>(a: T, b: U) {
     assert_eq!(format!("{:?}", a), format!("{:?}", b),);
 }
 
+use std::collections::HashMap;
 #[cfg(test)]
 use std::convert::TryInto;
 #[cfg(test)]
@@ -375,6 +437,21 @@ fn test_parse_redis_cluster() {
             ConnectionInfo::from_str("redis://:xxx@db2:6381").unwrap(),
             ConnectionInfo::from_str("redis://:xxx@db2:6382").unwrap(),
         ],
+        config.redis,
+    );
+}
+
+#[test]
+fn test_parse_config_multiple() {
+    let config = config_from_file("tests/configs/multiple/config.php");
+    assert_eq!("https://cloud.example.com/", config.nextcloud_url);
+    assert_eq!("oc_", config.database_prefix);
+    assert_debug_equal(
+        AnyConnectOptions::from_str("mysql://nextcloud:secret@127.0.0.1/nextcloud").unwrap(),
+        config.database,
+    );
+    assert_debug_equal(
+        vec![ConnectionInfo::from_str("redis://127.0.0.1").unwrap()],
         config.redis,
     );
 }
