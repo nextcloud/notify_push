@@ -154,6 +154,15 @@ Afterwards you can restart apache using
 sudo systemctl restart apache2
 ```
 
+#### Caddy v2
+
+```Caddyfile
+route /push/* {
+    uri strip_prefix /push
+    reverse_proxy http://127.0.0.1:7867/
+}
+```
+
 ### Nextcloud app
 
 Once the push server is configured and the reverse proxy setup, you can enable the `notify_push` app and tell it where
