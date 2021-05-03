@@ -21,7 +21,6 @@ color-eyre = "0.5"
 smallvec = "1"
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "json"] }
 warp-real-ip = "0.2"
-php-literal-parser =  { version = "0.2", default-features = false }
 parse-display = "0.4"
 percent-encoding = "2"
 rand = "0.8"
@@ -30,6 +29,7 @@ flexi_logger = { version = "0.17", features = ["colors"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 structopt = "0.3"
 derivative = "2"
+nextcloud-config-parser = { version = "0.1", features = ["db-sqlx", "redis-connect"] }
 hyper = "=0.14.4" # 0.14.5 increases the MSRV to 1.46
 
 [dev-dependencies]
@@ -49,6 +49,6 @@ lto = true
 
 [features]
 default = ["span-colors"]
-span-colors = ["php-literal-parser/colors"]
+span-colors = ["nextcloud-config-parser/span-colors"]
 
 [workspace]
