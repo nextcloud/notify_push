@@ -62,6 +62,9 @@ pub struct Opt {
     /// Print the parsed config and exit
     #[structopt(long)]
     pub dump_config: bool,
+    /// Disable ansi escape sequences in logging output
+    #[structopt(long)]
+    pub no_ansi: bool,
 }
 
 #[derive(Debug)]
@@ -74,6 +77,7 @@ pub struct Config {
     pub log_level: String,
     pub bind: Bind,
     pub allow_self_signed: bool,
+    pub no_ansi: bool,
 }
 
 #[derive(Clone, Derivative)]
@@ -157,6 +161,7 @@ impl TryFrom<PartialConfig> for Config {
             log_level: config.log_level.unwrap_or_else(|| String::from("warn")),
             bind,
             allow_self_signed: config.allow_self_signed.unwrap_or(false),
+            no_ansi: config.no_ansi.unwrap_or(false),
         })
     }
 }
@@ -190,6 +195,7 @@ struct PartialConfig {
     pub socket: Option<PathBuf>,
     pub socket_permissions: Option<String>,
     pub allow_self_signed: Option<bool>,
+    pub no_ansi: Option<bool>,
 }
 
 impl PartialConfig {
@@ -207,6 +213,7 @@ impl PartialConfig {
         let socket = var("SOCKET_PATH").map(PathBuf::from).ok();
         let socket_permissions = var("SOCKET_PERMISSIONS").ok();
         let allow_self_signed = var("ALLOW_SELF_SIGNED").map(|val| val == "true").ok();
+        let no_ansi = var("NO_ANSI").map(|val| val == "true").ok();
 
         Ok(PartialConfig {
             database,
@@ -221,6 +228,7 @@ impl PartialConfig {
             socket,
             socket_permissions,
             allow_self_signed,
+            no_ansi,
         })
     }
 
@@ -246,6 +254,7 @@ impl PartialConfig {
             } else {
                 None
             },
+            no_ansi: if opt.no_ansi { Some(true) } else { None },
         }
     }
 
@@ -267,6 +276,7 @@ impl PartialConfig {
             socket: self.socket.or(fallback.socket),
             socket_permissions: self.socket_permissions.or(fallback.socket_permissions),
             allow_self_signed: self.allow_self_signed.or(fallback.allow_self_signed),
+            no_ansi: self.no_ansi.or(fallback.no_ansi),
         }
     }
 }

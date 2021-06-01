@@ -152,6 +152,7 @@ impl Services {
             log_level: "".to_string(),
             bind: Bind::Tcp(self.nextcloud.clone()),
             allow_self_signed: false,
+            no_ansi: false,
         }
     }
 

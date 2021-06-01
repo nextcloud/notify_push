@@ -1,5 +1,5 @@
 use color_eyre::{eyre::WrapErr, Result};
-use flexi_logger::{colored_detailed_format, LogTarget, Logger};
+use flexi_logger::{colored_detailed_format, detailed_format, LogTarget, Logger};
 use notify_push::config::{Config, Opt};
 use notify_push::message::DEBOUNCE_ENABLE;
 use notify_push::metrics::serve_metrics;
@@ -32,7 +32,11 @@ async fn main() -> Result<()> {
 
     let log_handle = Logger::with_str(&config.log_level)
         .log_target(LogTarget::StdOut)
-        .format(colored_detailed_format)
+        .format(if config.no_ansi {
+            detailed_format
+        } else {
+            colored_detailed_format
+        })
         .start()?;
 
     let (serve_cancel, serve_cancel_handle) = oneshot::channel();
