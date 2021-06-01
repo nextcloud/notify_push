@@ -21,7 +21,7 @@ color-eyre = "0.5"
 smallvec = "1"
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "json"] }
 warp-real-ip = "0.2"
-parse-display = "0.4"
+parse-display = "0.5"
 percent-encoding = "2"
 rand = "0.8"
 ahash = "0.7"
