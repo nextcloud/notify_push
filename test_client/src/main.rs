@@ -7,7 +7,7 @@ use tungstenite::{connect, Message};
 
 fn main() -> Result<()> {
     color_eyre::install()?;
-    Logger::with_str(&var("LOG").unwrap_or_else(|_| String::from("warn"))).start()?;
+    Logger::try_with_str(&var("LOG").unwrap_or_else(|_| String::from("warn")))?.start()?;
 
     let mut args = std::env::args();
 

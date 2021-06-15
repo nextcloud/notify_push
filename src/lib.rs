@@ -190,8 +190,10 @@ impl App {
                     .await;
             }
             Event::Config(event::Config::LogSpec(spec)) => {
-                self.log_handle.lock().await.parse_and_push_temp_spec(&spec);
-                log::info!("Set log level to {}", spec);
+                match self.log_handle.lock().await.parse_and_push_temp_spec(&spec) {
+                    Ok(()) => log::info!("Set log level to {}", spec),
+                    Err(e) => log::error!("Failed to set log level: {:?}", e),
+                }
             }
             Event::Config(event::Config::LogRestore) => {
                 self.log_handle.lock().await.pop_temp_spec();

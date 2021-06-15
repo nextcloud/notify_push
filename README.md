@@ -298,7 +298,7 @@ Note that this does not support two-factor authentication of non-default login f
 
 ### Building
 
-The server binary is built using rust and cargo, and requires a minimum of rust `1.45`.
+The server binary is built using rust and cargo, and requires a minimum of rust `1.46`.
 
 - Install `rust` through your package manager or [rustup](https://rustup.rs/)
 - Run `cargo build`

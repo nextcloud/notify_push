@@ -49,7 +49,8 @@ struct Services {
     db: AnyPool,
 }
 
-static LOG_HANDLE: Lazy<LoggerHandle> = Lazy::new(|| Logger::with_str("").start().unwrap());
+static LOG_HANDLE: Lazy<LoggerHandle> =
+    Lazy::new(|| Logger::try_with_str("").unwrap().start().unwrap());
 
 impl Services {
     pub async fn new() -> Self {

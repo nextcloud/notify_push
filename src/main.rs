@@ -1,5 +1,5 @@
 use color_eyre::{eyre::WrapErr, Result};
-use flexi_logger::{colored_detailed_format, detailed_format, LogTarget, Logger};
+use flexi_logger::{colored_detailed_format, detailed_format, Logger};
 use notify_push::config::{Config, Opt};
 use notify_push::message::DEBOUNCE_ENABLE;
 use notify_push::metrics::serve_metrics;
@@ -30,8 +30,8 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    let log_handle = Logger::with_str(&config.log_level)
-        .log_target(LogTarget::StdOut)
+    let log_handle = Logger::try_with_str(&config.log_level)?
+        .log_to_stdout()
         .format(if config.no_ansi {
             detailed_format
         } else {

@@ -25,12 +25,11 @@ parse-display = "0.5"
 percent-encoding = "2"
 rand = "0.8"
 ahash = "0.7"
-flexi_logger = { version = "0.17", features = ["colors"] }
+flexi_logger = { version = "0.18", features = ["colors"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 structopt = "0.3"
 derivative = "2"
 nextcloud-config-parser = { version = "0.1", features = ["db-sqlx", "redis-connect"] }
-hyper = "=0.14.4" # 0.14.5 increases the MSRV to 1.46
 
 [dev-dependencies]
 mini-redis = "0.4"
