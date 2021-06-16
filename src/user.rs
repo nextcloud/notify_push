@@ -24,7 +24,7 @@ impl UserId {
         hash.write(user_id.as_bytes());
         let hash = hash.finish();
 
-        if LevelFilter::Info < log::max_level() {
+        if log::max_level() >= LevelFilter::Info {
             USER_NAMES
                 .entry(hash)
                 .or_insert_with(|| user_id.to_string());
@@ -96,7 +96,7 @@ where
 
 impl fmt::Display for UserId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if LevelFilter::Info < log::max_level() {
+        if log::max_level() >= LevelFilter::Info {
             if let Some(user_name) = USER_NAMES.get(&self.hash) {
                 f.write_str(user_name.value())
             } else {
