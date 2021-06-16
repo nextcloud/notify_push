@@ -1099,9 +1099,9 @@ dependencies = [
 
 [[package]]
 name = "nextcloud-config-parser"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb41f416b827aea610981e13a03f0b2de711476018ce61c252753027298cdabb"
+checksum = "f4cb4342e9cc7e2094c9a5cf391b5d0c3716b1eb17fc01edcfa21dcba9050208"
 dependencies = [
  "php-literal-parser",
  "redis",
