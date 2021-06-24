@@ -86,6 +86,9 @@ which in turns overwrites the values from the `config.php`.
 The port the server listens to can only be configured through the environment variable `PORT`, or `--port` argument and defaults to 7867.
 Alternatively you can configure the server to listen on a unix socket by setting the `SOCKET_PATH` environment variable or `--socket-path` argument.
 
+Note that Nextcloud load all files matching `*.config.php` in the config directory in additional to the main config file.
+You can enable this same behavior by passing the `--glob-config` option.
+
 #### Starting the service
 
 Once the systemd service file is setup with the correct configuration you can start it using
