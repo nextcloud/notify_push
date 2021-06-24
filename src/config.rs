@@ -65,6 +65,9 @@ pub struct Opt {
     /// Disable ansi escape sequences in logging output
     #[structopt(long)]
     pub no_ansi: bool,
+    /// Load other files named *.config.php in the config folder
+    #[structopt(long)]
+    pub glob_config: bool,
 }
 
 #[derive(Debug)]
@@ -171,7 +174,7 @@ impl Config {
         let from_config = opt
             .config_file
             .as_ref()
-            .map(PartialConfig::from_file)
+            .map(|path| PartialConfig::from_file(path, opt.glob_config))
             .transpose()?
             .unwrap_or_default();
         let from_env = PartialConfig::from_env()?;
@@ -232,8 +235,8 @@ impl PartialConfig {
         })
     }
 
-    fn from_file(file: impl AsRef<Path>) -> Result<Self> {
-        parse_config_file(file)
+    fn from_file(file: impl AsRef<Path>, glob: bool) -> Result<Self> {
+        parse_config_file(file, glob)
     }
 
     fn from_opt(opt: Opt) -> Self {
