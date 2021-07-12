@@ -332,6 +332,8 @@ pub fn serve(
         .or(remote_test)
         .or(version);
 
+    let routes = routes.clone().or(warp::path!("push" / ..).and(routes));
+
     serve_at(routes, bind, cancel)
 }
 
