@@ -59,7 +59,7 @@ impl DebounceMap {
         if DEBOUNCE_ENABLE.load(Ordering::Relaxed) {
             let last_send = self.get_last_send(ty);
             if Instant::now().duration_since(last_send) > Self::get_debounce_time(ty) {
-                self.set_last_send(&ty);
+                self.set_last_send(ty);
                 true
             } else {
                 false

@@ -113,7 +113,7 @@ impl TryFrom<PartialConfig> for Config {
         let socket_permissions = config
             .socket_permissions
             .map(|perm| {
-                if perm.len() != 4 && !perm.starts_with("0") {
+                if perm.len() != 4 && !perm.starts_with('0') {
                     return Err(Report::msg(
                         "socket permissions should be provided in the octal form `0xxx`",
                     ));

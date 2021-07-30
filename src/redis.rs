@@ -49,7 +49,7 @@ pub enum RedisConnection {
 
 impl RedisConnection {
     pub async fn del(&mut self, key: &str) -> Result<()> {
-        Ok(match self {
+        match self {
             RedisConnection::Async(client) => {
                 client.del::<_, ()>(key).await?;
             }
@@ -58,7 +58,8 @@ impl RedisConnection {
                 let key = key.to_string();
                 spawn_blocking(move || client.lock().unwrap().del::<_, ()>(key)).await??;
             }
-        })
+        }
+        Ok(())
     }
 
     pub async fn get(&mut self, key: &str) -> Result<String> {
@@ -73,7 +74,7 @@ impl RedisConnection {
     }
 
     pub async fn set(&mut self, key: &str, value: &str) -> Result<()> {
-        Ok(match self {
+        match self {
             RedisConnection::Async(client) => {
                 client.set::<_, _, ()>(key, value).await?;
             }
@@ -84,6 +85,7 @@ impl RedisConnection {
                 spawn_blocking(move || client.lock().unwrap().set::<_, _, ()>(key, value))
                     .await??;
             }
-        })
+        }
+        Ok(())
     }
 }

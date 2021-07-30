@@ -308,7 +308,7 @@ pub fn serve(
 
     let version = warp::path!("test" / "version")
         .and(warp::post())
-        .and(app.clone())
+        .and(app)
         .and_then(|app: Arc<App>| async move {
             Result::<_, Infallible>::Ok(match app.redis.connect().await {
                 Ok(mut client) => {
