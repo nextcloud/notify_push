@@ -4,7 +4,7 @@ use nextcloud_config_parser::{parse, parse_glob};
 use std::path::Path;
 
 pub(super) fn parse_config_file(path: impl AsRef<Path>, glob: bool) -> Result<PartialConfig> {
-    let config = if glob { parse(path) } else { parse_glob(path) }
+    let config = if glob { parse_glob(path) } else { parse(path) }
         .wrap_err("Failed to parse nextcloud config")?;
 
     Ok(PartialConfig {
