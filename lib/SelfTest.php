@@ -66,7 +66,7 @@ class SelfTest {
 		}
 
 		if (strpos($server, 'http://') === 0) {
-			$output->writeln("<comment>🗴 using unencrypted https for push server is strongly discouraged</comment>");
+			$output->writeln("<comment>🗴 using unencrypted http for push server is strongly discouraged</comment>");
 		} elseif (strpos($server, 'https://') !== 0) {
 			$output->writeln("<error>🗴 malformed server url</error>");
 			return self::ERROR_OTHER;
