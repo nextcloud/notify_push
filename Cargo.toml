@@ -1,6 +1,6 @@
 [package]
 name = "notify_push"
-version = "0.1.0"
+version = "0.1.0" # this version number is unused, the version number for the binary will be extracted from the appinfo/info.xml during build
 authors = ["Robin Appelman <robin@icewind.nl>"]
 edition = "2018"
 

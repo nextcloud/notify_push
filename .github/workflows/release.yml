@@ -73,3 +73,29 @@ jobs:
           file: build/artifacts/${{ env.APP_NAME }}.tar.gz
           asset_name: ${{ env.APP_NAME }}.tar.gz
           tag: ${{ github.ref }}
+
+  build-test-client:
+    name: Build test client
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: musl-tools
+        run: |
+          sudo apt-get install musl-tools
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          target: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v1
+      - run: cargo build --release --target x86_64-unknown-linux-musl
+        working-directory: ./test_client
+      - name: Upload binary to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/x86_64-unknown-linux-musl/release/test_client
+          asset_name: test_client
+          tag: ${{ github.ref }}
