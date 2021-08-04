@@ -9,6 +9,18 @@ If you want to listen to incoming events from the web interface of your Nextclou
 you can use the [`@nextcloud/notify_push`](https://www.npmjs.com/package/@nextcloud/notify_push) javascript library.
 Which will handle all the details for authenticating and connecting to the push server.
 
+```js
+import { listen } from '@nextcloud/notify_push'
+
+let has_push = listen('notify_file', () => {
+    console.log("A file has been changed")
+})
+
+if (!hash_push) {
+    console.log("notify_push not available on the server")
+}
+```
+
 ## Clients
 
 Desktop and other clients that don't run in the Nextcloud web interface can use the following steps to receive notifications.
@@ -65,11 +77,29 @@ discover_endpoint(nextcloud_url, username, password).then((endpoint) => {
 
 ```
 
-```bash
-test_client https://cloud.example.com username password
+## Sending custom events
+
+You can send custom events from a nextcloud app using the methods provided by `OCA\NotifyPush\IQueue`.
+
+```php
+// in a real app, you'll want to setup DI to get an instance of `IQueue`
+$queue = \OC::$server->get(OCA\NotifyPush\IQueue::class);
+$queue->push('notify_custom', [
+	'user' => "uid",
+	'message' => "my_message_type",
+    'body' => ["foo" => "bar"], // optional
+]);
 ```
 
-Note that this does not support two-factor authentication of non-default login flows, you can use an app-password in those cases.
+Which will be pushed to client as `'my_message_type {"foo": "bar"}'` and can be used with the `@nextcloud/notify_push` client using
+
+```js
+import { listen } from '@nextcloud/notify_push'
+
+listen('my_message_type', (message_type, optional_body) => {
+
+})
+```
 
 ## Building
 

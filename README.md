@@ -303,3 +303,9 @@ For development and testing purposes a test client is provided which can be down
 the [github actions](https://github.com/nextcloud/notify_push/actions/workflows/rust.yml) page.<br>
 (Click on a run from the list, scroll to the bottom and click on `test_client` to download the binary.)<br>
 Please note: the Test client is only build for x86_64 Linux currently.
+
+```bash
+test_client https://cloud.example.com username password
+```
+
+Note that this does not support two-factor authentication of non-default login flows, you can use an app-password in those cases.
