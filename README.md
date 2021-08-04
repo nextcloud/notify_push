@@ -43,7 +43,8 @@ The setup required consists of three steps
 #### Setting up the service
 
 The push server should be setup to run as a background daemon, the recommended way is by setting up a systemd service to
-run the server.
+run the server. If you're not using systemd than any init or process management system that runs the push server binary
+with the described environment variables will work.
 
 You can create a systemd service by creating a file named `/etc/systemd/system/notify_push.service` with the following
 content.
@@ -91,7 +92,7 @@ You can enable this same behavior by passing the `--glob-config` option.
 
 #### Starting the service
 
-Once the systemd service file is setup with the correct configuration you can start it using
+Once the systemd service file is set up with the correct configuration you can start it using
 
 `sudo systemctl start notify_push`
 
@@ -105,7 +106,7 @@ Every time this app receives an update you should restart the systemd service us
 
 ### Reverse proxy
 
-It is **strongly** recommended to setup the push service behind a reverse proxy, this both removes the need to open
+It is **strongly** recommended to set up the push service behind a reverse proxy, this both removes the need to open
 a new port to the internet and handles the TLS encryption of the connection to prevent sending credentials in plain text.
 
 You can probably use the same webserver that you're already using for your nextcloud
@@ -221,102 +222,11 @@ already be fixed or additional diagnostics might have been added.
 
 ## Developing
 
-As developer of a Nextcloud app or client you can use the `notify_push` app to receive real time notifications from the
-Nextcloud server.
+For information about how to use the push server in your own app or client, see [DEVELOPING.md](./DEVELOPING.md)
 
-### Nextcloud web interface
+## Test client
 
-If you want to listen to incoming events from the web interface of your Nextcloud app,
-you can use the [`@nextcloud/notify_push`](https://www.npmjs.com/package/@nextcloud/notify_push) javascript library.
-Which will handle all the details for authenticating and connecting to the push server.
-
-### Clients
-
-Desktop and other clients that don't run in the Nextcloud web interface can use the following steps to receive notifications. 
-
-- Get the push server url from the `notify_push` capability by sending an authenticated request
-  to `https://cloud.example.com/ocs/v2.php/cloud/capabilities`
-- Open a websocket connection to the provided websocket url
-- Send the username over the websocket connection
-- Send the password over the websocket connection
-- If the credentials are correct, the server will return with "authenticated"
-- The server will send the following notifications
-    - "notify_file" when a file for the user has been changed
-    - "notify_activity" when a new activity item for a user is created (note, due to workings of the activity app, file
-      related activity doesn't trigger this notification)
-    - "notify_notification" when a notification is created, processed or dismissed for a user
-
-#### Example
-
-An example javascript implementation would be
-
-```javascript
-function discover_endpoint(nextcloud_url, user, password) {
-    let headers = new Headers();
-    headers.set('Accept', 'application/json');
-    headers.set('OCS-APIREQUEST', 'true');
-    headers.set('Authorization', 'Basic ' + btoa(user + ":" + password));
-
-    return fetch(`${nextcloud_url}/ocs/v2.php/cloud/capabilities`, {
-        method: 'GET',
-        headers: headers,
-    })
-        .then(response => response.json())
-        .then(json => json.ocs.data.capabilities.notify_push.endpoints.websocket);
-}
-
-function listen(url, user, password) {
-    let ws = new WebSocket(url);
-    ws.onmessage = (msg) => {
-        console.log(msg);
-    }
-    ws.onopen = () => {
-        ws.send(user);
-        ws.send(password);
-    }
-}
-
-let username = "...";
-let password = "...";
-let nextcloud_url = "https://cloud.example.com";
-discover_endpoint(nextcloud_url, username, password).then((endpoint) => {
-    console.log(`push server is at ${endpoint}`)
-    listen(endpoint, "admin", "admin");
-});
-
-```
-
-### Test client
-
-For development purposes a test client is provided which can be downloaded from
+For development and testing purposes a test client is provided which can be downloaded from
 the [github actions](https://github.com/nextcloud/notify_push/actions/workflows/rust.yml) page.<br>
-(Click on a run from the list, e.g. [this one](https://github.com/nextcloud/notify_push/actions/runs/743948106), scroll to the bottom and click on `test_client` to download the binary.)<br>
-Please note: the Test client only works on x86_64 Linux currently.
-
-```bash
-test_client https://cloud.example.com username password
-```
-
-Note that this does not support two-factor authentication of non-default login flows, you can use an app-password in those cases.
-
-### Building
-
-The server binary is built using rust and cargo, and requires a minimum of rust `1.46`.
-
-- Install `rust` through your package manager or [rustup](https://rustup.rs/)
-- Run `cargo build`
-
-Any build intended for production use or distribution
-should be compiled in release mode for optimal performance and targeting musl libc for improved portability.
-
-```bash
-cargo build --release --target=x86_64-unknown-linux-musl
-```
-
-Cross compiling for other platform is done easiest using [`cross`](https://github.com/rust-embedded/cross), for example:
-
-```bash
-cross build --release --target=aarch64-unknown-linux-musl
-```
-
-If you're running into an issue building the `termion` dependency on a non-linux OS, try building with `--no-default-features`.
+(Click on a run from the list, scroll to the bottom and click on `test_client` to download the binary.)<br>
+Please note: the Test client is only build for x86_64 Linux currently.
