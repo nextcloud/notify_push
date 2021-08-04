@@ -29,7 +29,7 @@ Desktop and other clients that don't run in the Nextcloud web interface can use 
   to `https://cloud.example.com/ocs/v2.php/cloud/capabilities`
 - Open a websocket connection to the provided websocket url
 - Send the username over the websocket connection
-- Send the password over the websocket connection
+- Send the password over the websocket connection (see also [pre-authenticated tokens])
 - If the credentials are correct, the server will return with "authenticated"
 - The server will send the following notifications
     - "notify_file" when a file for the user has been changed
@@ -76,6 +76,17 @@ discover_endpoint(nextcloud_url, username, password).then((endpoint) => {
 });
 
 ```
+
+## Pre-authenticated tokens
+
+In situations where you don't have the user credentials but you can send authenticated requests to nextcloud(such as when you have authenticated cookies)
+you can use "pre-authenticated tokens" instead of the username and password.
+
+- Get the `pre_auth` endpoint from the ocs capabilities request
+- Send an authenticated request to the endpoint, a token will be returned.
+- Open the websocket as normal
+- Send an empty string as username over the websocket
+- Send the token from the `pre_auth` request as passwor
 
 ## Sending custom events
 
