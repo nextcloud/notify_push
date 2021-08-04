@@ -63,7 +63,12 @@ User=www-data
 WantedBy = multi-user.target
 ```
 
-If you have installed Nextcloud via Snap, you need to use the following file instead and replace `CHANGEME` in `DATABASE_URL` with the value of `dbpassword` from `/var/snap/nextcloud/current/nextcloud/config/config.php`:
+Adjusting the paths and ports as needed.
+
+<details>
+<summary>Snap configuration (click to expand)</summary>
+
+If you have installed Nextcloud via Snap, you need to use the following file instead and replace `CHANGEME` in `DATABASE_URL` with the value of `dbpassword` from `/var/snap/nextcloud/current/nextcloud/config/config.php`
 
 ```ini
 [Unit]
@@ -80,7 +85,7 @@ User=root
 WantedBy = multi-user.target
 ```
 
-Adjusting the paths and ports as needed.
+</details>
 
 #### Configuration
 
