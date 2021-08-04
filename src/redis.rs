@@ -2,8 +2,7 @@ use color_eyre::{Report, Result};
 use redis::aio::{Connection, PubSub};
 use redis::cluster::{ClusterClient, ClusterConnection};
 use redis::{AsyncCommands, Client, Commands, ConnectionInfo};
-use std::sync::{Arc, Mutex};
-use tokio::task::spawn_blocking;
+use tokio::task::block_in_place;
 
 pub struct Redis {
     config: Vec<ConnectionInfo>,
@@ -26,15 +25,16 @@ impl Redis {
     }
 
     pub async fn connect(&self) -> Result<RedisConnection> {
-        let connection = if self.config.len() == 1 {
-            let client = Client::open(self.config.first().unwrap().clone())?
-                .get_async_connection()
-                .await?;
-            RedisConnection::Async(client)
-        } else {
-            let config = self.config.clone();
-            let client = spawn_blocking(|| ClusterClient::open(config)?.get_connection()).await??;
-            RedisConnection::Cluster(Arc::new(Mutex::new(client)))
+        let connection = match self.config.as_slice() {
+            [single] => {
+                let client = Client::open(single.clone())?.get_async_connection().await?;
+                RedisConnection::Async(client)
+            }
+            config => {
+                let client =
+                    block_in_place(|| ClusterClient::open(config.to_vec())?.get_connection())?;
+                RedisConnection::Cluster(client)
+            }
         };
         Ok(connection)
     }
@@ -42,9 +42,7 @@ impl Redis {
 
 pub enum RedisConnection {
     Async(Connection),
-    // pretty inefficient, but not really a problem since this del/get/set
-    // is only used during self-test related operations
-    Cluster(Arc<Mutex<ClusterConnection>>),
+    Cluster(ClusterConnection),
 }
 
 impl RedisConnection {
@@ -54,9 +52,7 @@ impl RedisConnection {
                 client.del::<_, ()>(key).await?;
             }
             RedisConnection::Cluster(client) => {
-                let client = client.clone();
-                let key = key.to_string();
-                spawn_blocking(move || client.lock().unwrap().del::<_, ()>(key)).await??;
+                block_in_place(|| client.del::<_, ()>(key))?;
             }
         }
         Ok(())
@@ -65,11 +61,7 @@ impl RedisConnection {
     pub async fn get(&mut self, key: &str) -> Result<String> {
         Ok(match self {
             RedisConnection::Async(client) => client.get::<_, String>(key).await?,
-            RedisConnection::Cluster(client) => {
-                let client = client.clone();
-                let key = key.to_string();
-                spawn_blocking(move || client.lock().unwrap().get::<_, String>(key)).await??
-            }
+            RedisConnection::Cluster(client) => block_in_place(|| client.get::<_, String>(key))?,
         })
     }
 
@@ -79,11 +71,7 @@ impl RedisConnection {
                 client.set::<_, _, ()>(key, value).await?;
             }
             RedisConnection::Cluster(client) => {
-                let client = client.clone();
-                let key = key.to_string();
-                let value = value.to_string();
-                spawn_blocking(move || client.lock().unwrap().set::<_, _, ()>(key, value))
-                    .await??;
+                block_in_place(|| client.set::<_, _, ()>(key, value))?;
             }
         }
         Ok(())
