@@ -105,7 +105,10 @@ Every time this app receives an update you should restart the systemd service us
 
 `sudo systemctl restart notify_push`
 
-Alternatively, you can do this automatically via systemctl by creating the following systemd service and path:
+<details>
+<summary>Alternatively, you can do this automatically via systemctl by creating the following systemd service and path (click to expand)</summary>
+
+First create a oneshot service to trigger the daemon restart
 
 `/etc/systemd/system/notify_push-watcher.service`
 ```ini
@@ -125,6 +128,8 @@ ExecStart=/usr/bin/systemctl restart notify_push.service
 WantedBy=multi-user.target
 ```
 
+Then create a `path` job to trigger the restart whenever the push binary is changed
+
 `/etc/systemd/system/notify_push-watcher.path`
 ```ini
 [Unit]
@@ -141,6 +146,14 @@ WantedBy=multi-user.target
 ```
 
 Adjusting the path as needed.
+
+Finally, enable it with 
+
+```bash
+sudo systemctl enable notify_push-watcher.path
+```
+
+</details>
 
 ### Reverse proxy
 
