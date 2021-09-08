@@ -38,6 +38,9 @@ class Install implements IRepairStep {
 		return 'Set binary permissions';
 	}
 
+	/**
+	 * @return void
+	 */
 	public function run(IOutput $output) {
 		$this->setupWizard->testBinary();
 	}
