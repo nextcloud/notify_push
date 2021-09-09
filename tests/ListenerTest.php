@@ -27,6 +27,12 @@ use OCA\NotifyPush\Listener;
 use OCA\NotifyPush\Queue\IQueue;
 use OCP\Files\Cache\CacheEntryInsertedEvent;
 use OCP\Files\Storage\IStorage;
+use OCP\Group\Events\UserAddedEvent;
+use OCP\Group\Events\UserRemovedEvent;
+use OCP\IGroup;
+use OCP\IUser;
+use OCP\Share\Events\ShareCreatedEvent;
+use OCP\Share\IShare;
 use Test\TestCase;
 
 class ListenerTest extends TestCase {
@@ -55,6 +61,61 @@ class ListenerTest extends TestCase {
 		$this->assertEquals([
 			'notify_storage_update' => [
 				['storage' => 1, 'path' => 'foobar'],
+			],
+		], $events);
+	}
+
+	public function testGroupEvents() {
+		$events = [];
+		$queue = $this->getQueue($events);
+		$listener = new Listener($queue);
+
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('user1');
+
+		$group = $this->createMock(IGroup::class);
+		$group->method('getGID')->willReturn('group1');
+
+		$listener->groupListener(new UserAddedEvent(
+			$group,
+			$user
+		));
+		$this->assertEquals([
+			'notify_group_membership_update' => [
+				['user' => 'user1', 'group' => 'group1'],
+			],
+		], $events);
+
+		$events = [];
+
+		$listener->groupListener(new UserRemovedEvent(
+			$group,
+			$user
+		));
+		$this->assertEquals([
+			'notify_group_membership_update' => [
+				['user' => 'user1', 'group' => 'group1'],
+			],
+		], $events);
+	}
+
+	public function testShareEvents() {
+		$events = [];
+		$queue = $this->getQueue($events);
+		$listener = new Listener($queue);
+
+		$share = $this->createMock(IShare::class);
+		$share->method('getShareType')
+			->willReturn(IShare::TYPE_USER);
+		$share->method('getSharedWith')
+			->willReturn('user1');
+
+		$listener->shareListener(new ShareCreatedEvent(
+			$share
+		));
+		$this->assertEquals([
+			'notify_user_share_created' => [
+				['user' => 'user1'],
 			],
 		], $events);
 	}
