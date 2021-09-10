@@ -29,7 +29,7 @@ flexi_logger = { version = "0.18", features = ["colors"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 structopt = "0.3"
 derivative = "2"
-nextcloud-config-parser = { version = "0.4", features = ["db-sqlx", "redis-connect"] }
+nextcloud-config-parser = { version = "0.4", features = ["db-sqlx", "redis-connect"], default-features = false }
 
 [dev-dependencies]
 mini-redis = "0.4"
