@@ -21,28 +21,23 @@ declare(strict_types=1);
  *
  */
 
-namespace OCA\NotifyPush\Migration;
+namespace OCA\NotifyPush;
 
-use OCA\NotifyPush\BinaryFinder;
-use OCP\Migration\IOutput;
-use OCP\Migration\IRepairStep;
-
-class Install implements IRepairStep {
-	private $binaryFinder;
-
-	public function __construct(BinaryFinder $setupWizard) {
-		$this->binaryFinder = $setupWizard;
+class BinaryFinder {
+	public function getArch(): string {
+		$arch = php_uname('m');
+		if (strpos($arch, 'armv7') === 0) {
+			return 'armv7';
+		}
+		if (strpos($arch, 'aarch64') === 0) {
+			return 'aarch64';
+		}
+		return $arch;
 	}
 
-	public function getName() {
-		return 'Set binary permissions';
-	}
-
-	/**
-	 * @return void
-	 */
-	public function run(IOutput $output) {
-		$path = $this->binaryFinder->getBinaryPath();
-		@chmod($path, 0755);
+	public function getBinaryPath(): string {
+		$basePath = realpath(__DIR__ . '/../bin/');
+		$arch = $this->getArch();
+		return "$basePath/$arch/notify_push";
 	}
 }
