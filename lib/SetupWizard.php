@@ -25,7 +25,6 @@ namespace OCA\NotifyPush;
 
 use OCA\NotifyPush\Queue\IQueue;
 use OCA\NotifyPush\Queue\RedisQueue;
-use OCP\App\IAppManager;
 use OCP\Http\Client\IClientService;
 use OCP\IConfig;
 use Symfony\Component\Console\Output\BufferedOutput;
