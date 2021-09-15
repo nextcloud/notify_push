@@ -1,6 +1,7 @@
 use crate::metrics::METRICS;
 use crate::UserId;
 use color_eyre::{eyre::WrapErr, Result};
+use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use rand::{thread_rng, Rng};
 use sqlx::any::AnyConnectOptions;
@@ -59,25 +60,23 @@ impl StorageMapping {
         Self::from_connection(connection, prefix).await
     }
 
-    pub async fn get_users_for_storage_path<'a>(
-        &self,
-        storage: u32,
-        path: &str,
-    ) -> Result<impl Iterator<Item = UserId>> {
-        let cached = if let Some(cached) = self.cache.get(&storage).and_then(|cached| {
-            if cached.is_valid() {
-                Some(cached)
-            } else {
-                None
-            }
-        }) {
-            cached
+    async fn get_storage_mapping<'a>(&'a self, storage: u32) -> Result<Ref<'a, u32, CachedAccess>> {
+        if let Some(cached) = self.cache.get(&storage).filter(|cached| cached.is_valid()) {
+            Ok(cached)
         } else {
             let users = self.load_storage_mapping(storage).await?;
 
             self.cache.insert(storage, CachedAccess::new(users));
-            self.cache.get(&storage).unwrap()
-        };
+            Ok(self.cache.get(&storage).unwrap())
+        }
+    }
+
+    pub async fn get_users_for_storage_path(
+        &self,
+        storage: u32,
+        path: &str,
+    ) -> Result<impl Iterator<Item = UserId>> {
+        let cached = self.get_storage_mapping(storage).await?;
         Ok(cached
             .access
             .iter()
