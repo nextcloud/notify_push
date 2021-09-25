@@ -40,7 +40,7 @@ The setup required consists of three steps
 
 ### Push server
 
-#### Setting up the service
+#### systemd
 
 The push server should be setup to run as a background daemon, the recommended way is by setting up a systemd service to
 run the server. If you're not using systemd than any init or process management system that runs the push server binary
@@ -63,7 +63,27 @@ User=www-data
 WantedBy = multi-user.target
 ```
 
-Adjusting the paths and ports as needed.
+#### OpenRC
+
+For Gentoo/Alpine/postmarketOS/Artix, you can create a OpenRC service by creating a file named
+`/etc/init.d/notify_push` with the following content.
+
+```ini
+#!/sbin/openrc-run
+
+description="Push daemon for Nextcloud clients"
+
+pidfile=${pidfile:-/run/notify_push.pid}
+runas_user=${runas_user:-www-data:www-data}
+command=${command:-/path/to/push/binary/notify_push}
+command_args="--port 7867 /path/to/nextcloud/config/config.php"
+command_background=true
+depend() {
+        need redis nginx php-fpm7 mariadb
+}
+```
+
+Adjust the paths, ports and user as needed.
 
 <details>
 <summary>Snap configuration (click to expand)</summary>
@@ -119,13 +139,25 @@ Once the systemd service file is set up with the correct configuration you can s
 
 `sudo systemctl start notify_push`
 
+OpenRC
+
+`sudo rc-service notify_push start`
+
 and enable it to automatically start on boot using
 
 `sudo systemctl enable notify_push`
 
+OpenRC
+
+`sudo rc-update add notify_push`
+
 Every time this app receives an update you should restart the systemd service using
 
 `sudo systemctl restart notify_push`
+
+OpenRC
+
+`sudo rc-service notify_push restart`
 
 <details>
 <summary>Alternatively, you can do this automatically via systemctl by creating the following systemd service and path (click to expand)</summary>
