@@ -91,7 +91,7 @@ WantedBy = multi-user.target
 For OpenRC based setups, you can create a OpenRC service by creating a file named
 `/etc/init.d/notify_push` with the following content.
 
-```ini
+```sh
 #!/sbin/openrc-run
 
 description="Push daemon for Nextcloud clients"
