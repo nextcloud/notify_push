@@ -87,32 +87,44 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
 
     let transmit = async move {
         let mut debounce = DebounceMap::default();
-        loop {
-            match timeout(Duration::from_secs(30), rx.recv()).await {
-                Ok(Ok(msg)) => {
-                    log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user_id);
-                    if debounce.should_send(&msg) {
-                        METRICS.add_message();
-                        user_ws_tx.send(msg.into()).await.ok();
+
+        let mut reset = app.reset_rx();
+
+        'tx_loop: loop {
+            tokio::select! {
+                msg = timeout(Duration::from_secs(30), rx.recv()) => {
+                    match msg {
+                        Ok(Ok(msg)) => {
+                            log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user_id);
+                            if debounce.should_send(&msg) {
+                                METRICS.add_message();
+                                user_ws_tx.send(msg.into()).await.ok();
+                            }
+                        }
+                        Err(_timout) => {
+                            let data = rand::random::<NonZeroUsize>().into();
+                            let last_ping = expect_pong.swap(data, Ordering::SeqCst);
+                            if last_ping > 0 {
+                                log::info!("{} didn't reply to ping, closing", user_id);
+                                break;
+                            }
+                            log::debug!(target: "notify_push::send", "Sending ping to {}", user_id);
+                            user_ws_tx
+                                .send(Message::ping(data.to_le_bytes()))
+                                .await
+                                .ok();
+                        }
+                        Ok(Err(_)) => {
+                            // we dont care about dropped messages
+                        }
                     }
-                }
-                Err(_timout) => {
-                    let data = rand::random::<NonZeroUsize>().into();
-                    let last_ping = expect_pong.swap(data, Ordering::SeqCst);
-                    if last_ping > 0 {
-                        log::info!("{} didn't reply to ping, closing", user_id);
-                        break;
-                    }
-                    log::debug!(target: "notify_push::send", "Sending ping to {}", user_id);
-                    user_ws_tx
-                        .send(Message::ping(data.to_le_bytes()))
-                        .await
-                        .ok();
-                }
-                Ok(Err(_)) => {
-                    // we dont care about dropped messages
-                }
-            }
+                },
+                _ = reset.recv() => {
+                    user_ws_tx.close().await.ok();
+                    log::debug!("Connection closed by reset request");
+                    break 'tx_loop;
+                },
+            };
         }
     };
 

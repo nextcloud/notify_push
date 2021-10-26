@@ -25,8 +25,8 @@ use std::os::unix::fs::PermissionsExt;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 use tokio::net::UnixListener;
-use tokio::sync::oneshot;
 use tokio::sync::Mutex;
+use tokio::sync::{broadcast, oneshot};
 use tokio::time::sleep;
 use tokio_stream::wrappers::UnixListenerStream;
 use warp::filters::addr::remote;
@@ -51,6 +51,8 @@ pub struct App {
     test_cookie: AtomicU32,
     redis: Redis,
     log_handle: Mutex<LoggerHandle>,
+    reset_tx: broadcast::Sender<()>,
+    _reset_rx: broadcast::Receiver<()>,
 }
 
 impl App {
@@ -64,6 +66,8 @@ impl App {
 
         let redis = Redis::new(config.redis)?;
 
+        let (reset_tx, reset_rx) = broadcast::channel(1);
+
         Ok(App {
             connections,
             nc_client,
@@ -72,6 +76,8 @@ impl App {
             storage_mapping,
             redis,
             log_handle: Mutex::new(log_handle),
+            reset_tx,
+            _reset_rx: reset_rx,
         })
     }
 
@@ -91,6 +97,8 @@ impl App {
 
         let redis = Redis::new(config.redis)?;
 
+        let (reset_tx, reset_rx) = broadcast::channel(1);
+
         Ok(App {
             connections,
             nc_client,
@@ -99,6 +107,8 @@ impl App {
             storage_mapping,
             redis,
             log_handle: Mutex::new(log_handle),
+            reset_tx,
+            _reset_rx: reset_rx,
         })
     }
 
@@ -213,7 +223,17 @@ impl App {
                 }
                 Err(e) => log::warn!("Failed to set metrics: {}", e),
             },
+            Event::Signal(event::Signal::Reset) => {
+                log::info!("Stopping all open connections");
+                if let Err(e) = self.reset_tx.send(()) {
+                    log::warn!("Failed to send reset command to all connections: {}", e);
+                }
+            }
         }
+    }
+
+    pub fn reset_rx(&self) -> broadcast::Receiver<()> {
+        self.reset_tx.subscribe()
     }
 }
 

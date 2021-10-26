@@ -63,6 +63,12 @@ pub struct Custom {
     pub body: Value,
 }
 
+#[derive(Debug, Deserialize, Display)]
+#[serde(rename_all = "snake_case")]
+pub enum Signal {
+    Reset,
+}
+
 #[derive(Debug, Display)]
 pub enum Event {
     #[display("storage update notification for storage {0.storage} and path {0.path}")]
@@ -85,6 +91,8 @@ pub enum Event {
     Config(Config),
     #[display("{0} query")]
     Query(Query),
+    #[display("{0} signal")]
+    Signal(Signal),
 }
 
 #[derive(Debug, Error)]
@@ -130,6 +138,9 @@ impl TryFrom<Msg> for Event {
             "notify_query" => Ok(Event::Query(serde_json::from_slice(
                 msg.get_payload_bytes(),
             )?)),
+            "notify_signal" => Ok(Event::Signal(serde_json::from_slice(
+                msg.get_payload_bytes(),
+            )?)),
             _ => Err(MessageDecodeError::UnsupportedEventType),
         }
     }
@@ -153,6 +164,7 @@ pub async fn subscribe(
         "notify_custom",
         "notify_config",
         "notify_query",
+        "notify_signal",
     ];
     for channel in channels.iter() {
         pubsub

@@ -40,5 +40,6 @@ Once the app is installed, the push binary needs to be setup. You can either use
 		<command>OCA\NotifyPush\Command\SelfTest</command>
 		<command>OCA\NotifyPush\Command\Log</command>
 		<command>OCA\NotifyPush\Command\Metrics</command>
+		<command>OCA\NotifyPush\Command\Reset</command>
 	</commands>
 </info>
