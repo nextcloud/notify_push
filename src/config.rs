@@ -12,9 +12,10 @@ use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use structopt::StructOpt;
+use structopt::{clap::AppSettings, StructOpt};
 
 #[derive(StructOpt, Debug)]
+#[structopt(global_setting = AppSettings::ColoredHelp)]
 #[structopt(name = "notify_push")]
 pub struct Opt {
     /// The database connect url
