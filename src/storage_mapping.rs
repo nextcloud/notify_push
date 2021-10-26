@@ -60,7 +60,7 @@ impl StorageMapping {
         Self::from_connection(connection, prefix).await
     }
 
-    async fn get_storage_mapping<'a>(&'a self, storage: u32) -> Result<Ref<'a, u32, CachedAccess>> {
+    async fn get_storage_mapping(&self, storage: u32) -> Result<Ref<'_, u32, CachedAccess>> {
         if let Some(cached) = self.cache.get(&storage).filter(|cached| cached.is_valid()) {
             Ok(cached)
         } else {
