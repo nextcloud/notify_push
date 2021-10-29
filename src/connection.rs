@@ -10,17 +10,17 @@ use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::broadcast::{channel, Receiver, Sender};
+use tokio::sync::broadcast;
 use tokio::time::timeout;
 use warp::filters::ws::{Message, WebSocket};
 
 const USER_CONNECTION_LIMIT: usize = 64;
 
 #[derive(Default)]
-pub struct ActiveConnections(DashMap<UserId, Sender<MessageType>, RandomState>);
+pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<MessageType>, RandomState>);
 
 impl ActiveConnections {
-    pub async fn add(&self, user: UserId) -> Result<Receiver<MessageType>> {
+    pub async fn add(&self, user: UserId) -> Result<broadcast::Receiver<MessageType>> {
         if let Some(sender) = self.0.get(&user) {
             // stop a single user from trying to eat all the resources
             if sender.receiver_count() > USER_CONNECTION_LIMIT {
@@ -29,7 +29,7 @@ impl ActiveConnections {
                 Ok(sender.subscribe())
             }
         } else {
-            let (tx, rx) = channel(4);
+            let (tx, rx) = broadcast::channel(4);
             self.0.insert(user, tx);
             Ok(rx)
         }
@@ -95,10 +95,22 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
                 msg = timeout(Duration::from_secs(30), rx.recv()) => {
                     match msg {
                         Ok(Ok(msg)) => {
-                            log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user_id);
                             if debounce.should_send(&msg) {
+                                log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user_id);
                                 METRICS.add_message();
                                 user_ws_tx.send(msg.into()).await.ok();
+                            } else {
+                                log::debug!(target: "notify_push::send", "Debouncing {} to {}", msg, user_id);
+                            }
+                        }
+                        Err(_timout) if debounce.has_held_message() => {
+                            // if any message got held back for debounce, we try sending them now
+                            for msg in debounce.get_held_messages() {
+                                if debounce.should_send(&msg) {
+                                    log::debug!(target: "notify_push::send", "Sending debounced {} to {}", msg, user_id);
+                                    METRICS.add_message();
+                                    user_ws_tx.send(msg.into()).await.ok();
+                                }
                             }
                         }
                         Err(_timout) => {

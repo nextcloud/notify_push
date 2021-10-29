@@ -40,6 +40,9 @@ pub struct DebounceMap {
     file: Instant,
     activity: Instant,
     notification: Instant,
+    file_held: bool,
+    activity_held: bool,
+    notification_held: bool,
 }
 
 impl Default for DebounceMap {
@@ -49,6 +52,9 @@ impl Default for DebounceMap {
             file: past,
             activity: past,
             notification: past,
+            file_held: false,
+            activity_held: false,
+            notification_held: false,
         }
     }
 }
@@ -58,15 +64,39 @@ impl DebounceMap {
     pub fn should_send(&mut self, ty: &MessageType) -> bool {
         if DEBOUNCE_ENABLE.load(Ordering::Relaxed) {
             let last_send = self.get_last_send(ty);
-            if Instant::now().duration_since(last_send) > Self::get_debounce_time(ty) {
+            if Instant::now().duration_since(last_send) > Self::debounce_time(ty) {
                 self.set_last_send(ty);
+                self.set_held(ty, false);
                 true
+            } else if Instant::now().duration_since(last_send) > Duration::from_millis(100) {
+                self.set_held(ty, true);
+                false
             } else {
                 false
             }
         } else {
             true
         }
+    }
+
+    pub fn has_held_message(&self) -> bool {
+        self.file_held || self.activity_held || self.notification_held
+    }
+
+    pub fn get_held_messages(&self) -> impl Iterator<Item = MessageType> {
+        self.file_held
+            .then(|| MessageType::File)
+            .into_iter()
+            .chain(
+                self.activity_held
+                    .then(|| MessageType::Activity)
+                    .into_iter(),
+            )
+            .chain(
+                self.notification_held
+                    .then(|| MessageType::Notification)
+                    .into_iter(),
+            )
     }
 
     fn get_last_send(&self, ty: &MessageType) -> Instant {
@@ -87,11 +117,20 @@ impl DebounceMap {
         }
     }
 
-    fn get_debounce_time(ty: &MessageType) -> Duration {
+    fn set_held(&mut self, ty: &MessageType, held: bool) {
         match ty {
-            MessageType::File => Duration::from_secs(5),
-            MessageType::Activity => Duration::from_secs(15),
-            MessageType::Notification => Duration::from_secs(1),
+            MessageType::File => self.file_held = held,
+            MessageType::Activity => self.activity_held = held,
+            MessageType::Notification => self.notification_held = held,
+            MessageType::Custom(..) => {} // no debouncing for custom messages
+        }
+    }
+
+    fn debounce_time(ty: &MessageType) -> Duration {
+        match ty {
+            MessageType::File => Duration::from_secs(60),
+            MessageType::Activity => Duration::from_secs(120),
+            MessageType::Notification => Duration::from_secs(30),
             MessageType::Custom(..) => Duration::from_millis(1), // no debouncing for custom messages
         }
     }
