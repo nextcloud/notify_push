@@ -1,4 +1,5 @@
 use parse_display::Display;
+use rand::{thread_rng, Rng};
 use serde_json::Value;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -84,19 +85,25 @@ impl DebounceMap {
     }
 
     pub fn get_held_messages(&self) -> impl Iterator<Item = MessageType> {
-        self.file_held
-            .then(|| MessageType::File)
+        let file_opt = if self.file_held {
+            Some(MessageType::File)
+        } else {
+            None
+        };
+        let activity_opt = if self.activity_held {
+            Some(MessageType::Activity)
+        } else {
+            None
+        };
+        let notification_opt = if self.notification_held {
+            Some(MessageType::Notification)
+        } else {
+            None
+        };
+        file_opt
             .into_iter()
-            .chain(
-                self.activity_held
-                    .then(|| MessageType::Activity)
-                    .into_iter(),
-            )
-            .chain(
-                self.notification_held
-                    .then(|| MessageType::Notification)
-                    .into_iter(),
-            )
+            .chain(activity_opt.into_iter())
+            .chain(notification_opt.into_iter())
     }
 
     fn get_last_send(&self, ty: &MessageType) -> Instant {
@@ -109,10 +116,13 @@ impl DebounceMap {
     }
 
     fn set_last_send(&mut self, ty: &MessageType) {
+        // apply a randomized offset to the last_send
+        // this helps mitigate against load bursts from many clients receiving the same updates
+        let spread = Duration::from_millis(thread_rng().gen_range(0..1000));
         match ty {
-            MessageType::File => self.file = Instant::now(),
-            MessageType::Activity => self.activity = Instant::now(),
-            MessageType::Notification => self.notification = Instant::now(),
+            MessageType::File => self.file = Instant::now() - spread,
+            MessageType::Activity => self.activity = Instant::now() - spread,
+            MessageType::Notification => self.notification = Instant::now() - spread,
             MessageType::Custom(..) => {} // no debouncing for custom messages
         }
     }
