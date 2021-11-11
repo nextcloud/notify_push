@@ -1,4 +1,4 @@
-use crate::config::{Bind, Config};
+use crate::config::{Bind, Config, TlsConfig};
 use crate::connection::{handle_user_socket, ActiveConnections};
 use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
@@ -241,6 +241,7 @@ pub fn serve(
     app: Arc<App>,
     bind: Bind,
     cancel: oneshot::Receiver<()>,
+    tls: Option<&TlsConfig>,
 ) -> Result<impl Future<Output = ()> + Send> {
     let app = warp::any().map(move || app.clone());
 
@@ -354,22 +355,39 @@ pub fn serve(
 
     let routes = routes.clone().or(warp::path!("push" / ..).and(routes));
 
-    serve_at(routes, bind, cancel)
+    serve_at(routes, bind, cancel, tls)
 }
 
-fn serve_at<F, C>(filter: F, bind: Bind, cancel: C) -> Result<impl Future<Output = ()> + Send>
+fn serve_at<F, C>(
+    filter: F,
+    bind: Bind,
+    cancel: C,
+    tls: Option<&TlsConfig>,
+) -> Result<impl Future<Output = ()> + Send>
 where
     C: Future + Send + Sync + 'static,
     F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,
 {
     let cancel = cancel.map(|_| ());
-    match bind {
-        Bind::Tcp(addr) => {
-            let (_, server) = warp::serve(filter).bind_with_graceful_shutdown(addr, cancel);
-            Ok(Either::Left(server))
+    let server = warp::serve(filter);
+    match (bind, tls) {
+        (Bind::Tcp(addr), Some(tls)) => {
+            let (_, server) = server
+                .tls()
+                .cert_path(&tls.cert)
+                .key_path(&tls.key)
+                .bind_with_graceful_shutdown(addr, cancel);
+            Ok(Either::Left(Either::Left(server)))
         }
-        Bind::Unix(socket_path, permissions) => {
+        (Bind::Tcp(addr), None) => {
+            let (_, server) = server.bind_with_graceful_shutdown(addr, cancel);
+            Ok(Either::Left(Either::Right(server)))
+        }
+        (Bind::Unix(socket_path, permissions), tls) => {
+            if tls.is_some() {
+                log::warn!("Serving with TLS over a unix socket is not supported");
+            }
             fs::remove_file(&socket_path).ok();
 
             let listener = UnixListener::bind(&socket_path).wrap_err_with(|| {
@@ -382,7 +400,7 @@ where
 
             let stream = UnixListenerStream::new(listener);
             Ok(Either::Right(
-                warp::serve(filter)
+                server
                     .serve_incoming_with_graceful_shutdown(stream, cancel)
                     .map(move |_| {
                         fs::remove_file(&socket_path).ok();

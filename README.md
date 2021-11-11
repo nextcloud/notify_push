@@ -135,6 +135,13 @@ Alternatively you can configure the server to listen on a unix socket by setting
 Note that Nextcloud load all files matching `*.config.php` in the config directory in additional to the main config file.
 You can enable this same behavior by passing the `--glob-config` option.
 
+#### TLS Configuration
+
+The push server can be configured to serve over TLS. This is mostly intended for securing the traffic between the push server
+and the reverse proxy if they are running on different hosts, running without a reverse proxy (or load balancer) is not recommended.
+
+TLS can be enabled by setting the `--tls-cert` and `--tls-key` arguments (or the `TLS_CERT` and `TLS_KEY` environment variables).
+
 #### Starting the service
 
 Once the systemd service file is set up with the correct configuration you can start it using

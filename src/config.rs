@@ -69,6 +69,12 @@ pub struct Opt {
     /// Load other files named *.config.php in the config folder
     #[structopt(long)]
     pub glob_config: bool,
+    /// TLS certificate
+    #[structopt(long)]
+    pub tls_cert: Option<PathBuf>,
+    /// TLS key
+    #[structopt(long)]
+    pub tls_key: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -82,6 +88,13 @@ pub struct Config {
     pub bind: Bind,
     pub allow_self_signed: bool,
     pub no_ansi: bool,
+    pub tls: Option<TlsConfig>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TlsConfig {
+    pub key: PathBuf,
+    pub cert: PathBuf,
 }
 
 #[derive(Clone, Derivative)]
@@ -166,6 +179,7 @@ impl TryFrom<PartialConfig> for Config {
             bind,
             allow_self_signed: config.allow_self_signed.unwrap_or(false),
             no_ansi: config.no_ansi.unwrap_or(false),
+            tls: config.tls,
         })
     }
 }
@@ -200,6 +214,7 @@ struct PartialConfig {
     pub socket_permissions: Option<String>,
     pub allow_self_signed: Option<bool>,
     pub no_ansi: Option<bool>,
+    pub tls: Option<TlsConfig>,
 }
 
 impl PartialConfig {
@@ -219,6 +234,15 @@ impl PartialConfig {
         let allow_self_signed = var("ALLOW_SELF_SIGNED").map(|val| val == "true").ok();
         let no_ansi = var("NO_ANSI").map(|val| val == "true").ok();
 
+        let tls_cert = parse_var("TLS_CERT").wrap_err("Invalid TLS_CERT")?;
+        let tls_key = parse_var("TLS_KEY").wrap_err("Invalid TLS_KEY")?;
+
+        let tls = if let (Some(cert), Some(key)) = (tls_cert, tls_key) {
+            Some(TlsConfig { cert, key })
+        } else {
+            None
+        };
+
         Ok(PartialConfig {
             database,
             database_prefix,
@@ -233,6 +257,7 @@ impl PartialConfig {
             socket_permissions,
             allow_self_signed,
             no_ansi,
+            tls,
         })
     }
 
@@ -241,6 +266,12 @@ impl PartialConfig {
     }
 
     fn from_opt(opt: Opt) -> Self {
+        let tls = if let (Some(cert), Some(key)) = (opt.tls_cert, opt.tls_key) {
+            Some(TlsConfig { cert, key })
+        } else {
+            None
+        };
+
         PartialConfig {
             database: opt.database_url,
             database_prefix: opt.database_prefix,
@@ -259,6 +290,7 @@ impl PartialConfig {
                 None
             },
             no_ansi: if opt.no_ansi { Some(true) } else { None },
+            tls,
         }
     }
 
@@ -281,6 +313,7 @@ impl PartialConfig {
             socket_permissions: self.socket_permissions.or(fallback.socket_permissions),
             allow_self_signed: self.allow_self_signed.or(fallback.allow_self_signed),
             no_ansi: self.no_ansi.or(fallback.no_ansi),
+            tls: self.tls.or(fallback.tls),
         }
     }
 }

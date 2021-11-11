@@ -154,6 +154,7 @@ impl Services {
             bind: Bind::Tcp(self.nextcloud.clone()),
             allow_self_signed: false,
             no_ansi: false,
+            tls: None,
         }
     }
 
@@ -178,7 +179,7 @@ impl Services {
 
         let bind = Bind::Tcp(addr);
         spawn(async move {
-            let serve = serve(app.clone(), bind, serve_rx).unwrap();
+            let serve = serve(app.clone(), bind, serve_rx, None).unwrap();
             let listen = listen_loop(app.clone(), listen_rx);
 
             pin_mut!(serve);

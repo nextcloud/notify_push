@@ -1,4 +1,4 @@
-use crate::config::Bind;
+use crate::config::{Bind, TlsConfig};
 use crate::serve_at;
 use color_eyre::Result;
 use serde::{Serialize, Serializer};
@@ -117,6 +117,7 @@ impl Metrics {
 pub fn serve_metrics(
     bind: Bind,
     cancel: oneshot::Receiver<()>,
+    tls: Option<&TlsConfig>,
 ) -> Result<impl Future<Output = ()> + Send> {
     let metrics = warp::path!("metrics").map(|| {
         let mut response = String::with_capacity(128);
@@ -148,5 +149,5 @@ pub fn serve_metrics(
         response
     });
 
-    serve_at(metrics, bind, cancel)
+    serve_at(metrics, bind, cancel, tls)
 }

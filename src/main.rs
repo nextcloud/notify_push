@@ -53,6 +53,7 @@ async fn main() -> Result<()> {
     }
 
     let bind = config.bind.clone();
+    let tls = config.tls.clone();
     let metrics_bind = config.metrics_bind.clone();
     let app = Arc::new(App::new(config, log_handle).await?);
     if let Err(e) = app.self_test().await {
@@ -60,11 +61,15 @@ async fn main() -> Result<()> {
     }
 
     log::trace!("Listening on {}", bind);
-    let server = spawn(serve(app.clone(), bind, serve_cancel_handle)?);
+    let server = spawn(serve(app.clone(), bind, serve_cancel_handle, tls.as_ref())?);
 
     if let Some(metrics_bind) = metrics_bind {
         log::trace!("Metrics listening {}", metrics_bind);
-        spawn(serve_metrics(metrics_bind, metrics_cancel_handle)?);
+        spawn(serve_metrics(
+            metrics_bind,
+            metrics_cancel_handle,
+            tls.as_ref(),
+        )?);
     }
 
     spawn(listen_loop(app, listen_cancel_handle));
