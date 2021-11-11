@@ -85,21 +85,9 @@ impl DebounceMap {
     }
 
     pub fn get_held_messages(&self) -> impl Iterator<Item = MessageType> {
-        let file_opt = if self.file_held {
-            Some(MessageType::File)
-        } else {
-            None
-        };
-        let activity_opt = if self.activity_held {
-            Some(MessageType::Activity)
-        } else {
-            None
-        };
-        let notification_opt = if self.notification_held {
-            Some(MessageType::Notification)
-        } else {
-            None
-        };
+        let file_opt = self.file_held.then(|| MessageType::File);
+        let activity_opt = self.activity_held.then(|| MessageType::Activity);
+        let notification_opt = self.notification_held.then(|| MessageType::Notification);
         file_opt
             .into_iter()
             .chain(activity_opt.into_iter())
