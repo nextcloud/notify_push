@@ -30,7 +30,7 @@ jobs:
           chmod +x krankerl
       - name: Package app
         run: |
-          ./krankerl package
+          RUSTFLAGS='-C link-arg=-s' ./krankerl package
       - uses: actions/upload-artifact@v2
         with:
           name: ${{ env.APP_NAME }}.tar.gz

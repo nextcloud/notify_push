@@ -65,7 +65,7 @@ jobs:
           chmod +x krankerl
       - name: Package app
         run: |
-          ./krankerl package
+          RUSTFLAGS='-C link-arg=-s' ./krankerl package
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v2
         with:
