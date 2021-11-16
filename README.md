@@ -97,8 +97,9 @@ For OpenRC based setups, you can create a OpenRC service by creating a file name
 description="Push daemon for Nextcloud clients"
 
 pidfile=${pidfile:-/run/notify_push.pid}
-runas_user=${runas_user:-www-data:www-data}
+
 command=${command:-/path/to/push/binary/notify_push}
+command_user=${command_user:-www-data:www-data}
 command_args="--port 7867 /path/to/nextcloud/config/config.php"
 command_background=true
 depend() {
