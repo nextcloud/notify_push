@@ -110,7 +110,7 @@ impl Metrics {
     }
 
     pub fn add_message(&self) {
-        self.messages_send.fetch_add(1, Ordering::Relaxed);
+        self.messages_sent.fetch_add(1, Ordering::Relaxed);
     }
 }
 
