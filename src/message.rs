@@ -1,3 +1,4 @@
+use crate::connection::ConnectionOptions;
 use parse_display::Display;
 use serde_json::Value;
 use smallvec::SmallVec;
@@ -71,15 +72,17 @@ impl PushMessage {
     }
 }
 
-impl From<PushMessage> for Message {
-    fn from(msg: PushMessage) -> Self {
-        match msg {
+impl PushMessage {
+    pub fn to_message(self, opts: &ConnectionOptions) -> Message {
+        match self {
             PushMessage::File(ids) => match ids {
-                UpdatedFiles::Unknown => Message::text(String::from("notify_file")),
-                UpdatedFiles::Known(ids) => Message::text(format!(
-                    "notify_file {}",
-                    serde_json::to_string(&ids).unwrap()
-                )),
+                UpdatedFiles::Known(ids) if opts.listen_file_id.load(Ordering::Relaxed) => {
+                    Message::text(format!(
+                        "notify_file_id {}",
+                        serde_json::to_string(&ids).unwrap()
+                    ))
+                }
+                _ => Message::text(String::from("notify_file")),
             },
             PushMessage::Activity => Message::text(String::from("notify_activity")),
             PushMessage::Notification => Message::text(String::from("notify_file")),
