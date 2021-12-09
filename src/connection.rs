@@ -7,7 +7,7 @@ use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
 use std::net::IpAddr;
 use std::num::NonZeroUsize;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
@@ -40,6 +40,11 @@ impl ActiveConnections {
             tx.send(msg).ok();
         }
     }
+}
+
+#[derive(Default)]
+pub struct ConnectionOptions {
+    pub listen_file_id: AtomicBool,
 }
 
 pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpAddr>) {
@@ -78,6 +83,8 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
 
     METRICS.add_connection();
 
+    let opts = ConnectionOptions::default();
+
     // Every time we send a ping, we set this to a random non-zero value
     // when a pong is returned, we check it against the expected value and reset this to 0
     // If we get the wrong pong back, or the expected value hasn't been cleared
@@ -85,7 +92,7 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
     let expect_pong = AtomicUsize::default();
     let expect_pong = &expect_pong;
 
-    let transmit = async move {
+    let transmit = async {
         let mut send_queue = SendQueue::default();
 
         let mut reset = app.reset_rx();
@@ -103,7 +110,7 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
                                 log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user_id);
                                 METRICS.add_message();
                                 last_send = now;
-                                user_ws_tx.send(msg.into()).await.ok();
+                                user_ws_tx.send(msg.to_message(&opts)).await.ok();
                             }
                         }
                         Err(_timout) => {
@@ -111,7 +118,7 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
                                 last_send = now;
                                 METRICS.add_message();
                                 log::debug!(target: "notify_push::send", "Sending debounced {} to {}", msg, user_id);
-                                user_ws_tx.feed(msg.into()).await.ok();
+                                user_ws_tx.feed(msg.to_message(&opts)).await.ok();
                             }
 
                             if now.duration_since(last_send) > ping_interval {
@@ -144,7 +151,7 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
         }
     };
 
-    let receive = async move {
+    let receive = async {
         // handle messages until the client closes the connection
         while let Some(result) = user_ws_rx.next().await {
             match result {
@@ -153,6 +160,12 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
                     if msg.as_bytes() != expected.to_le_bytes() {
                         log::info!("received wrong pong, closing");
                         break;
+                    }
+                }
+                Ok(msg) if msg.is_text() => {
+                    let text = msg.to_str().unwrap_or_default();
+                    if text == "listen notify_file_id" {
+                        opts.listen_file_id.store(true, Ordering::Relaxed);
                     }
                 }
                 Ok(_) => {}
