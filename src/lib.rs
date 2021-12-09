@@ -3,7 +3,7 @@ use crate::connection::{handle_user_socket, ActiveConnections};
 use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
 };
-use crate::message::MessageType;
+use crate::message::{PushMessage, UpdatedFiles};
 use crate::metrics::METRICS;
 use crate::redis::Redis;
 use crate::storage_mapping::StorageMapping;
@@ -148,7 +148,11 @@ impl App {
 
     async fn handle_event(&self, event: Event) {
         match event {
-            Event::StorageUpdate(StorageUpdate { storage, path }) => {
+            Event::StorageUpdate(StorageUpdate {
+                storage,
+                path,
+                file_id,
+            }) => {
                 match self
                     .storage_mapping
                     .get_users_for_storage_path(storage, &path)
@@ -157,7 +161,7 @@ impl App {
                     Ok(users) => {
                         for user in users {
                             self.connections
-                                .send_to_user(&user, MessageType::File)
+                                .send_to_user(&user, PushMessage::File(file_id.into()))
                                 .await;
                         }
                     }
@@ -166,12 +170,12 @@ impl App {
             }
             Event::GroupUpdate(GroupUpdate { user, .. }) => {
                 self.connections
-                    .send_to_user(&user, MessageType::File)
+                    .send_to_user(&user, PushMessage::File(UpdatedFiles::Unknown))
                     .await;
             }
             Event::ShareCreate(ShareCreate { user }) => {
                 self.connections
-                    .send_to_user(&user, MessageType::File)
+                    .send_to_user(&user, PushMessage::File(UpdatedFiles::Unknown))
                     .await;
             }
             Event::TestCookie(cookie) => {
@@ -179,12 +183,12 @@ impl App {
             }
             Event::Activity(Activity { user }) => {
                 self.connections
-                    .send_to_user(&user, MessageType::Activity)
+                    .send_to_user(&user, PushMessage::Activity)
                     .await;
             }
             Event::Notification(Notification { user }) => {
                 self.connections
-                    .send_to_user(&user, MessageType::Notification)
+                    .send_to_user(&user, PushMessage::Notification)
                     .await;
             }
             Event::PreAuth(PreAuth { user, token }) => {
@@ -196,7 +200,7 @@ impl App {
                 body,
             }) => {
                 self.connections
-                    .send_to_user(&user, MessageType::Custom(message, body))
+                    .send_to_user(&user, PushMessage::Custom(message, body))
                     .await;
             }
             Event::Config(event::Config::LogSpec(spec)) => {

@@ -13,6 +13,7 @@ use tokio_stream::{Stream, StreamExt};
 pub struct StorageUpdate {
     pub storage: u32,
     pub path: String,
+    pub file_id: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
