@@ -40,8 +40,8 @@ fn main() -> Result<()> {
             if text.starts_with("err: ") {
                 eprintln!("Received error: {}", &text[5..]);
                 return Ok(());
-            } else if text == "notify_file" {
-                println!("Received file update notification");
+            } else if text.starts_with("notify_file") {
+                println!("Received file update notification {}", text);
             } else if text == "notify_activity" {
                 println!("Received activity notification");
             } else if text == "notify_notification" {

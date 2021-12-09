@@ -49,6 +49,7 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 			$this->queue->push('notify_storage_update', [
 				'storage' => $event->getStorageId(),
 				'path' => $event->getPath(),
+				'file_id' => $event->getFileId(),
 			]);
 		}
 	}

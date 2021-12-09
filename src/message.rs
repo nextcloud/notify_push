@@ -1,16 +1,50 @@
 use parse_display::Display;
-use rand::{thread_rng, Rng};
 use serde_json::Value;
+use smallvec::SmallVec;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 use tokio::time::Duration;
 use warp::ws::Message;
 
-#[derive(Debug, Clone, Display)]
-pub enum MessageType {
+#[derive(Debug, Clone, PartialEq)]
+pub enum UpdatedFiles {
+    Unknown,
+    Known(SmallVec<[u64; 4]>),
+}
+
+impl UpdatedFiles {
+    pub fn extend(&mut self, more: &UpdatedFiles) {
+        match (self, more) {
+            (UpdatedFiles::Known(items), UpdatedFiles::Known(b)) => {
+                for id in b {
+                    if !items.contains(id) {
+                        items.push(*id);
+                    }
+                }
+            }
+            (self_, _) => *self_ = UpdatedFiles::Unknown,
+        }
+    }
+}
+
+impl From<Option<u64>> for UpdatedFiles {
+    fn from(id: Option<u64>) -> Self {
+        match id {
+            Some(id) => {
+                let mut ids = SmallVec::new();
+                ids.push(id);
+                UpdatedFiles::Known(ids)
+            }
+            None => UpdatedFiles::Unknown,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Display, PartialEq)]
+pub enum PushMessage {
     #[display("notify_file")]
-    File,
+    File(UpdatedFiles),
     #[display("notify_activity")]
     Activity,
     #[display("notify_notification")]
@@ -19,14 +53,38 @@ pub enum MessageType {
     Custom(String, Value),
 }
 
-impl From<MessageType> for Message {
-    fn from(msg: MessageType) -> Self {
+impl PushMessage {
+    pub fn merge(&mut self, other: &PushMessage) {
+        match (self, other) {
+            (PushMessage::File(a), PushMessage::File(b)) => a.extend(b),
+            _ => {}
+        }
+    }
+
+    pub fn debounce_time(&self) -> Duration {
+        match self {
+            PushMessage::File(_) => Duration::from_secs(60),
+            PushMessage::Activity => Duration::from_secs(120),
+            PushMessage::Notification => Duration::from_secs(30),
+            PushMessage::Custom(..) => Duration::from_millis(1), // no debouncing for custom messages
+        }
+    }
+}
+
+impl From<PushMessage> for Message {
+    fn from(msg: PushMessage) -> Self {
         match msg {
-            MessageType::File => Message::text(String::from("notify_file")),
-            MessageType::Activity => Message::text(String::from("notify_activity")),
-            MessageType::Notification => Message::text(String::from("notify_notification")),
-            MessageType::Custom(ty, Value::Null) => Message::text(ty),
-            MessageType::Custom(ty, body) => Message::text({
+            PushMessage::File(ids) => match ids {
+                UpdatedFiles::Unknown => Message::text(String::from("notify_file")),
+                UpdatedFiles::Known(ids) => Message::text(format!(
+                    "notify_file {}",
+                    serde_json::to_string(&ids).unwrap()
+                )),
+            },
+            PushMessage::Activity => Message::text(String::from("notify_activity")),
+            PushMessage::Notification => Message::text(String::from("notify_file")),
+            PushMessage::Custom(ty, Value::Null) => Message::text(ty),
+            PushMessage::Custom(ty, body) => Message::text({
                 let mut str = ty;
                 write!(&mut str, " {}", body).ok();
                 str
@@ -37,99 +95,143 @@ impl From<MessageType> for Message {
 
 pub static DEBOUNCE_ENABLE: AtomicBool = AtomicBool::new(true);
 
-pub struct DebounceMap {
-    file: Instant,
-    activity: Instant,
-    notification: Instant,
-    file_held: bool,
-    activity_held: bool,
-    notification_held: bool,
+#[derive(Clone, Debug)]
+struct SendQueueItem {
+    received: Instant,
+    sent: Instant,
+    message: Option<PushMessage>,
 }
 
-impl Default for DebounceMap {
+impl Default for SendQueueItem {
     fn default() -> Self {
-        let past = Instant::now() - Duration::from_secs(600);
-        DebounceMap {
-            file: past,
-            activity: past,
-            notification: past,
-            file_held: false,
-            activity_held: false,
-            notification_held: false,
+        SendQueueItem {
+            received: Instant::now() - Duration::from_secs(120),
+            sent: Instant::now() - Duration::from_secs(120),
+            message: None,
         }
     }
 }
 
-impl DebounceMap {
-    /// Check if the debounce time has passed and set the last send time if so
-    pub fn should_send(&mut self, ty: &MessageType) -> bool {
-        if DEBOUNCE_ENABLE.load(Ordering::Relaxed) {
-            let last_send = self.get_last_send(ty);
-            if Instant::now().duration_since(last_send) > Self::debounce_time(ty) {
-                self.set_last_send(ty);
-                self.set_held(ty, false);
-                true
-            } else if Instant::now().duration_since(last_send) > Duration::from_millis(100) {
-                self.set_held(ty, true);
-                false
-            } else {
-                false
+#[derive(Default, Debug)]
+pub struct SendQueue {
+    items: [SendQueueItem; 3],
+}
+
+impl SendQueue {
+    pub fn new() -> Self {
+        SendQueue::default()
+    }
+
+    fn item_mut(&mut self, message: &PushMessage) -> Option<&mut SendQueueItem> {
+        match message {
+            PushMessage::File(_) => Some(&mut self.items[0]),
+            PushMessage::Activity => Some(&mut self.items[1]),
+            PushMessage::Notification => Some(&mut self.items[2]),
+            PushMessage::Custom(_, _) => None,
+        }
+    }
+
+    pub fn push(&mut self, message: PushMessage, time: Instant) -> Option<PushMessage> {
+        if !DEBOUNCE_ENABLE.load(Ordering::Relaxed) {
+            return Some(message);
+        }
+        let item = match self.item_mut(&message) {
+            Some(item) => item,
+            None => return Some(message),
+        };
+
+        match &mut item.message {
+            Some(queued) => {
+                queued.merge(&message);
             }
-        } else {
-            true
-        }
+            opt => {
+                *opt = Some(message);
+            }
+        };
+        item.received = time;
+
+        None
     }
 
-    pub fn has_held_message(&self) -> bool {
-        self.file_held || self.activity_held || self.notification_held
+    pub fn drain<'a>(&'a mut self, now: Instant) -> impl Iterator<Item = PushMessage> + 'a {
+        self.items.iter_mut().filter_map(move |item| {
+            let debounce_time = item.message.as_ref()?.debounce_time();
+            if now.duration_since(item.sent) > debounce_time {
+                if now.duration_since(item.received) > Duration::from_millis(100) {
+                    item.sent = now;
+                    item.message.take()
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
     }
+}
 
-    pub fn get_held_messages(&self) -> impl Iterator<Item = MessageType> {
-        let file_opt = self.file_held.then(|| MessageType::File);
-        let activity_opt = self.activity_held.then(|| MessageType::Activity);
-        let notification_opt = self.notification_held.then(|| MessageType::Notification);
-        file_opt
-            .into_iter()
-            .chain(activity_opt.into_iter())
-            .chain(notification_opt.into_iter())
-    }
+#[test]
+fn test_send_queue() {
+    let base_time = Instant::now();
+    let mut queue = SendQueue::new();
+    queue.push(PushMessage::Activity, base_time);
+    queue.push(
+        PushMessage::File(UpdatedFiles::Known(vec![1].into())),
+        base_time,
+    );
+    queue.push(
+        PushMessage::File(UpdatedFiles::Known(vec![2].into())),
+        base_time + Duration::from_millis(10),
+    );
 
-    fn get_last_send(&self, ty: &MessageType) -> Instant {
-        match ty {
-            MessageType::File => self.file,
-            MessageType::Activity => self.activity,
-            MessageType::Notification => self.notification,
-            MessageType::Custom(..) => Instant::now() - Duration::from_secs(600), // no debouncing for custom messages
-        }
-    }
+    // without 100ms the messages get merged
+    assert_eq!(
+        Vec::<PushMessage>::new(),
+        queue
+            .drain(base_time + Duration::from_millis(20))
+            .collect::<Vec<_>>()
+    );
 
-    fn set_last_send(&mut self, ty: &MessageType) {
-        // apply a randomized offset to the last_send
-        // this helps mitigate against load bursts from many clients receiving the same updates
-        let spread = Duration::from_millis(thread_rng().gen_range(0..1000));
-        match ty {
-            MessageType::File => self.file = Instant::now() - spread,
-            MessageType::Activity => self.activity = Instant::now() - spread,
-            MessageType::Notification => self.notification = Instant::now() - spread,
-            MessageType::Custom(..) => {} // no debouncing for custom messages
-        }
-    }
+    // after 100ms the merged messages get send
+    assert_eq!(
+        vec![
+            PushMessage::File(UpdatedFiles::Known(vec![1, 2].into())),
+            PushMessage::Activity
+        ],
+        queue
+            .drain(base_time + Duration::from_millis(200))
+            .collect::<Vec<_>>()
+    );
 
-    fn set_held(&mut self, ty: &MessageType, held: bool) {
-        match ty {
-            MessageType::File => self.file_held = held,
-            MessageType::Activity => self.activity_held = held,
-            MessageType::Notification => self.notification_held = held,
-            MessageType::Custom(..) => {} // no debouncing for custom messages
-        }
-    }
+    // messages send within debounce time get held back
+    queue.push(
+        PushMessage::File(UpdatedFiles::Known(vec![3].into())),
+        base_time + Duration::from_secs(5),
+    );
+    queue.push(
+        PushMessage::File(UpdatedFiles::Known(vec![4].into())),
+        base_time + Duration::from_secs(6),
+    );
+    assert_eq!(
+        Vec::<PushMessage>::new(),
+        queue
+            .drain(base_time + Duration::from_secs(10))
+            .collect::<Vec<_>>()
+    );
 
-    fn debounce_time(ty: &MessageType) -> Duration {
-        match ty {
-            MessageType::File => Duration::from_secs(60),
-            MessageType::Activity => Duration::from_secs(120),
-            MessageType::Notification => Duration::from_secs(30),
-            MessageType::Custom(..) => Duration::from_millis(1), // no debouncing for custom messages
-        }
-    }
+    // after debounce time we get the merged messages from the timeframe
+    assert_eq!(
+        vec![PushMessage::File(UpdatedFiles::Known(vec![3, 4].into()))],
+        queue
+            .drain(base_time + Duration::from_secs(70))
+            .collect::<Vec<_>>()
+    );
+
+    // nothing left
+    assert_eq!(
+        Vec::<PushMessage>::new(),
+        queue
+            .drain(base_time + Duration::from_secs(300))
+            .collect::<Vec<_>>()
+    );
 }
