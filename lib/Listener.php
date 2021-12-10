@@ -50,13 +50,13 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 			// ignore files in home storage but outside home directory (trashbin, versions, etc)
 			if (
 				$event->getStorage()->instanceOfStorage(IHomeStorage::class) && !(
-					$event->getPath() === 'files' || str_starts_with($event->getPath(), "files/")
+					$event->getPath() === 'files' || strpos($event->getPath(), "files/") === 0
 				)
 			) {
 				return;
 			}
 			// ignore appdata
-			if (str_starts_with($event->getPath(), 'appdata_')) {
+			if (strpos($event->getPath(), 'appdata_') === 0) {
 				return;
 			}
 			$this->queue->push('notify_storage_update', [
