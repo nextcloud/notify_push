@@ -67,8 +67,8 @@ class CoreEventsTest extends TestCase {
 		$storage->getUpdater()->update('foobar');
 
 		// file ids are unstable, so we remove them
-		foreach ($events as $event) {
-			unset($event['fileid']);
+		foreach ($events['notify_storage_update'] as &$event) {
+			unset($event['file_id']);
 		}
 
 		$this->assertEquals([

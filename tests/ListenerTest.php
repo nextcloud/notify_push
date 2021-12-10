@@ -58,6 +58,12 @@ class ListenerTest extends TestCase {
 			12,
 			1
 		));
+
+		// file ids are unstable, so we remove them
+		foreach ($events['notify_storage_update'] as &$event) {
+			unset($event['file_id']);
+		}
+
 		$this->assertEquals([
 			'notify_storage_update' => [
 				['storage' => 1, 'path' => 'foobar'],
