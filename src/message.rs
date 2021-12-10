@@ -56,9 +56,8 @@ pub enum PushMessage {
 
 impl PushMessage {
     pub fn merge(&mut self, other: &PushMessage) {
-        match (self, other) {
-            (PushMessage::File(a), PushMessage::File(b)) => a.extend(b),
-            _ => {}
+        if let (PushMessage::File(a), PushMessage::File(b)) = (self, other) {
+            a.extend(b)
         }
     }
 
@@ -156,7 +155,7 @@ impl SendQueue {
         None
     }
 
-    pub fn drain<'a>(&'a mut self, now: Instant) -> impl Iterator<Item = PushMessage> + 'a {
+    pub fn drain(&mut self, now: Instant) -> impl Iterator<Item = PushMessage> + '_ {
         self.items.iter_mut().filter_map(move |item| {
             let debounce_time = item.message.as_ref()?.debounce_time();
             if now.duration_since(item.sent) > debounce_time {
