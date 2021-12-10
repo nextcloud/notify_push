@@ -34,9 +34,9 @@ fn main() -> Result<()> {
     socket
         .write_message(Message::Text(password))
         .wrap_err("Failed to send password")?;
-    // socket
-    //     .write_message(Message::Text("listen notify_file_id".into()))
-    //     .wrap_err("Failed to send username")?;
+    socket
+        .write_message(Message::Text("listen notify_file_id".into()))
+        .wrap_err("Failed to send username")?;
 
     loop {
         if let Message::Text(text) = socket.read_message()? {

@@ -110,7 +110,7 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
                                 log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user_id);
                                 METRICS.add_message();
                                 last_send = now;
-                                user_ws_tx.send(msg.to_message(&opts)).await.ok();
+                                user_ws_tx.send(msg.into_message(&opts)).await.ok();
                             }
                         }
                         Err(_timout) => {
@@ -118,7 +118,7 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
                                 last_send = now;
                                 METRICS.add_message();
                                 log::debug!(target: "notify_push::send", "Sending debounced {} to {}", msg, user_id);
-                                user_ws_tx.feed(msg.to_message(&opts)).await.ok();
+                                user_ws_tx.feed(msg.into_message(&opts)).await.ok();
                             }
 
                             if now.duration_since(last_send) > ping_interval {

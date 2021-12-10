@@ -73,7 +73,7 @@ impl PushMessage {
 }
 
 impl PushMessage {
-    pub fn to_message(self, opts: &ConnectionOptions) -> Message {
+    pub fn into_message(self, opts: &ConnectionOptions) -> Message {
         match self {
             PushMessage::File(ids) => match ids {
                 UpdatedFiles::Known(ids) if opts.listen_file_id.load(Ordering::Relaxed) => {
@@ -85,7 +85,7 @@ impl PushMessage {
                 _ => Message::text(String::from("notify_file")),
             },
             PushMessage::Activity => Message::text(String::from("notify_activity")),
-            PushMessage::Notification => Message::text(String::from("notify_file")),
+            PushMessage::Notification => Message::text(String::from("notify_notification")),
             PushMessage::Custom(ty, Value::Null) => Message::text(ty),
             PushMessage::Custom(ty, body) => Message::text({
                 let mut str = ty;
