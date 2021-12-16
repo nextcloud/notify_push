@@ -36,6 +36,10 @@ Desktop and other clients that don't run in the Nextcloud web interface can use 
     - "notify_activity" when a new activity item for a user is created (note, due to workings of the activity app, file
       related activity doesn't trigger this notification)
     - "notify_notification" when a notification is created, processed or dismissed for a user
+- Starting with version 0.4 you can opt into receiving the changed file ids for file update notifications by sending `listen notify_file_id` over the websocket.  
+  Once enabled, the server will send "notify_file_id" followed by a json encoded array of file ids if the push server knows
+  the ids of the changed files.
+  In cases where there push server doesn't know which files have changed, it will send the regular "notify_file" message. 
 
 ### Example
 
