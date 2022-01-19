@@ -1,6 +1,6 @@
-use crate::UserId;
-use color_eyre::{eyre::WrapErr, Report, Result};
-use reqwest::{StatusCode, Url};
+use crate::error::{AuthenticationError, NextCloudError};
+use crate::{Result, UserId};
+use reqwest::{Response, StatusCode, Url};
 use std::fmt::Write;
 use std::net::IpAddr;
 
@@ -10,8 +10,8 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(base_url: &str, allow_self_signed: bool) -> Result<Self> {
-        let base_url = Url::parse(base_url).wrap_err("Invalid base url")?;
+    pub fn new(base_url: &str, allow_self_signed: bool) -> Result<Self, NextCloudError> {
+        let base_url = Url::parse(base_url)?;
         let http = reqwest::Client::builder()
             .danger_accept_invalid_certs(allow_self_signed)
             .build()?;
@@ -23,10 +23,30 @@ impl Client {
         username: &str,
         password: &str,
         forwarded_for: Vec<IpAddr>,
-    ) -> Result<UserId> {
+    ) -> Result<UserId, AuthenticationError> {
         log::debug!("Verifying credentials for {}", username);
-        let response = self
-            .http
+        let response = self.auth_request(username, password, forwarded_for).await?;
+
+        match response.status() {
+            StatusCode::OK => Ok(response
+                .text()
+                .await
+                .map_err(|_| AuthenticationError::InvalidMessage)?
+                .into()),
+            StatusCode::UNAUTHORIZED => Err(AuthenticationError::Invalid),
+            status if status.is_server_error() => Err(NextCloudError::Server(status).into()),
+            status if status.is_client_error() => Err(NextCloudError::Client(status).into()),
+            status => Err(NextCloudError::Other(status).into()),
+        }
+    }
+
+    async fn auth_request(
+        &self,
+        username: &str,
+        password: &str,
+        forwarded_for: Vec<IpAddr>,
+    ) -> Result<Response, NextCloudError> {
+        self.http
             .get(self.base_url.join("index.php/apps/notify_push/uid")?)
             .basic_auth(username, Some(password))
             .header(
@@ -44,22 +64,10 @@ impl Client {
             )
             .send()
             .await
-            .wrap_err("Error while connecting to nextcloud server")?;
-
-        match response.status() {
-            StatusCode::OK => Ok(response.text().await?.into()),
-            StatusCode::UNAUTHORIZED => Err(Report::msg("Invalid credentials")),
-            status if status.is_server_error() => {
-                Err(Report::msg(format!("Server error: {}", status)))
-            }
-            status if status.is_client_error() => {
-                Err(Report::msg(format!("Client error: {}", status)))
-            }
-            status => Err(Report::msg(format!("Unexpected status code: {}", status))),
-        }
+            .map_err(NextCloudError::NextcloudConnect)
     }
 
-    pub async fn get_test_cookie(&self) -> Result<u32> {
+    pub async fn get_test_cookie(&self) -> Result<u32, NextCloudError> {
         let response = self
             .http
             .get(
@@ -72,37 +80,39 @@ impl Client {
         let text = response.text().await?;
         if status.is_client_error() {
             if text.contains("admin-trusted-domains") {
-                Err(Report::msg(format!(
-                    "{} is not configured as a trusted domain",
-                    self.base_url.host_str().unwrap_or_default()
-                )))
+                Err(NextCloudError::NotATrustedDomain(
+                    self.base_url.host_str().unwrap_or_default().into(),
+                )
+                .into())
             } else {
-                Err(Report::msg(status.to_string()))
+                Err(NextCloudError::Client(status).into())
             }
         } else {
             Ok(text
                 .parse()
-                .wrap_err("Response from nextcloud is not a number")?)
+                .map_err(NextCloudError::MalformedCookieResponse)?)
         }
     }
 
-    pub async fn test_set_remote(&self, addr: IpAddr) -> Result<IpAddr> {
+    pub async fn test_set_remote(&self, addr: IpAddr) -> Result<IpAddr, NextCloudError> {
         Ok(self
             .http
             .get(
                 self.base_url
-                    .join("index.php/apps/notify_push/test/remote")?,
+                    .join("index.php/apps/notify_push/test/remote")
+                    .map_err(NextCloudError::from)?,
             )
             .header("x-forwarded-for", addr.to_string())
             .send()
             .await?
             .text()
             .await?
-            .parse()?)
+            .parse()
+            .map_err(NextCloudError::MalformedRemote)?)
     }
 
     /// Ask the app to put it's version number into redis under 'notify_push_app_version'
-    pub async fn request_app_version(&self) -> Result<()> {
+    pub async fn request_app_version(&self) -> Result<(), NextCloudError> {
         self.http
             .get(
                 self.base_url

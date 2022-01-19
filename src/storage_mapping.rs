@@ -1,6 +1,6 @@
+use crate::error::DatabaseError;
 use crate::metrics::METRICS;
-use crate::UserId;
-use color_eyre::{eyre::WrapErr, Result};
+use crate::{Result, UserId};
 use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use rand::{thread_rng, Rng};
@@ -44,7 +44,10 @@ pub struct StorageMapping {
 }
 
 impl StorageMapping {
-    pub async fn from_connection(connection: AnyPool, prefix: String) -> Result<Self> {
+    pub async fn from_connection(
+        connection: AnyPool,
+        prefix: String,
+    ) -> Result<Self, DatabaseError> {
         Ok(StorageMapping {
             cache: Default::default(),
             connection,
@@ -52,15 +55,18 @@ impl StorageMapping {
         })
     }
 
-    pub async fn new(options: AnyConnectOptions, prefix: String) -> Result<Self> {
+    pub async fn new(options: AnyConnectOptions, prefix: String) -> Result<Self, DatabaseError> {
         let connection = AnyPool::connect_with(options)
             .await
-            .wrap_err("Failed to connect to Nextcloud database")?;
+            .map_err(DatabaseError::Connect)?;
 
         Self::from_connection(connection, prefix).await
     }
 
-    async fn get_storage_mapping(&self, storage: u32) -> Result<Ref<'_, u32, CachedAccess>> {
+    async fn get_storage_mapping(
+        &self,
+        storage: u32,
+    ) -> Result<Ref<'_, u32, CachedAccess>, DatabaseError> {
         if let Some(cached) = self.cache.get(&storage).filter(|cached| cached.is_valid()) {
             Ok(cached)
         } else {
@@ -75,7 +81,7 @@ impl StorageMapping {
         &self,
         storage: u32,
         path: &str,
-    ) -> Result<impl Iterator<Item = UserId>> {
+    ) -> Result<impl Iterator<Item = UserId>, DatabaseError> {
         let cached = self.get_storage_mapping(storage).await?;
         Ok(cached
             .access
@@ -91,7 +97,10 @@ impl StorageMapping {
             .into_iter())
     }
 
-    async fn load_storage_mapping(&self, storage: u32) -> Result<Vec<UserStorageAccess>> {
+    async fn load_storage_mapping(
+        &self,
+        storage: u32,
+    ) -> Result<Vec<UserStorageAccess>, DatabaseError> {
         log::debug!("querying storage mapping for {}", storage);
         let users = sqlx::query_as::<Any, UserStorageAccess>(&format!(
             "\
@@ -104,7 +113,7 @@ impl StorageMapping {
         ))
         .fetch_all(&self.connection)
         .await
-        .wrap_err("Failed to load storage mapping from database")?;
+        .map_err(DatabaseError::Query)?;
         METRICS.add_mapping_query();
 
         Ok(users)

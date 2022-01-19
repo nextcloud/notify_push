@@ -1,5 +1,7 @@
 use crate::config::{Bind, Config, TlsConfig};
 use crate::connection::{handle_user_socket, ActiveConnections};
+pub use crate::error::Error;
+use crate::error::{SelfTestError, SocketError};
 use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
 };
@@ -9,7 +11,6 @@ use crate::redis::Redis;
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
 use ahash::RandomState;
-use color_eyre::{eyre::WrapErr, Result};
 use dashmap::DashMap;
 use flexi_logger::LoggerHandle;
 use futures::future::{select, Either};
@@ -35,6 +36,7 @@ use warp_real_ip::get_forwarded_for;
 
 pub mod config;
 pub mod connection;
+pub mod error;
 pub mod event;
 pub mod message;
 pub mod metrics;
@@ -42,6 +44,8 @@ pub mod nc;
 pub mod redis;
 pub mod storage_mapping;
 pub mod user;
+
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub struct App {
     connections: ActiveConnections,
@@ -112,25 +116,14 @@ impl App {
         })
     }
 
-    pub async fn self_test(&self) -> Result<()> {
+    pub async fn self_test(&self) -> Result<(), SelfTestError> {
         let _ = self
             .storage_mapping
             .get_users_for_storage_path(1, "")
-            .await
-            .wrap_err("Failed to test database access")?;
-        let mut redis = self
-            .redis
-            .connect()
-            .await
-            .wrap_err("Failed to connect to redis")?;
-        redis
-            .del("notify_push_app_version")
-            .await
-            .wrap_err("Failed to clear app version")?;
-        self.nc_client
-            .request_app_version()
-            .await
-            .wrap_err("Failed to request app version")?;
+            .await?;
+        let mut redis = self.redis.connect().await?;
+        redis.del("notify_push_app_version").await?;
+        self.nc_client.request_app_version().await?;
         match redis.get("notify_push_app_version").await {
             Ok(version) if version == env!("NOTIFY_PUSH_VERSION") => {}
             Ok(version) => {
@@ -394,13 +387,10 @@ where
             }
             fs::remove_file(&socket_path).ok();
 
-            let listener = UnixListener::bind(&socket_path).wrap_err_with(|| {
-                format!(
-                    "Failed to setup socket at {}",
-                    socket_path.to_string_lossy()
-                )
-            })?;
-            fs::set_permissions(&socket_path, PermissionsExt::from_mode(permissions))?;
+            let listener = UnixListener::bind(&socket_path)
+                .map_err(|e| SocketError::Bind(e, socket_path.to_string_lossy().to_string()))?;
+            fs::set_permissions(&socket_path, PermissionsExt::from_mode(permissions))
+                .map_err(SocketError::SocketPermissions)?;
 
             let stream = UnixListenerStream::new(listener);
             Ok(Either::Right(

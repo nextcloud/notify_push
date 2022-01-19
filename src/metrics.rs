@@ -1,6 +1,5 @@
 use crate::config::{Bind, TlsConfig};
-use crate::serve_at;
-use color_eyre::Result;
+use crate::{serve_at, Result};
 use serde::{Serialize, Serializer};
 use std::fmt::Write;
 use std::future::Future;

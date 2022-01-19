@@ -1,8 +1,8 @@
 mod nc;
 
 use crate::config::nc::parse_config_file;
-use color_eyre::eyre::ContextCompat;
-use color_eyre::{eyre::WrapErr, Report, Result};
+use crate::error::ConfigError;
+use crate::{Error, Result};
 use derivative::Derivative;
 use redis::ConnectionInfo;
 use sqlx::any::AnyConnectOptions;
@@ -121,18 +121,17 @@ impl Display for Bind {
 }
 
 impl TryFrom<PartialConfig> for Config {
-    type Error = Report;
+    type Error = Error;
 
     fn try_from(config: PartialConfig) -> Result<Self> {
         let socket_permissions = config
             .socket_permissions
             .map(|perm| {
                 if perm.len() != 4 && !perm.starts_with('0') {
-                    return Err(Report::msg(
-                        "socket permissions should be provided in the octal form `0xxx`",
-                    ));
+                    return Err(ConfigError::SocketPermissions(perm, None));
                 }
-                Ok(u32::from_str_radix(&perm, 8)?)
+                Ok(u32::from_str_radix(&perm, 8)
+                    .map_err(|e| ConfigError::SocketPermissions(perm, Some(e)))?)
             })
             .transpose()?
             .unwrap_or(0o666);
@@ -160,15 +159,13 @@ impl TryFrom<PartialConfig> for Config {
 
         let mut nextcloud_url = config
             .nextcloud_url
-            .ok_or_else(|| Report::msg("No nextcloud url configured"))?;
+            .ok_or_else(|| ConfigError::NoNextcloud)?;
         if !nextcloud_url.ends_with('/') {
             nextcloud_url.push('/');
         }
 
         Ok(Config {
-            database: config
-                .database
-                .ok_or_else(|| Report::msg("No database url configured"))?,
+            database: config.database.ok_or_else(|| ConfigError::NoDatabase)?,
             database_prefix: config
                 .database_prefix
                 .unwrap_or_else(|| String::from("oc_")),
@@ -219,23 +216,22 @@ struct PartialConfig {
 
 impl PartialConfig {
     fn from_env() -> Result<Self> {
-        let database = parse_var("DATABASE_URL").wrap_err("Failed to parse DATABASE_URL")?;
+        let database = parse_var("DATABASE_URL")?;
         let database_prefix = var("DATABASE_PREFIX").ok();
-        let redis = parse_var("REDIS_URL").wrap_err("Failed to parse REDIS_URL")?;
+        let redis = parse_var("REDIS_URL")?;
         let nextcloud_url = var("NEXTCLOUD_URL").ok();
-        let port = parse_var("PORT").ok().wrap_err("Invalid PORT")?;
-        let metrics_port = parse_var("METRICS_PORT").wrap_err("Invalid METRICS_PORT")?;
-        let metrics_socket =
-            parse_var("METRICS_SOCKET_PATH").wrap_err("Invalid METRICS_SOCKET_PATH")?;
+        let port = parse_var("PORT")?;
+        let metrics_port = parse_var("METRICS_PORT")?;
+        let metrics_socket = parse_var("METRICS_SOCKET_PATH")?;
         let log_level = var("LOG").ok();
-        let bind = parse_var("BIND").wrap_err("Invalid BIND")?;
+        let bind = parse_var("BIND")?;
         let socket = var("SOCKET_PATH").map(PathBuf::from).ok();
         let socket_permissions = var("SOCKET_PERMISSIONS").ok();
         let allow_self_signed = var("ALLOW_SELF_SIGNED").map(|val| val == "true").ok();
         let no_ansi = var("NO_ANSI").map(|val| val == "true").ok();
 
-        let tls_cert = parse_var("TLS_CERT").wrap_err("Invalid TLS_CERT")?;
-        let tls_key = parse_var("TLS_KEY").wrap_err("Invalid TLS_KEY")?;
+        let tls_cert = parse_var("TLS_CERT")?;
+        let tls_key = parse_var("TLS_KEY")?;
 
         let tls = if let (Some(cert), Some(key)) = (tls_cert, tls_key) {
             Some(TlsConfig { cert, key })
@@ -262,7 +258,7 @@ impl PartialConfig {
     }
 
     fn from_file(file: impl AsRef<Path>, glob: bool) -> Result<Self> {
-        parse_config_file(file, glob)
+        Ok(parse_config_file(file, glob)?)
     }
 
     fn from_opt(opt: Opt) -> Self {
@@ -318,7 +314,7 @@ impl PartialConfig {
     }
 }
 
-fn parse_var<T>(name: &str) -> Result<Option<T>>
+fn parse_var<T>(name: &'static str) -> Result<Option<T>>
 where
     T: FromStr + 'static,
     T::Err: std::error::Error + Sync + Send,
@@ -327,5 +323,5 @@ where
         .ok()
         .map(|val| T::from_str(&val))
         .transpose()
-        .map_err(Report::from)
+        .map_err(|e| ConfigError::Env(name, Box::new(e)).into())
 }

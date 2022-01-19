@@ -1,9 +1,10 @@
-use color_eyre::{eyre::WrapErr, Result};
 use flexi_logger::{detailed_format, AdaptiveFormat, Logger, LoggerHandle};
+use miette::{IntoDiagnostic, Result, WrapErr};
 use notify_push::config::{Config, Opt};
+use notify_push::error::ConfigError;
 use notify_push::message::DEBOUNCE_ENABLE;
 use notify_push::metrics::serve_metrics;
-use notify_push::{listen_loop, serve, App};
+use notify_push::{listen_loop, serve, App, Error};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -13,7 +14,7 @@ use tokio::sync::oneshot;
 use tokio::task::spawn;
 
 fn main() -> Result<()> {
-    color_eyre::install()?;
+    miette::set_panic_hook();
     let _ = dotenv::dotenv();
 
     let opt: Opt = Opt::from_args();
@@ -22,7 +23,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
     let dump_config = opt.dump_config;
-    let config = Config::from_opt(opt).wrap_err("Failed to parse config")?;
+    let config = Config::from_opt(opt)?;
 
     if dump_config {
         println!("{:#?}", config);
@@ -32,19 +33,24 @@ fn main() -> Result<()> {
     // initialize the logger before starting the tokio runtime
     // this prevents potential issues around getting the local time offset
     // which isn't properly tread safe on linux
-    let log_handle = Logger::try_with_str(&config.log_level)?.log_to_stdout();
+    let log_handle = Logger::try_with_str(&config.log_level)
+        .map_err(ConfigError::LogLevel)?
+        .log_to_stdout();
     let log_handle = if config.no_ansi {
         log_handle.format_for_stdout(detailed_format)
     } else {
         log_handle.adaptive_format_for_stdout(AdaptiveFormat::Detailed)
     }
-    .start()?;
+    .start()
+    .into_diagnostic()
+    .wrap_err("Failed to initialize log handler")?;
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap()
-        .block_on(run(config, log_handle))
+        .block_on(run(config, log_handle))?;
+    Ok(())
 }
 
 async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
@@ -85,8 +91,8 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
     spawn(listen_loop(app, listen_cancel_handle));
 
     // wait for either a sigint or sigterm
-    let mut term = signal(SignalKind::terminate())?;
-    let mut int = signal(SignalKind::interrupt())?;
+    let mut term = signal(SignalKind::terminate()).map_err(Error::SignalHook)?;
+    let mut int = signal(SignalKind::interrupt()).map_err(Error::SignalHook)?;
 
     select! {
         _ = term.recv() => (),
@@ -101,7 +107,10 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
     metrics_cancel.send(()).ok();
     listen_cancel.send(()).ok();
 
-    server.await?;
+    server
+        .await
+        .into_diagnostic()
+        .wrap_err("Error while running warp server")?;
 
     Ok(())
 }

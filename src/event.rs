@@ -1,6 +1,5 @@
 use crate::metrics::METRICS;
-use crate::{Redis, UserId};
-use color_eyre::{eyre::WrapErr, Result};
+use crate::{Redis, Result, UserId};
 use parse_display::Display;
 use redis::Msg;
 use serde::Deserialize;
@@ -150,10 +149,7 @@ impl TryFrom<Msg> for Event {
 pub async fn subscribe(
     client: &Redis,
 ) -> Result<impl Stream<Item = Result<Event, MessageDecodeError>>> {
-    let mut pubsub = client
-        .pubsub()
-        .await
-        .wrap_err("Failed to connect to redis")?;
+    let mut pubsub = client.pubsub().await?;
     let channels = [
         "notify_storage_update",
         "notify_group_membership_update",
@@ -168,10 +164,7 @@ pub async fn subscribe(
         "notify_signal",
     ];
     for channel in channels.iter() {
-        pubsub
-            .subscribe(*channel)
-            .await
-            .wrap_err("Failed to subscribe to redis pubsub")?;
+        pubsub.subscribe(*channel).await?;
     }
 
     Ok(pubsub.into_on_message().map(|event| {

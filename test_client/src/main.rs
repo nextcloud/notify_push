@@ -1,17 +1,18 @@
-use color_eyre::{eyre::WrapErr, Report, Result};
 use flexi_logger::{AdaptiveFormat, Logger};
 use log::{debug, info, trace, warn};
+use miette::{IntoDiagnostic, Report, Result, WrapErr};
 use serde_json::Value;
 use std::env::var;
 use tungstenite::http::Request;
 use tungstenite::{connect, Message};
 
 fn main() -> Result<()> {
-    color_eyre::install()?;
-    Logger::try_with_str(&var("LOG").unwrap_or_else(|_| String::from("test_client=info,warn")))?
+    Logger::try_with_str(&var("LOG").unwrap_or_else(|_| String::from("test_client=info,warn")))
+        .into_diagnostic()?
         .adaptive_format_for_stdout(AdaptiveFormat::Detailed)
         .adaptive_format_for_stderr(AdaptiveFormat::Detailed)
-        .start()?;
+        .start()
+        .into_diagnostic()?;
 
     let mut args = std::env::args();
 
@@ -29,21 +30,27 @@ fn main() -> Result<()> {
 
     let ws_request = Request::get(ws_url)
         .body(())
+        .into_diagnostic()
         .wrap_err("Invalid websocket url")?;
-    let (mut socket, _response) = connect(ws_request).wrap_err("Can't connect to server")?;
+    let (mut socket, _response) = connect(ws_request)
+        .into_diagnostic()
+        .wrap_err("Can't connect to server")?;
 
     socket
         .write_message(Message::Text(username))
+        .into_diagnostic()
         .wrap_err("Failed to send username")?;
     socket
         .write_message(Message::Text(password))
+        .into_diagnostic()
         .wrap_err("Failed to send password")?;
     socket
         .write_message(Message::Text("listen notify_file_id".into()))
+        .into_diagnostic()
         .wrap_err("Failed to send username")?;
 
     loop {
-        if let Message::Text(text) = socket.read_message()? {
+        if let Message::Text(text) = socket.read_message().into_diagnostic()? {
             if text.starts_with("err: ") {
                 warn!("Received error: {}", &text[5..]);
                 return Ok(());
@@ -73,10 +80,13 @@ fn get_endpoint(nc_url: &str, user: &str, password: &str) -> Result<String> {
         )
         .set("Accept", "application/json")
         .set("OCS-APIREQUEST", "true")
-        .call()?
-        .into_string()?;
+        .call()
+        .into_diagnostic()?
+        .into_string()
+        .into_diagnostic()?;
     trace!("Capabilities response: {}", raw);
     let json: Value = serde_json::from_str(&raw)
+        .into_diagnostic()
         .wrap_err_with(|| format!("Failed to decode json capabilities response: {}", raw))?;
     if let Some(capabilities) = json["ocs"]["data"]["capabilities"].as_object() {
         debug!(

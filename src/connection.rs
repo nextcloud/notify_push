@@ -1,8 +1,9 @@
+use crate::error::{AuthenticationError, WebSocketError};
 use crate::message::{PushMessage, SendQueue};
 use crate::metrics::METRICS;
+use crate::Result;
 use crate::{App, UserId};
 use ahash::RandomState;
-use color_eyre::{Report, Result};
 use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
 use std::net::IpAddr;
@@ -24,7 +25,7 @@ impl ActiveConnections {
         if let Some(sender) = self.0.get(&user) {
             // stop a single user from trying to eat all the resources
             if sender.receiver_count() > USER_CONNECTION_LIMIT {
-                Err(Report::msg("connection limit exceeded"))
+                Err(AuthenticationError::LimitExceeded.into())
             } else {
                 Ok(sender.subscribe())
             }
@@ -193,23 +194,27 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
     METRICS.remove_connection();
 }
 
-async fn read_socket_auth_message(rx: &mut WebSocket) -> Result<Message> {
+async fn read_socket_auth_message(rx: &mut WebSocket) -> Result<Message, WebSocketError> {
     match rx.next().await {
         Some(Ok(msg)) => Ok(msg),
-        Some(Err(e)) => Err(Report::from(e).wrap_err("Socket error during authentication")),
-        None => Err(Report::msg("Client disconnected during authentication")),
+        Some(Err(e)) => Err(e.into()),
+        None => Err(WebSocketError::Disconnected),
     }
 }
 
-async fn socket_auth(rx: &mut WebSocket, forwarded_for: Vec<IpAddr>, app: &App) -> Result<UserId> {
+async fn socket_auth(
+    rx: &mut WebSocket,
+    forwarded_for: Vec<IpAddr>,
+    app: &App,
+) -> Result<UserId, AuthenticationError> {
     let username_msg = read_socket_auth_message(rx).await?;
     let username = username_msg
         .to_str()
-        .map_err(|_| Report::msg("Invalid authentication message"))?;
+        .map_err(|_| AuthenticationError::InvalidMessage)?;
     let password_msg = read_socket_auth_message(rx).await?;
     let password = password_msg
         .to_str()
-        .map_err(|_| Report::msg("Invalid authentication message"))?;
+        .map_err(|_| AuthenticationError::InvalidMessage)?;
 
     // cleanup all pre_auth tokens older than 15s
     let cutoff = Instant::now() - Duration::from_secs(15);
@@ -224,10 +229,11 @@ async fn socket_auth(rx: &mut WebSocket, forwarded_for: Vec<IpAddr>, app: &App) 
     }
 
     if !username.is_empty() {
-        app.nc_client
+        Ok(app
+            .nc_client
             .verify_credentials(username, password, forwarded_for)
-            .await
+            .await?)
     } else {
-        Err(Report::msg("Invalid credentials"))
+        Err(AuthenticationError::Invalid)
     }
 }
