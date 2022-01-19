@@ -1,5 +1,5 @@
 use color_eyre::{eyre::WrapErr, Result};
-use flexi_logger::{detailed_format, AdaptiveFormat, Logger};
+use flexi_logger::{detailed_format, AdaptiveFormat, Logger, LoggerHandle};
 use notify_push::config::{Config, Opt};
 use notify_push::message::DEBOUNCE_ENABLE;
 use notify_push::metrics::serve_metrics;
@@ -12,8 +12,7 @@ use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::oneshot;
 use tokio::task::spawn;
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     color_eyre::install()?;
     let _ = dotenv::dotenv();
 
@@ -30,6 +29,9 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    // initialize the logger before starting the tokio runtime
+    // this prevents potential issues around getting the local time offset
+    // which isn't properly tread safe on linux
     let log_handle = Logger::try_with_str(&config.log_level)?.log_to_stdout();
     let log_handle = if config.no_ansi {
         log_handle.format_for_stdout(detailed_format)
@@ -38,6 +40,14 @@ async fn main() -> Result<()> {
     }
     .start()?;
 
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(run(config, log_handle))
+}
+
+async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
     let (serve_cancel, serve_cancel_handle) = oneshot::channel();
     let (metrics_cancel, metrics_cancel_handle) = oneshot::channel();
     let (listen_cancel, listen_cancel_handle) = oneshot::channel();

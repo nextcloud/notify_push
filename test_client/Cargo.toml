@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 tungstenite = { version = "0.16", default-features = false, features = ["rustls-tls-webpki-roots"] }
-color-eyre = "0.5"
+color-eyre = "0.6"
 serde_json = "1"
 ureq = "2"
 flexi_logger = { version = "0.22", features = ["colors"] }

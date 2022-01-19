@@ -64,8 +64,8 @@ impl PushMessage {
     pub fn debounce_time(&self) -> Duration {
         match self {
             PushMessage::File(_) => Duration::from_secs(60),
-            PushMessage::Activity => Duration::from_secs(120),
-            PushMessage::Notification => Duration::from_secs(30),
+            PushMessage::Activity => Duration::from_secs(60),
+            PushMessage::Notification => Duration::from_secs(3),
             PushMessage::Custom(..) => Duration::from_millis(1), // no debouncing for custom messages
         }
     }
