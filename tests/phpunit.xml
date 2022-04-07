@@ -3,6 +3,7 @@
 		 timeoutForSmallTests="900"
 		 timeoutForMediumTests="900"
 		 timeoutForLargeTests="900"
+		 convertDeprecationsToExceptions="true"
 >
 	<testsuite name='Nextcloud - Notify Push App Tests'>
 		<directory suffix='.php'>.</directory>
