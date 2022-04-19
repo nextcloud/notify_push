@@ -115,7 +115,7 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
                             }
                         }
                         Err(_timout) => {
-                            for msg in send_queue.drain(now) {
+                            for msg in send_queue.drain(now, METRICS.active_connection_count()) {
                                 last_send = now;
                                 METRICS.add_message();
                                 log::debug!(target: "notify_push::send", "Sending debounced {} to {}", msg, user_id);
