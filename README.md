@@ -271,7 +271,7 @@ sudo systemctl restart apache2
 ```Caddyfile
 route /push/* {
     uri strip_prefix /push
-    reverse_proxy http://127.0.0.1:7867/
+    reverse_proxy http://127.0.0.1:7867
 }
 ```
 
