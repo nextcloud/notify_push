@@ -155,6 +155,7 @@ impl Services {
             allow_self_signed: false,
             no_ansi: false,
             tls: None,
+            max_debounce_time: 15,
         }
     }
 
@@ -179,7 +180,7 @@ impl Services {
 
         let bind = Bind::Tcp(addr);
         spawn(async move {
-            let serve = serve(app.clone(), bind, serve_rx, None).unwrap();
+            let serve = serve(app.clone(), bind, serve_rx, None, 15).unwrap();
             let listen = listen_loop(app.clone(), listen_rx);
 
             pin_mut!(serve);

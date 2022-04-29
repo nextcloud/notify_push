@@ -75,6 +75,9 @@ pub struct Opt {
     /// TLS key
     #[structopt(long)]
     pub tls_key: Option<PathBuf>,
+    /// The maximum debounce time between messages, in seconds.
+    #[structopt(long)]
+    pub max_debounce_time: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -89,6 +92,7 @@ pub struct Config {
     pub allow_self_signed: bool,
     pub no_ansi: bool,
     pub tls: Option<TlsConfig>,
+    pub max_debounce_time: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -177,6 +181,7 @@ impl TryFrom<PartialConfig> for Config {
             allow_self_signed: config.allow_self_signed.unwrap_or(false),
             no_ansi: config.no_ansi.unwrap_or(false),
             tls: config.tls,
+            max_debounce_time: config.max_debounce_time.unwrap_or(15),
         })
     }
 }
@@ -212,6 +217,7 @@ struct PartialConfig {
     pub allow_self_signed: Option<bool>,
     pub no_ansi: Option<bool>,
     pub tls: Option<TlsConfig>,
+    pub max_debounce_time: Option<usize>,
 }
 
 impl PartialConfig {
@@ -238,6 +244,7 @@ impl PartialConfig {
         } else {
             None
         };
+        let max_debounce_time = parse_var("MAX_DEBOUNCE_TIME")?;
 
         Ok(PartialConfig {
             database,
@@ -254,6 +261,7 @@ impl PartialConfig {
             allow_self_signed,
             no_ansi,
             tls,
+            max_debounce_time,
         })
     }
 
@@ -287,6 +295,7 @@ impl PartialConfig {
             },
             no_ansi: if opt.no_ansi { Some(true) } else { None },
             tls,
+            max_debounce_time: opt.max_debounce_time,
         }
     }
 
@@ -310,6 +319,7 @@ impl PartialConfig {
             allow_self_signed: self.allow_self_signed.or(fallback.allow_self_signed),
             no_ansi: self.no_ansi.or(fallback.no_ansi),
             tls: self.tls.or(fallback.tls),
+            max_debounce_time: self.max_debounce_time.or(fallback.max_debounce_time),
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::config::{Bind, Config, TlsConfig};
-use crate::connection::{handle_user_socket, ActiveConnections};
+use crate::connection::{handle_user_socket, ActiveConnections, ConnectionOptions};
 pub use crate::error::Error;
 use crate::error::{SelfTestError, SocketError};
 use crate::event::{
@@ -239,6 +239,7 @@ pub fn serve(
     bind: Bind,
     cancel: oneshot::Receiver<()>,
     tls: Option<&TlsConfig>,
+    max_debounce_time: usize,
 ) -> Result<impl Future<Output = ()> + Send> {
     let app = warp::any().map(move || app.clone());
 
@@ -252,12 +253,16 @@ pub fn serve(
         .and(remote())
         .and(get_forwarded_for())
         .map(
-            |ws: warp::ws::Ws, app, remote: Option<SocketAddr>, mut forwarded_for: Vec<IpAddr>| {
+            move |ws: warp::ws::Ws,
+                  app,
+                  remote: Option<SocketAddr>,
+                  mut forwarded_for: Vec<IpAddr>| {
                 if let Some(remote) = remote {
                     forwarded_for.push(remote.ip());
                 }
                 log::debug!("new websocket connection from {:?}", forwarded_for.first());
-                ws.on_upgrade(move |socket| handle_user_socket(socket, app, forwarded_for))
+                let opts = ConnectionOptions::new(max_debounce_time);
+                ws.on_upgrade(move |socket| handle_user_socket(socket, app, forwarded_for, opts))
             },
         )
         .with(cors);

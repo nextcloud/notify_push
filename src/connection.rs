@@ -46,9 +46,24 @@ impl ActiveConnections {
 #[derive(Default)]
 pub struct ConnectionOptions {
     pub listen_file_id: AtomicBool,
+    pub max_debounce_time: usize,
 }
 
-pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for: Vec<IpAddr>) {
+impl ConnectionOptions {
+    pub fn new(max_debounce_time: usize) -> Self {
+        ConnectionOptions {
+            max_debounce_time,
+            ..ConnectionOptions::default()
+        }
+    }
+}
+
+pub async fn handle_user_socket(
+    mut ws: WebSocket,
+    app: Arc<App>,
+    forwarded_for: Vec<IpAddr>,
+    opts: ConnectionOptions,
+) {
     let user_id = match timeout(
         Duration::from_secs(15),
         socket_auth(&mut ws, forwarded_for, &app),
@@ -84,8 +99,6 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
 
     METRICS.add_connection();
 
-    let opts = ConnectionOptions::default();
-
     // Every time we send a ping, we set this to a random non-zero value
     // when a pong is returned, we check it against the expected value and reset this to 0
     // If we get the wrong pong back, or the expected value hasn't been cleared
@@ -115,7 +128,7 @@ pub async fn handle_user_socket(mut ws: WebSocket, app: Arc<App>, forwarded_for:
                             }
                         }
                         Err(_timout) => {
-                            for msg in send_queue.drain(now, METRICS.active_connection_count()) {
+                            for msg in send_queue.drain(now, METRICS.active_connection_count() + 50000, opts.max_debounce_time) {
                                 last_send = now;
                                 METRICS.add_message();
                                 log::debug!(target: "notify_push::send", "Sending debounced {} to {}", msg, user_id);

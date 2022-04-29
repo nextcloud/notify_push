@@ -62,10 +62,10 @@ impl PushMessage {
         }
     }
 
-    pub fn debounce_time(&self, connection_count: usize) -> Duration {
+    pub fn debounce_time(&self, connection_count: usize, max_debounce_time: usize) -> Duration {
         // scale the debounce time between 1s and 15s based on the number of active connections
         // this provide a decent balance between performance and load
-        let time = max(1, min(connection_count / 10, 15));
+        let time = max(1, min(connection_count / 10, max_debounce_time));
         match self {
             PushMessage::File(_) => Duration::from_secs(time as u64),
             PushMessage::Activity => Duration::from_secs(time as u64),
@@ -163,9 +163,13 @@ impl SendQueue {
         &mut self,
         now: Instant,
         connection_count: usize,
+        max_debounce_time: usize,
     ) -> impl Iterator<Item = PushMessage> + '_ {
         self.items.iter_mut().filter_map(move |item| {
-            let debounce_time = item.message.as_ref()?.debounce_time(connection_count);
+            let debounce_time = item
+                .message
+                .as_ref()?
+                .debounce_time(connection_count, max_debounce_time);
             if now.duration_since(item.sent) > debounce_time {
                 if now.duration_since(item.received) > Duration::from_millis(100) {
                     item.sent = now;
@@ -198,7 +202,7 @@ fn test_send_queue_100() {
     assert_eq!(
         Vec::<PushMessage>::new(),
         queue
-            .drain(base_time + Duration::from_millis(20), 100)
+            .drain(base_time + Duration::from_millis(20), 100, 15)
             .collect::<Vec<_>>()
     );
 
@@ -209,7 +213,7 @@ fn test_send_queue_100() {
             PushMessage::Activity
         ],
         queue
-            .drain(base_time + Duration::from_millis(200), 100)
+            .drain(base_time + Duration::from_millis(200), 100, 15)
             .collect::<Vec<_>>()
     );
 
@@ -225,7 +229,7 @@ fn test_send_queue_100() {
     assert_eq!(
         Vec::<PushMessage>::new(),
         queue
-            .drain(base_time + Duration::from_secs(10), 100)
+            .drain(base_time + Duration::from_secs(10), 100, 15)
             .collect::<Vec<_>>()
     );
 
@@ -233,7 +237,7 @@ fn test_send_queue_100() {
     assert_eq!(
         vec![PushMessage::File(UpdatedFiles::Known(vec![3, 4].into()))],
         queue
-            .drain(base_time + Duration::from_secs(70), 100)
+            .drain(base_time + Duration::from_secs(70), 100, 15)
             .collect::<Vec<_>>()
     );
 
@@ -241,7 +245,7 @@ fn test_send_queue_100() {
     assert_eq!(
         Vec::<PushMessage>::new(),
         queue
-            .drain(base_time + Duration::from_secs(300), 100)
+            .drain(base_time + Duration::from_secs(300), 100, 15)
             .collect::<Vec<_>>()
     );
 }
@@ -264,7 +268,7 @@ fn test_send_queue_1() {
     assert_eq!(
         Vec::<PushMessage>::new(),
         queue
-            .drain(base_time + Duration::from_millis(20), 1)
+            .drain(base_time + Duration::from_millis(20), 1, 15)
             .collect::<Vec<_>>()
     );
 
@@ -275,7 +279,7 @@ fn test_send_queue_1() {
             PushMessage::Activity
         ],
         queue
-            .drain(base_time + Duration::from_millis(200), 1)
+            .drain(base_time + Duration::from_millis(200), 1, 15)
             .collect::<Vec<_>>()
     );
 
@@ -291,7 +295,7 @@ fn test_send_queue_1() {
     assert_eq!(
         Vec::<PushMessage>::new(),
         queue
-            .drain(base_time + Duration::from_secs(1), 1)
+            .drain(base_time + Duration::from_secs(1), 1, 15)
             .collect::<Vec<_>>()
     );
 
@@ -299,7 +303,7 @@ fn test_send_queue_1() {
     assert_eq!(
         vec![PushMessage::File(UpdatedFiles::Known(vec![3, 4].into()))],
         queue
-            .drain(base_time + Duration::from_secs(3), 1)
+            .drain(base_time + Duration::from_secs(3), 1, 15)
             .collect::<Vec<_>>()
     );
 
@@ -307,7 +311,7 @@ fn test_send_queue_1() {
     assert_eq!(
         Vec::<PushMessage>::new(),
         queue
-            .drain(base_time + Duration::from_secs(5), 1)
+            .drain(base_time + Duration::from_secs(5), 1, 15)
             .collect::<Vec<_>>()
     );
 }
