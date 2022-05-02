@@ -335,8 +335,8 @@ For information about how to use the push server in your own app or client, see 
 ## Test client
 
 For development and testing purposes a test client is provided which can be downloaded from
-the [github actions](https://github.com/nextcloud/notify_push/actions/workflows/rust.yml) page.<br>
-(Click on a run from the list, scroll to the bottom and click on `test_client` to download the binary.)<br>
+the [current release](https://github.com/nextcloud/notify_push/releases/latest) page.<br>
+(Click on `test_client` to download the binary.)<br>
 Please note: the Test client is only build for x86_64 Linux currently.
 
 ```bash
