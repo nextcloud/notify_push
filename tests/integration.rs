@@ -292,6 +292,7 @@ async fn assert_next_message(
     client: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
     expected: &str,
 ) {
+    sleep(Duration::from_millis(100)).await;
     assert_eq!(
         timeout(Duration::from_millis(200), client.next())
             .await
@@ -430,6 +431,8 @@ async fn test_pre_auth() {
     let services = Services::new().await;
 
     let server_handle = services.spawn_server().await;
+
+    sleep(Duration::from_millis(500)).await;
 
     let mut redis = services.redis_client().await;
     redis
