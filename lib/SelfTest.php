@@ -154,12 +154,15 @@ class SelfTest {
 				return self::ERROR_TRUSTED_PROXY;
 			}
 
-			$output->writeln("<error>🗴 push server is not a trusted proxy, please add '$remote' to the list of trusted proxies" .
-				" or configure any existing reverse proxy to forward the 'x-forwarded-for' send by the push server.</error>");
-			$output->writeln("  See https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/reverse_proxy_configuration.html#defining-trusted-proxies for how to set trusted proxies.");
-			$output->writeln("  The following trusted proxies are currently configured: " . implode(', ', array_map(function (string $proxy) {
-				return '"' . $proxy . '"';
-			}, $trustedProxies)));
+			if (!$this->isTrustedProxy($trustedProxies, $remote)) {
+				$output->writeln("<error>🗴 push server is not a trusted proxy, please add '$remote' to the list of trusted proxies" .
+					" or configure any existing reverse proxy to forward the 'x-forwarded-for' send by the push server.</error>");
+				$output->writeln("  See https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/reverse_proxy_configuration.html#defining-trusted-proxies for how to set trusted proxies.");
+				$output->writeln("  The following trusted proxies are currently configured: " . implode(', ', array_map(function (string $proxy) {
+					return '"' . $proxy . '"';
+				}, $trustedProxies)));
+				return self::ERROR_TRUSTED_PROXY;
+			}
 			$invalidConfig = array_filter($trustedProxies, function (string $proxy) {
 				return !$this->isValidProxyConfig($proxy);
 			});
@@ -174,7 +177,6 @@ class SelfTest {
 			$output->writeln("  If you're having issues getting the trusted proxy setup working, you can try bypassing any existing reverse proxy");
 			$output->writeln("  in your setup by setting the `NEXTCLOUD_URL` environment variable to point directly to the internal Nextcloud webserver url");
 			$output->writeln("  (You will still need the ip address of the push server added as trusted proxy)");
-			return self::ERROR_TRUSTED_PROXY;
 		}
 
 		// test that the binary is up to date
@@ -226,5 +228,30 @@ class SelfTest {
 		} else {
 			return (bool)preg_match($cidrre, $proxyConfig);
 		}
+	}
+
+	protected function matchesTrustedProxy(string $trustedProxy, string $remoteAddress): bool {
+		$cidrre = '/^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\/([0-9]{1,2})$/';
+
+		if (preg_match($cidrre, $trustedProxy, $match)) {
+			$net = $match[1];
+			$shiftbits = min(32, max(0, 32 - intval($match[2])));
+			$netnum = ip2long($net) >> $shiftbits;
+			$ipnum = ip2long($remoteAddress) >> $shiftbits;
+
+			return $ipnum === $netnum;
+		}
+
+		return $trustedProxy === $remoteAddress;
+	}
+
+	protected function isTrustedProxy(array $trustedProxies, string $remoteAddress): bool {
+		foreach ($trustedProxies as $tp) {
+			if ($this->matchesTrustedProxy($tp, $remoteAddress)) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
