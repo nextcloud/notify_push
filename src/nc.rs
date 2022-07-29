@@ -82,10 +82,9 @@ impl Client {
             if text.contains("admin-trusted-domains") {
                 Err(NextCloudError::NotATrustedDomain(
                     self.base_url.host_str().unwrap_or_default().into(),
-                )
-                .into())
+                ))
             } else {
-                Err(NextCloudError::Client(status).into())
+                Err(NextCloudError::Client(status))
             }
         } else {
             Ok(text
@@ -95,8 +94,7 @@ impl Client {
     }
 
     pub async fn test_set_remote(&self, addr: IpAddr) -> Result<IpAddr, NextCloudError> {
-        Ok(self
-            .http
+        self.http
             .get(
                 self.base_url
                     .join("index.php/apps/notify_push/test/remote")
@@ -108,7 +106,7 @@ impl Client {
             .text()
             .await?
             .parse()
-            .map_err(NextCloudError::MalformedRemote)?)
+            .map_err(NextCloudError::MalformedRemote)
     }
 
     /// Ask the app to put it's version number into redis under 'notify_push_app_version'

@@ -134,8 +134,8 @@ impl TryFrom<PartialConfig> for Config {
                 if perm.len() != 4 && !perm.starts_with('0') {
                     return Err(ConfigError::SocketPermissions(perm, None));
                 }
-                Ok(u32::from_str_radix(&perm, 8)
-                    .map_err(|e| ConfigError::SocketPermissions(perm, Some(e)))?)
+                u32::from_str_radix(&perm, 8)
+                    .map_err(|e| ConfigError::SocketPermissions(perm, Some(e)))
             })
             .transpose()?
             .unwrap_or(0o666);
@@ -161,15 +161,13 @@ impl TryFrom<PartialConfig> for Config {
             _ => None,
         };
 
-        let mut nextcloud_url = config
-            .nextcloud_url
-            .ok_or_else(|| ConfigError::NoNextcloud)?;
+        let mut nextcloud_url = config.nextcloud_url.ok_or(ConfigError::NoNextcloud)?;
         if !nextcloud_url.ends_with('/') {
             nextcloud_url.push('/');
         }
 
         Ok(Config {
-            database: config.database.ok_or_else(|| ConfigError::NoDatabase)?,
+            database: config.database.ok_or(ConfigError::NoDatabase)?,
             database_prefix: config
                 .database_prefix
                 .unwrap_or_else(|| String::from("oc_")),
