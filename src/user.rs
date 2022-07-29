@@ -1,4 +1,4 @@
-use ahash::RandomState;
+use ahash::{AHasher, RandomState};
 use dashmap::DashMap;
 use log::LevelFilter;
 use once_cell::sync::Lazy;
@@ -7,7 +7,6 @@ use serde::{Deserialize, Deserializer};
 use sqlx::database::HasValueRef;
 use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Type};
-use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::hash::Hasher;
 
@@ -20,7 +19,7 @@ pub struct UserId {
 
 impl UserId {
     pub fn new(user_id: &str) -> Self {
-        let mut hash = DefaultHasher::new();
+        let mut hash = AHasher::default();
         hash.write(user_id.as_bytes());
         let hash = hash.finish();
 
