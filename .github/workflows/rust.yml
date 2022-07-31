@@ -13,7 +13,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v1
+      #- uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
           command: check
@@ -37,7 +37,7 @@ jobs:
           toolchain: stable
           override: true
           target: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v1
+      #- uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
           use-cross: true
@@ -59,7 +59,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v1
+     # - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -79,7 +79,7 @@ jobs:
           toolchain: stable
           override: true
           target: x86_64-unknown-linux-musl
-      - uses: Swatinem/rust-cache@v1
+      #- uses: Swatinem/rust-cache@v1
       - run: cargo build --release --target x86_64-unknown-linux-musl
         working-directory: ./test_client
       - uses: actions/upload-artifact@v2
@@ -97,7 +97,7 @@ jobs:
           profile: minimal
           toolchain: 1.54
           override: true
-      - uses: Swatinem/rust-cache@v1
+      #- uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
           command: check
