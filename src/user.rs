@@ -1,4 +1,5 @@
-use ahash::{AHasher, RandomState};
+use crate::passthru_hasher::PassthruHasher;
+use ahash::AHasher;
 use dashmap::DashMap;
 use log::LevelFilter;
 use once_cell::sync::Lazy;
@@ -10,7 +11,7 @@ use sqlx::{Database, Decode, Type};
 use std::fmt;
 use std::hash::Hasher;
 
-static USER_NAMES: Lazy<DashMap<u64, String, RandomState>> = Lazy::new(DashMap::default);
+static USER_NAMES: Lazy<DashMap<u64, String, PassthruHasher>> = Lazy::new(DashMap::default);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UserId {

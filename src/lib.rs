@@ -41,6 +41,7 @@ pub mod event;
 pub mod message;
 pub mod metrics;
 pub mod nc;
+pub mod passthru_hasher;
 pub mod redis;
 pub mod storage_mapping;
 pub mod user;

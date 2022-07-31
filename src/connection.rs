@@ -1,9 +1,10 @@
 use crate::error::{AuthenticationError, WebSocketError};
 use crate::message::{PushMessage, SendQueue};
 use crate::metrics::METRICS;
+use crate::passthru_hasher::PassthruHasher;
 use crate::Result;
 use crate::{App, UserId};
-use ahash::RandomState;
+use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
 use std::net::IpAddr;
@@ -18,21 +19,24 @@ use warp::filters::ws::{Message, WebSocket};
 const USER_CONNECTION_LIMIT: usize = 64;
 
 #[derive(Default)]
-pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<PushMessage>, RandomState>);
+pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<PushMessage>, PassthruHasher>);
 
 impl ActiveConnections {
     pub async fn add(&self, user: UserId) -> Result<broadcast::Receiver<PushMessage>> {
-        if let Some(sender) = self.0.get(&user) {
-            // stop a single user from trying to eat all the resources
-            if sender.receiver_count() > USER_CONNECTION_LIMIT {
-                Err(AuthenticationError::LimitExceeded.into())
-            } else {
-                Ok(sender.subscribe())
+        match self.0.entry(user) {
+            Entry::Occupied(e) => {
+                let sender = e.get();
+                if sender.receiver_count() > USER_CONNECTION_LIMIT {
+                    Err(AuthenticationError::LimitExceeded.into())
+                } else {
+                    Ok(sender.subscribe())
+                }
             }
-        } else {
-            let (tx, rx) = broadcast::channel(4);
-            self.0.insert(user, tx);
-            Ok(rx)
+            Entry::Vacant(e) => {
+                let (tx, rx) = broadcast::channel(4);
+                e.insert(tx);
+                Ok(rx)
+            }
         }
     }
 
