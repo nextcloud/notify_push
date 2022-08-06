@@ -45,6 +45,15 @@ impl ActiveConnections {
             tx.send(msg).ok();
         }
     }
+
+    pub fn remove(&self, user: &UserId) {
+        if let Entry::Occupied(e) = self.0.entry(user.clone()) {
+            if e.get().receiver_count() == 1 {
+                log::debug!("Removing {} from active connections", user);
+                e.remove();
+            }
+        }
+    }
 }
 
 #[derive(Default)]
@@ -209,6 +218,8 @@ pub async fn handle_user_socket(
     select(transmit, receive).await;
 
     METRICS.remove_connection();
+
+    app.connections.remove(&user_id);
 }
 
 async fn read_socket_auth_message(rx: &mut WebSocket) -> Result<Message, WebSocketError> {
