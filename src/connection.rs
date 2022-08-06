@@ -46,8 +46,8 @@ impl ActiveConnections {
         }
     }
 
-    pub fn remove(&self, user: &UserId) {
-        if let Entry::Occupied(e) = self.0.entry(user.clone()) {
+    pub fn remove(&self, user: UserId) {
+        if let Entry::Occupied(e) = self.0.entry(user) {
             if e.get().receiver_count() == 1 {
                 log::debug!("Removing {} from active connections", user);
                 e.remove();
@@ -100,7 +100,7 @@ pub async fn handle_user_socket(
     log::info!("new websocket authenticated as {}", user_id);
     ws.send(Message::text("authenticated")).await.ok();
 
-    let mut rx = match app.connections.add(user_id.clone()).await {
+    let mut rx = match app.connections.add(user_id).await {
         Ok(rx) => rx,
         Err(e) => {
             ws.send(Message::text(e.to_string())).await.ok();
@@ -219,7 +219,7 @@ pub async fn handle_user_socket(
 
     METRICS.remove_connection();
 
-    app.connections.remove(&user_id);
+    app.connections.remove(user_id);
 }
 
 async fn read_socket_auth_message(rx: &mut WebSocket) -> Result<Message, WebSocketError> {

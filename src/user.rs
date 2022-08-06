@@ -13,7 +13,7 @@ use std::hash::Hasher;
 
 static USER_NAMES: Lazy<DashMap<u64, String, PassthruHasher>> = Lazy::new(DashMap::default);
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct UserId {
     hash: u64,
 }
@@ -61,14 +61,16 @@ impl<'de> Deserialize<'de> for UserId {
 }
 
 impl From<String> for UserId {
+    #[inline]
     fn from(id: String) -> Self {
-        UserId::new(&id)
+        Self::new(&id)
     }
 }
 
 impl From<&str> for UserId {
+    #[inline]
     fn from(id: &str) -> Self {
-        UserId::new(id)
+        Self::new(id)
     }
 }
 

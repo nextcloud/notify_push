@@ -89,7 +89,7 @@ impl StorageMapping {
             .iter()
             .filter_map(|access| {
                 if path.starts_with(&access.root) {
-                    Some(access.user.clone())
+                    Some(access.user)
                 } else {
                     None
                 }
