@@ -22,7 +22,7 @@ const USER_CONNECTION_LIMIT: usize = 64;
 pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<PushMessage>, PassthruHasher>);
 
 impl ActiveConnections {
-    pub async fn add(&self, user: UserId) -> Result<broadcast::Receiver<PushMessage>> {
+    pub fn add(&self, user: UserId) -> Result<broadcast::Receiver<PushMessage>> {
         match self.0.entry(user) {
             Entry::Occupied(e) => {
                 let sender = e.get();
@@ -40,8 +40,8 @@ impl ActiveConnections {
         }
     }
 
-    pub async fn send_to_user(&self, user: &UserId, msg: PushMessage) {
-        if let Some(tx) = self.0.get(user) {
+    pub fn send_to_user(&self, user: UserId, msg: PushMessage) {
+        if let Some(tx) = self.0.get(&user) {
             tx.send(msg).ok();
         }
     }
@@ -100,7 +100,7 @@ pub async fn handle_user_socket(
     log::info!("new websocket authenticated as {}", user_id);
     ws.send(Message::text("authenticated")).await.ok();
 
-    let mut rx = match app.connections.add(user_id).await {
+    let mut rx = match app.connections.add(user_id) {
         Ok(rx) => rx,
         Err(e) => {
             ws.send(Message::text(e.to_string())).await.ok();
