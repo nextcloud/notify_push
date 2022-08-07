@@ -9,7 +9,6 @@ use warp::Filter;
 
 pub static METRICS: Metrics = Metrics::new();
 
-#[derive(Default)]
 pub struct Metrics {
     active_connection_count: AtomicUsize,
     total_connection_count: AtomicUsize,
@@ -27,21 +26,9 @@ struct SerializeMetrics {
     messages_sent: usize,
 }
 
-impl From<Metrics> for SerializeMetrics {
-    fn from(metrics: Metrics) -> Self {
-        SerializeMetrics {
-            active_connection_count: metrics.active_connection_count(),
-            total_connection_count: metrics.total_connection_count(),
-            mapping_query_count: metrics.mapping_query_count(),
-            events_received: metrics.events_received(),
-            messages_sent: metrics.messages_sent(),
-        }
-    }
-}
-
 impl From<&Metrics> for SerializeMetrics {
     fn from(metrics: &Metrics) -> Self {
-        SerializeMetrics {
+        Self {
             active_connection_count: metrics.active_connection_count(),
             total_connection_count: metrics.total_connection_count(),
             mapping_query_count: metrics.mapping_query_count(),
@@ -91,23 +78,28 @@ impl Metrics {
         self.messages_sent.load(Ordering::Relaxed)
     }
 
+    #[inline]
     pub fn add_connection(&self) {
         self.total_connection_count.fetch_add(1, Ordering::Relaxed);
         self.active_connection_count.fetch_add(1, Ordering::Relaxed);
     }
 
+    #[inline]
     pub fn remove_connection(&self) {
         self.active_connection_count.fetch_sub(1, Ordering::Relaxed);
     }
 
+    #[inline]
     pub fn add_mapping_query(&self) {
         self.mapping_query_count.fetch_add(1, Ordering::Relaxed);
     }
 
+    #[inline]
     pub fn add_event(&self) {
         self.events_received.fetch_add(1, Ordering::Relaxed);
     }
 
+    #[inline]
     pub fn add_message(&self) {
         self.messages_sent.fetch_add(1, Ordering::Relaxed);
     }
