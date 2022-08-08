@@ -73,9 +73,7 @@ impl PushMessage {
             PushMessage::Custom(..) => Duration::from_millis(1), // no debouncing for custom messages
         }
     }
-}
 
-impl PushMessage {
     pub fn into_message(self, opts: &ConnectionOptions) -> Message {
         match self {
             PushMessage::File(ids) => match ids {
@@ -110,9 +108,10 @@ struct SendQueueItem {
 
 impl Default for SendQueueItem {
     fn default() -> Self {
+        let received = Instant::now() - Duration::from_secs(120);
         SendQueueItem {
-            received: Instant::now() - Duration::from_secs(120),
-            sent: Instant::now() - Duration::from_secs(120),
+            received,
+            sent: received,
             message: None,
         }
     }

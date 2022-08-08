@@ -63,8 +63,9 @@ pub struct ConnectionOptions {
 }
 
 impl ConnectionOptions {
+    #[inline]
     pub fn new(max_debounce_time: usize) -> Self {
-        ConnectionOptions {
+        Self {
             max_debounce_time,
             ..ConnectionOptions::default()
         }
