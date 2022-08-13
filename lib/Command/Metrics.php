@@ -67,6 +67,7 @@ class Metrics extends Command {
 					return 1;
 				}
 				$output->writeln("Active connection count: " . $metrics['active_connection_count']);
+				$output->writeln("Active user count: " . $metrics['active_user_count']);
 				$output->writeln("Total connection count: " . $metrics['total_connection_count']);
 				$output->writeln("Total database query count: " . $metrics['mapping_query_count']);
 				$output->writeln("Events received: " . $metrics['events_received']);

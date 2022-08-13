@@ -6,7 +6,7 @@ use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
 };
 use crate::message::{PushMessage, UpdatedFiles};
-use crate::metrics::METRICS;
+use crate::metrics::{SerializeMetrics, METRICS};
 use crate::redis::Redis;
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
@@ -202,10 +202,11 @@ impl App {
             }
             Event::Query(event::Query::Metrics) => match self.redis.connect().await {
                 Ok(mut redis) => {
+                    let metrics = SerializeMetrics::new(&METRICS, self.active_user_count());
                     if let Err(e) = redis
                         .set(
                             "notify_push_metrics",
-                            &serde_json::to_string(&METRICS).unwrap(),
+                            &serde_json::to_string(&metrics).unwrap(),
                         )
                         .await
                     {
@@ -225,6 +226,11 @@ impl App {
 
     pub fn reset_rx(&self) -> broadcast::Receiver<()> {
         self.reset_tx.subscribe()
+    }
+
+    #[inline]
+    pub fn active_user_count(&self) -> usize {
+        self.connections.active_user_count()
     }
 }
 

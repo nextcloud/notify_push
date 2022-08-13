@@ -1,9 +1,11 @@
 use crate::config::{Bind, TlsConfig};
-use crate::{serve_at, Result};
-use serde::{Serialize, Serializer};
+use crate::{serve_at, App, Result};
+use serde::Serialize;
+use std::fmt;
 use std::fmt::Write;
 use std::future::Future;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tokio::sync::oneshot;
 use warp::Filter;
 
@@ -18,18 +20,21 @@ pub struct Metrics {
 }
 
 #[derive(Serialize)]
-struct SerializeMetrics {
+pub struct SerializeMetrics {
     active_connection_count: usize,
+    active_user_count: usize,
     total_connection_count: usize,
     mapping_query_count: usize,
     events_received: usize,
     messages_sent: usize,
 }
 
-impl From<&Metrics> for SerializeMetrics {
-    fn from(metrics: &Metrics) -> Self {
+impl SerializeMetrics {
+    #[inline]
+    pub fn new(metrics: &Metrics, active_user_count: usize) -> Self {
         Self {
             active_connection_count: metrics.active_connection_count(),
+            active_user_count,
             total_connection_count: metrics.total_connection_count(),
             mapping_query_count: metrics.mapping_query_count(),
             events_received: metrics.events_received(),
@@ -38,12 +43,23 @@ impl From<&Metrics> for SerializeMetrics {
     }
 }
 
-impl Serialize for Metrics {
-    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
-    where
-        S: Serializer,
-    {
-        SerializeMetrics::from(self).serialize(serializer)
+impl fmt::Display for SerializeMetrics {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(
+            fmt,
+            "active_connection_count {}",
+            self.active_connection_count
+        )?;
+        writeln!(fmt, "active_user_count {}", self.active_user_count)?;
+        writeln!(
+            fmt,
+            "total_connection_count {}",
+            self.total_connection_count
+        )?;
+        writeln!(fmt, "mapping_query_count {}", self.mapping_query_count)?;
+        writeln!(fmt, "events_received {}", self.events_received)?;
+        writeln!(fmt, "messages_sent {}", self.messages_sent)?;
+        Ok(())
     }
 }
 
@@ -58,22 +74,27 @@ impl Metrics {
         }
     }
 
+    #[inline]
     pub fn active_connection_count(&self) -> usize {
         self.active_connection_count.load(Ordering::Relaxed)
     }
 
+    #[inline]
     pub fn total_connection_count(&self) -> usize {
         self.total_connection_count.load(Ordering::Relaxed)
     }
 
+    #[inline]
     pub fn mapping_query_count(&self) -> usize {
         self.mapping_query_count.load(Ordering::Relaxed)
     }
 
+    #[inline]
     pub fn events_received(&self) -> usize {
         self.events_received.load(Ordering::Relaxed)
     }
 
+    #[inline]
     pub fn messages_sent(&self) -> usize {
         self.messages_sent.load(Ordering::Relaxed)
     }
@@ -106,39 +127,21 @@ impl Metrics {
 }
 
 pub fn serve_metrics(
+    app: Arc<App>,
     bind: Bind,
     cancel: oneshot::Receiver<()>,
     tls: Option<&TlsConfig>,
 ) -> Result<impl Future<Output = ()> + Send> {
-    let metrics = warp::path!("metrics").map(|| {
-        let mut response = String::with_capacity(128);
-        let _ = writeln!(
-            &mut response,
-            "active_connection_count {}",
-            METRICS.active_connection_count()
-        );
-        let _ = writeln!(
-            &mut response,
-            "total_connection_count {}",
-            METRICS.total_connection_count()
-        );
-        let _ = writeln!(
-            &mut response,
-            "mapping_query_count {}",
-            METRICS.mapping_query_count()
-        );
-        let _ = writeln!(
-            &mut response,
-            "event_count_total {}",
-            METRICS.events_received()
-        );
-        let _ = writeln!(
-            &mut response,
-            "message_count_total {}",
-            METRICS.messages_sent()
-        );
-        response
-    });
+    let app = warp::any().map(move || app.clone());
+
+    let metrics = warp::path!("metrics")
+        .and(app)
+        .map(move |app: Arc<App>| {
+            let metrics = SerializeMetrics::new(&METRICS, app.active_user_count());
+            let mut response = String::with_capacity(128);
+            write!(&mut response, "{}", metrics).unwrap();
+            response
+        });
 
     serve_at(metrics, bind, cancel, tls)
 }

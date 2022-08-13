@@ -89,6 +89,7 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
     if let Some(metrics_bind) = metrics_bind {
         log::trace!("Metrics listening {}", metrics_bind);
         spawn(serve_metrics(
+            app.clone(),
             metrics_bind,
             metrics_cancel_handle,
             tls.as_ref(),

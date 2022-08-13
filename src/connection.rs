@@ -54,6 +54,11 @@ impl ActiveConnections {
             }
         }
     }
+
+    #[inline]
+    pub fn active_user_count(&self) -> usize {
+        self.0.len()
+    }
 }
 
 #[derive(Default)]
