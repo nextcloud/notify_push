@@ -66,6 +66,18 @@ impl RedisConnection {
         })
     }
 
+    pub async fn lpush(&mut self, key: &str, value: &str) -> Result<()> {
+        match self {
+            RedisConnection::Async(client) => {
+                client.lpush::<_, _, ()>(key, value).await?;
+            }
+            RedisConnection::Cluster(client) => {
+                block_in_place(|| client.lpush::<_, _, ()>(key, value))?;
+            }
+        }
+        Ok(())
+    }
+
     pub async fn set(&mut self, key: &str, value: &str) -> Result<()> {
         match self {
             RedisConnection::Async(client) => {

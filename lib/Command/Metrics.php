@@ -54,14 +54,9 @@ class Metrics extends Command {
 			$redis = $this->queue->getConnection();
 			$redis->del("notify_push_metrics");
 			$this->queue->push("notify_query", "metrics");
-			usleep(10 * 1000);
-			$metrics = $redis->get("notify_push_metrics");
-			if (!$metrics) {
-				usleep(100 * 1000);
-				$metrics = $redis->get("notify_push_metrics");
-			}
+			$metrics = $redis->brpop(["notify_push_metrics"], 5);
 			if ($metrics) {
-				$metrics = json_decode($metrics, true);
+				$metrics = json_decode($metrics[1], true);
 				if (!is_array($metrics)) {
 					$output->writeln("<error>Invalid metrics received from push server</error>");
 					return 1;

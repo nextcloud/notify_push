@@ -204,7 +204,7 @@ impl App {
                 Ok(mut redis) => {
                     let metrics = SerializeMetrics::new(&METRICS, self.active_user_count());
                     if let Err(e) = redis
-                        .set(
+                        .lpush(
                             "notify_push_metrics",
                             &serde_json::to_string(&metrics).unwrap(),
                         )
