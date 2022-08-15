@@ -24,17 +24,18 @@ struct CachedAccess {
 }
 
 impl CachedAccess {
-    pub fn new(access: Vec<UserStorageAccess>) -> Self {
+    pub fn new(access: Vec<UserStorageAccess>, now: Instant) -> Self {
         let mut rng = thread_rng();
         Self {
             access,
-            valid_till: Instant::now()
+            valid_till: now
                 + Duration::from_millis(rng.gen_range((4 * 60 * 1000)..(5 * 60 * 1000))),
         }
     }
 
-    pub fn is_valid(&self) -> bool {
-        self.valid_till > Instant::now()
+    #[inline]
+    pub fn is_valid(&self, now: Instant) -> bool {
+        self.valid_till > now
     }
 }
 
@@ -68,12 +69,20 @@ impl StorageMapping {
         &self,
         storage: u32,
     ) -> Result<Ref<'_, u32, CachedAccess, RandomState>, DatabaseError> {
-        if let Some(cached) = self.cache.get(&storage).filter(|cached| cached.is_valid()) {
+        let now = Instant::now();
+        if let Some(cached) = self
+            .cache
+            .get(&storage)
+            .filter(|cached| cached.is_valid(now))
+        {
             Ok(cached)
         } else {
             let users = self.load_storage_mapping(storage).await?;
 
-            self.cache.insert(storage, CachedAccess::new(users));
+            // Remove invalid entries
+            self.cache.retain(|_, c| c.is_valid(now));
+
+            self.cache.insert(storage, CachedAccess::new(users, now));
             Ok(self.cache.get(&storage).unwrap())
         }
     }
