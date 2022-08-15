@@ -134,14 +134,12 @@ pub fn serve_metrics(
 ) -> Result<impl Future<Output = ()> + Send> {
     let app = warp::any().map(move || app.clone());
 
-    let metrics = warp::path!("metrics")
-        .and(app)
-        .map(move |app: Arc<App>| {
-            let metrics = SerializeMetrics::new(&METRICS, app.active_user_count());
-            let mut response = String::with_capacity(128);
-            write!(&mut response, "{}", metrics).unwrap();
-            response
-        });
+    let metrics = warp::path!("metrics").and(app).map(move |app: Arc<App>| {
+        let metrics = SerializeMetrics::new(&METRICS, app.active_user_count());
+        let mut response = String::with_capacity(128);
+        write!(&mut response, "{}", metrics).unwrap();
+        response
+    });
 
     serve_at(metrics, bind, cancel, tls)
 }

@@ -50,10 +50,10 @@ impl RedisConnection {
     pub async fn del(&mut self, key: &str) -> Result<(), redis::RedisError> {
         match self {
             RedisConnection::Async(client) => {
-                client.del::<_, ()>(key).await?;
+                client.del(key).await?;
             }
             RedisConnection::Cluster(client) => {
-                block_in_place(|| client.del::<_, ()>(key))?;
+                block_in_place(|| client.del(key))?;
             }
         }
         Ok(())
@@ -61,18 +61,18 @@ impl RedisConnection {
 
     pub async fn get(&mut self, key: &str) -> Result<String> {
         Ok(match self {
-            RedisConnection::Async(client) => client.get::<_, String>(key).await?,
-            RedisConnection::Cluster(client) => block_in_place(|| client.get::<_, String>(key))?,
+            RedisConnection::Async(client) => client.get(key).await?,
+            RedisConnection::Cluster(client) => block_in_place(|| client.get(key))?,
         })
     }
 
     pub async fn lpush(&mut self, key: &str, value: &str) -> Result<()> {
         match self {
             RedisConnection::Async(client) => {
-                client.lpush::<_, _, ()>(key, value).await?;
+                client.lpush(key, value).await?;
             }
             RedisConnection::Cluster(client) => {
-                block_in_place(|| client.lpush::<_, _, ()>(key, value))?;
+                block_in_place(|| client.lpush(key, value))?;
             }
         }
         Ok(())
@@ -81,10 +81,10 @@ impl RedisConnection {
     pub async fn set(&mut self, key: &str, value: &str) -> Result<()> {
         match self {
             RedisConnection::Async(client) => {
-                client.set::<_, _, ()>(key, value).await?;
+                client.set(key, value).await?;
             }
             RedisConnection::Cluster(client) => {
-                block_in_place(|| client.set::<_, _, ()>(key, value))?;
+                block_in_place(|| client.set(key, value))?;
             }
         }
         Ok(())
