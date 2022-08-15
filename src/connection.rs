@@ -224,8 +224,9 @@ pub async fn handle_user_socket(
     select(transmit, receive).await;
 
     METRICS.remove_connection();
-
     app.connections.remove(user_id);
+    // Clean storage mapping cache when closing connection
+    app.storage_mapping.cache_cleanup();
 }
 
 async fn read_socket_auth_message(rx: &mut WebSocket) -> Result<Message, WebSocketError> {

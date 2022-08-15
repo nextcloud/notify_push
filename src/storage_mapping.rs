@@ -79,9 +79,6 @@ impl StorageMapping {
         } else {
             let users = self.load_storage_mapping(storage).await?;
 
-            // Remove invalid entries
-            self.cache.retain(|_, c| c.is_valid(now));
-
             self.cache.insert(storage, CachedAccess::new(users, now));
             Ok(self.cache.get(&storage).unwrap())
         }
@@ -105,6 +102,12 @@ impl StorageMapping {
             })
             .collect::<Vec<_>>()
             .into_iter())
+    }
+
+    /// Remove invalid cache entries
+    pub fn cache_cleanup(&self) {
+        let now = Instant::now();
+        self.cache.retain(|_, c| c.is_valid(now));
     }
 
     async fn load_storage_mapping(
