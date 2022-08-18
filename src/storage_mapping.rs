@@ -46,15 +46,12 @@ pub struct StorageMapping {
 }
 
 impl StorageMapping {
-    pub fn from_connection(
-        connection: AnyPool,
-        prefix: String,
-    ) -> Result<Self, DatabaseError> {
-        Ok(StorageMapping {
+    pub fn from_connection(connection: AnyPool, prefix: String) -> Self {
+        Self {
             cache: Default::default(),
             connection,
             prefix,
-        })
+        }
     }
 
     pub async fn new(options: AnyConnectOptions, prefix: String) -> Result<Self, DatabaseError> {
@@ -62,7 +59,7 @@ impl StorageMapping {
             .await
             .map_err(DatabaseError::Connect)?;
 
-        Self::from_connection(connection, prefix)
+        Ok(Self::from_connection(connection, prefix))
     }
 
     async fn get_storage_mapping(
