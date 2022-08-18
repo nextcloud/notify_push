@@ -17,6 +17,7 @@ pub struct Metrics {
     mapping_query_count: AtomicUsize,
     events_received: AtomicUsize,
     messages_sent: AtomicUsize,
+    pings_sent: AtomicUsize,
 }
 
 #[derive(Serialize)]
@@ -27,6 +28,7 @@ pub struct SerializeMetrics {
     mapping_query_count: usize,
     events_received: usize,
     messages_sent: usize,
+    pings_sent: usize,
 }
 
 impl SerializeMetrics {
@@ -39,6 +41,7 @@ impl SerializeMetrics {
             mapping_query_count: metrics.mapping_query_count(),
             events_received: metrics.events_received(),
             messages_sent: metrics.messages_sent(),
+            pings_sent: metrics.pings_sent(),
         }
     }
 }
@@ -59,6 +62,7 @@ impl fmt::Display for SerializeMetrics {
         writeln!(fmt, "mapping_query_count {}", self.mapping_query_count)?;
         writeln!(fmt, "events_received {}", self.events_received)?;
         writeln!(fmt, "messages_sent {}", self.messages_sent)?;
+        writeln!(fmt, "pings_sent {}", self.pings_sent)?;
         Ok(())
     }
 }
@@ -71,6 +75,7 @@ impl Metrics {
             mapping_query_count: AtomicUsize::new(0),
             events_received: AtomicUsize::new(0),
             messages_sent: AtomicUsize::new(0),
+            pings_sent: AtomicUsize::new(0),
         }
     }
 
@@ -100,6 +105,11 @@ impl Metrics {
     }
 
     #[inline]
+    pub fn pings_sent(&self) -> usize {
+        self.pings_sent.load(Ordering::Relaxed)
+    }
+
+    #[inline]
     pub fn add_connection(&self) {
         self.total_connection_count.fetch_add(1, Ordering::Relaxed);
         self.active_connection_count.fetch_add(1, Ordering::Relaxed);
@@ -123,6 +133,11 @@ impl Metrics {
     #[inline]
     pub fn add_message(&self) {
         self.messages_sent.fetch_add(1, Ordering::Relaxed);
+    }
+
+    #[inline]
+    pub fn add_ping(&self) {
+        self.pings_sent.fetch_add(1, Ordering::Relaxed);
     }
 }
 

@@ -67,6 +67,7 @@ class Metrics extends Command {
 				$output->writeln("Total database query count: " . $metrics['mapping_query_count']);
 				$output->writeln("Events received: " . $metrics['events_received']);
 				$output->writeln("Messages sent: " . $metrics['messages_sent']);
+				$output->writeln("Pings sent: " . $metrics['pings_sent']);
 				return 0;
 			} else {
 				$output->writeln("<error>No metrics received from push server</error>");

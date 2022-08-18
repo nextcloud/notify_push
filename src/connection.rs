@@ -163,6 +163,7 @@ pub async fn handle_user_socket(
                                 }
                                 log::debug!(target: "notify_push::send", "Sending ping to {}", user_id);
                                 last_send = now;
+                                METRICS.add_ping();
                                 user_ws_tx
                                     .feed(Message::ping(data.to_le_bytes()))
                                     .await
