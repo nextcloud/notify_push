@@ -23,7 +23,6 @@ smallvec = { version = "1", features = ["serde"] }
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "json"] }
 warp-real-ip = "0.2"
 parse-display = "0.5"
-percent-encoding = "2"
 rand = { version = "0.8", features = ["small_rng"] }
 ahash = "0.7"
 flexi_logger = { version = "0.22", features = ["colors", "atty"] }
@@ -35,7 +34,7 @@ url = "2"
 
 [dev-dependencies]
 mini-redis = "0.4"
-tokio-tungstenite = "0.16"
+tokio-tungstenite = "0.15"
 http-auth-basic = "0.3"
 test_client = { path = "test_client" }
 
