@@ -18,6 +18,7 @@ use tokio::time::timeout;
 use warp::filters::ws::{Message, WebSocket};
 
 const USER_CONNECTION_LIMIT: usize = 64;
+const PING_INTERVAL: Duration = Duration::from_secs(30);
 
 #[derive(Default)]
 pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<PushMessage>, PassthruHasher>);
@@ -132,11 +133,8 @@ pub async fn handle_user_socket(
         let mut rng = rand::rngs::SmallRng::seed_from_u64(0);
 
         let mut send_queue = SendQueue::default();
-
         let mut reset = app.reset_rx();
-
-        let ping_interval = Duration::from_secs(30);
-        let mut last_send = Instant::now() - ping_interval;
+        let mut last_send = Instant::now() - PING_INTERVAL;
 
         'tx_loop: loop {
             tokio::select! {
@@ -159,7 +157,7 @@ pub async fn handle_user_socket(
                                 user_ws_tx.feed(msg.into_message(&opts)).await.ok();
                             }
 
-                            if now.duration_since(last_send) > ping_interval {
+                            if now.duration_since(last_send) > PING_INTERVAL {
                                 let data = rng.gen::<NonZeroUsize>().into();
                                 let last_ping = expect_pong.swap(data, Ordering::SeqCst);
                                 if last_ping > 0 {
