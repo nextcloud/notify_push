@@ -53,6 +53,7 @@ pub enum PushMessage {
 }
 
 impl PushMessage {
+    #[inline]
     pub fn merge(&mut self, other: &PushMessage) {
         if let (PushMessage::File(a), PushMessage::File(b)) = (self, other) {
             a.extend(b)
@@ -120,26 +121,17 @@ pub struct SendQueue {
 }
 
 impl SendQueue {
-    pub fn new() -> Self {
-        SendQueue::default()
-    }
-
-    fn item_mut(&mut self, message: &PushMessage) -> Option<&mut SendQueueItem> {
-        match message {
-            PushMessage::File(_) => Some(&mut self.items[0]),
-            PushMessage::Activity => Some(&mut self.items[1]),
-            PushMessage::Notification => Some(&mut self.items[2]),
-            PushMessage::Custom(_, _) => None,
-        }
-    }
-
-    pub fn push(&mut self, message: PushMessage, time: Instant) -> Option<PushMessage> {
+    pub fn push(&mut self, message: PushMessage, now: Instant) -> Option<PushMessage> {
         if !DEBOUNCE_ENABLE.load(Ordering::Relaxed) {
             return Some(message);
         }
-        let item = match self.item_mut(&message) {
-            Some(item) => item,
-            None => return Some(message),
+
+        // Choose queue according to message type
+        let item = match message {
+            PushMessage::File(_) => &mut self.items[0],
+            PushMessage::Activity => &mut self.items[1],
+            PushMessage::Notification => &mut self.items[2],
+            PushMessage::Custom(_, _) => return Some(message),
         };
 
         match &mut item.message {
@@ -150,7 +142,7 @@ impl SendQueue {
                 *opt = Some(message);
             }
         };
-        item.received = time;
+        item.received = now;
 
         None
     }
@@ -183,7 +175,7 @@ impl SendQueue {
 #[test]
 fn test_send_queue_100() {
     let base_time = Instant::now();
-    let mut queue = SendQueue::new();
+    let mut queue = SendQueue::default();
     queue.push(PushMessage::Activity, base_time);
     queue.push(
         PushMessage::File(UpdatedFiles::Known(vec![1].into())),
@@ -249,7 +241,7 @@ fn test_send_queue_100() {
 #[test]
 fn test_send_queue_1() {
     let base_time = Instant::now();
-    let mut queue = SendQueue::new();
+    let mut queue = SendQueue::default();
     queue.push(PushMessage::Activity, base_time);
     queue.push(
         PushMessage::File(UpdatedFiles::Known(vec![1].into())),
