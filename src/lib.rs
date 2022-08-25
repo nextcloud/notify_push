@@ -291,9 +291,9 @@ pub fn serve(
             Result::<_, Infallible>::Ok(response)
         });
 
-    let mapping_test = warp::path!("test" / "mapping" / u32)
+    let mapping_test = warp::path!("test" / "mapping" / i64)
         .and(app.clone())
-        .and_then(|storage_id: u32, app: Arc<App>| async move {
+        .and_then(|storage_id: i64, app: Arc<App>| async move {
             let access = app
                 .storage_mapping
                 .get_users_for_storage_path(storage_id, "")
