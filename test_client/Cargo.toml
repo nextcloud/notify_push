@@ -2,7 +2,7 @@
 name = "test_client"
 version = "0.1.0"
 authors = ["Robin Appelman <robin@icewind.nl>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 tungstenite = { version = "0.16", default-features = false, features = ["rustls-tls-webpki-roots"] }
