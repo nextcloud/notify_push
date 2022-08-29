@@ -40,6 +40,13 @@ impl From<Option<u64>> for UpdatedFiles {
     }
 }
 
+impl From<u64> for UpdatedFiles {
+    #[inline]
+    fn from(id: u64) -> Self {
+        Self::Known(smallvec![id])
+    }
+}
+
 #[derive(Debug, Clone, Display, PartialEq)]
 pub enum PushMessage {
     #[display("notify_file")]
