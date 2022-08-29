@@ -60,7 +60,7 @@ pub struct Custom {
     pub user: UserId,
     pub message: String,
     #[serde(default)]
-    pub body: Value,
+    pub body: Box<Value>, // use box to reduce Event enum size from 72 to 48 bytes
 }
 
 #[derive(Debug, Deserialize, Display)]
@@ -107,42 +107,30 @@ impl TryFrom<Msg> for Event {
     type Error = MessageDecodeError;
 
     fn try_from(msg: Msg) -> Result<Self, Self::Error> {
-        match msg.get_channel_name() {
-            "notify_storage_update" => Ok(Event::StorageUpdate(serde_json::from_slice(
-                msg.get_payload_bytes(),
-            )?)),
-            "notify_group_membership_update" => Ok(Event::GroupUpdate(serde_json::from_slice(
-                msg.get_payload_bytes(),
-            )?)),
-            "notify_user_share_created" => Ok(Event::ShareCreate(serde_json::from_slice(
-                msg.get_payload_bytes(),
-            )?)),
-            "notify_test_cookie" => Ok(Event::TestCookie(serde_json::from_slice(
-                msg.get_payload_bytes(),
-            )?)),
-            "notify_activity" => Ok(Event::Activity(serde_json::from_slice(
-                msg.get_payload_bytes(),
-            )?)),
-            "notify_notification" => Ok(Event::Notification(serde_json::from_slice(
-                msg.get_payload_bytes(),
-            )?)),
-            "notify_pre_auth" => Ok(Event::PreAuth(serde_json::from_slice(
-                msg.get_payload_bytes(),
-            )?)),
-            "notify_custom" => Ok(Event::Custom(serde_json::from_slice(
-                msg.get_payload_bytes(),
-            )?)),
-            "notify_config" => Ok(Event::Config(serde_json::from_slice(
-                msg.get_payload_bytes(),
-            )?)),
-            "notify_query" => Ok(Event::Query(serde_json::from_slice(
-                msg.get_payload_bytes(),
-            )?)),
-            "notify_signal" => Ok(Event::Signal(serde_json::from_slice(
-                msg.get_payload_bytes(),
-            )?)),
-            _ => Err(MessageDecodeError::UnsupportedEventType),
-        }
+        Ok(match msg.get_channel_name() {
+            "notify_storage_update" => {
+                Self::StorageUpdate(serde_json::from_slice(msg.get_payload_bytes())?)
+            }
+            "notify_group_membership_update" => {
+                Self::GroupUpdate(serde_json::from_slice(msg.get_payload_bytes())?)
+            }
+            "notify_user_share_created" => {
+                Self::ShareCreate(serde_json::from_slice(msg.get_payload_bytes())?)
+            }
+            "notify_test_cookie" => {
+                Self::TestCookie(serde_json::from_slice(msg.get_payload_bytes())?)
+            }
+            "notify_activity" => Self::Activity(serde_json::from_slice(msg.get_payload_bytes())?),
+            "notify_notification" => {
+                Self::Notification(serde_json::from_slice(msg.get_payload_bytes())?)
+            }
+            "notify_pre_auth" => Self::PreAuth(serde_json::from_slice(msg.get_payload_bytes())?),
+            "notify_custom" => Self::Custom(serde_json::from_slice(msg.get_payload_bytes())?),
+            "notify_config" => Self::Config(serde_json::from_slice(msg.get_payload_bytes())?),
+            "notify_query" => Self::Query(serde_json::from_slice(msg.get_payload_bytes())?),
+            "notify_signal" => Self::Signal(serde_json::from_slice(msg.get_payload_bytes())?),
+            _ => return Err(MessageDecodeError::UnsupportedEventType),
+        })
     }
 }
 

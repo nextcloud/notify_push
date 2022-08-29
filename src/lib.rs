@@ -187,7 +187,7 @@ impl App {
                 body,
             }) => {
                 self.connections
-                    .send_to_user(user, PushMessage::Custom(message, body));
+                    .send_to_user(user, PushMessage::Custom(message, *body));
             }
             Event::Config(event::Config::LogSpec(spec)) => {
                 match self.log_handle.lock().await.parse_and_push_temp_spec(&spec) {
