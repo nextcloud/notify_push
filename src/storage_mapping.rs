@@ -4,7 +4,7 @@ use crate::{Result, UserId};
 use ahash::RandomState;
 use dashmap::DashMap;
 use rand::{thread_rng, Rng};
-use sqlx::any::AnyConnectOptions;
+use sqlx::any::{AnyConnectOptions, AnyKind};
 use sqlx::{AnyPool, FromRow};
 use std::time::Instant;
 use tokio::time::Duration;
@@ -55,15 +55,33 @@ impl CachedAccess {
 pub struct StorageMapping {
     cache: DashMap<i64, CachedAccess, RandomState>,
     connection: AnyPool,
-    prefix: String,
+    query: String,
 }
 
 impl StorageMapping {
     pub fn from_connection(connection: AnyPool, prefix: String) -> Self {
+        // Bind parameters in the SQL string are specific to the database backend:
+        // - Postgres: $N where N is the 1-based positional argument index
+        // - MySQL/SQLite: ? which matches arguments in order that it appears in the query
+        let bind = if connection.any_kind() == AnyKind::Postgres {
+            "$1"
+        } else {
+            "?"
+        };
+
+        let query = format!(
+            "SELECT user_id, path \
+             FROM {prefix}mounts \
+             INNER JOIN {prefix}filecache ON root_id = fileid \
+             WHERE storage_id = {bind}",
+            prefix = prefix,
+            bind = bind,
+        );
+
         Self {
             cache: Default::default(),
             connection,
-            prefix,
+            query,
         }
     }
 
@@ -107,18 +125,11 @@ impl StorageMapping {
         storage: i64,
     ) -> Result<Vec<UserStorageAccess>, DatabaseError> {
         log::debug!("querying storage mapping for {}", storage);
-        let users = sqlx::query_as::<_, UserStorageAccess>(&format!(
-            "\
-                SELECT user_id, path \
-                FROM {prefix}mounts \
-                INNER JOIN {prefix}filecache ON root_id = fileid \
-                WHERE storage_id = $1",
-            prefix = self.prefix,
-        ))
-        .bind(storage)
-        .fetch_all(&self.connection)
-        .await
-        .map_err(DatabaseError::Query)?;
+        let users = sqlx::query_as::<_, UserStorageAccess>(&self.query)
+            .bind(storage)
+            .fetch_all(&self.connection)
+            .await
+            .map_err(DatabaseError::Query)?;
         METRICS.add_mapping_query();
 
         Ok(users)
