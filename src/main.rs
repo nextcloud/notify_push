@@ -1,3 +1,4 @@
+use clap::Parser;
 use flexi_logger::{detailed_format, AdaptiveFormat, Logger, LoggerHandle};
 use miette::{IntoDiagnostic, Result, WrapErr};
 use notify_push::config::{Config, Opt};
@@ -7,7 +8,6 @@ use notify_push::metrics::serve_metrics;
 use notify_push::{listen_loop, serve, App, Error};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use structopt::StructOpt;
 use tokio::select;
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::oneshot;
@@ -17,7 +17,7 @@ fn main() -> Result<()> {
     miette::set_panic_hook();
     let _ = dotenv::dotenv();
 
-    let opt: Opt = Opt::from_args();
+    let opt: Opt = Opt::parse();
     if opt.version {
         println!("notify_push {}", env!("NOTIFY_PUSH_VERSION"));
         return Ok(());
