@@ -39,6 +39,7 @@ impl UserId {
 }
 
 impl<'de> Deserialize<'de> for UserId {
+    #[inline]
     fn deserialize<D>(deserializer: D) -> Result<UserId, D::Error>
     where
         D: Deserializer<'de>,
@@ -52,11 +53,12 @@ impl<'de> Deserialize<'de> for UserId {
                 formatter.write_str("a string")
             }
 
+            #[inline]
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
             where
                 E: Error,
             {
-                Ok(v.into())
+                Ok(Self::Value::from(v))
             }
         }
 
@@ -82,6 +84,7 @@ impl<'r, DB: Database> Decode<'r, DB> for UserId
 where
     &'r str: Decode<'r, DB>,
 {
+    #[inline]
     fn decode(value: <DB as HasValueRef<'r>>::ValueRef) -> Result<Self, BoxDynError> {
         <&str as Decode<DB>>::decode(value).map(UserId::new)
     }
