@@ -3,7 +3,6 @@ mod nc;
 use crate::config::nc::parse_config_file;
 use crate::error::ConfigError;
 use crate::{Error, Result};
-use clap::AppSettings;
 use derivative::Derivative;
 use redis::ConnectionInfo;
 use sqlx::any::AnyConnectOptions;
@@ -15,7 +14,6 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 #[derive(clap::Parser, Debug)]
-#[clap(global_setting = AppSettings::ColoredHelp)]
 #[clap(name = "notify_push")]
 pub struct Opt {
     /// The database connect url
@@ -52,7 +50,7 @@ pub struct Opt {
     #[clap(long)]
     pub allow_self_signed: bool,
     /// The path to the nextcloud config file
-    #[clap(name = "CONFIG_FILE", parse(from_os_str))]
+    #[clap(name = "CONFIG_FILE")]
     pub config_file: Option<PathBuf>,
     /// Print the binary version and exit
     #[clap(long)]
