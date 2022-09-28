@@ -67,13 +67,15 @@ impl ActiveConnections {
 pub struct ConnectionOptions {
     pub listen_file_id: AtomicBool,
     pub max_debounce_time: usize,
+    pub max_connection_time: Duration,
 }
 
 impl ConnectionOptions {
     #[inline]
-    pub fn new(max_debounce_time: usize) -> Self {
+    pub fn new(max_debounce_time: usize, max_connection_time: usize) -> Self {
         Self {
             max_debounce_time,
+            max_connection_time: Duration::from_secs(max_connection_time as u64),
             ..ConnectionOptions::default()
         }
     }
@@ -134,7 +136,8 @@ pub async fn handle_user_socket(
 
         let mut send_queue = SendQueue::default();
         let mut reset = app.reset_rx();
-        let mut last_send = Instant::now() - PING_INTERVAL;
+        let connection_time = Instant::now();
+        let mut last_send = connection_time - PING_INTERVAL;
 
         'tx_loop: loop {
             tokio::select! {
@@ -150,6 +153,12 @@ pub async fn handle_user_socket(
                             }
                         }
                         Err(_timout) => {
+                            if opts.max_connection_time != Duration::ZERO && now - connection_time > opts.max_connection_time {
+                                user_ws_tx.close().await.ok();
+                                log::debug!("Connection closed by exceeding maximum connection time");
+                                break 'tx_loop;
+                            }
+
                             for msg in send_queue.drain(now, METRICS.active_connection_count() + 50000, opts.max_debounce_time) {
                                 last_send = now;
                                 METRICS.add_message();
