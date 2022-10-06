@@ -11,4 +11,4 @@ ureq = "2"
 flexi_logger = { version = "0.22", features = ["colors"] }
 log = "0.4"
 base64 = "0.13"
-miette = { version = "3", features = ["fancy"] }
+miette = { version = "5.3", features = ["fancy"] }
