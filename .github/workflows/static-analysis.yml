@@ -3,7 +3,7 @@ on: [push, pull_request]
 
 jobs:
   static-psalm-analysis:
-      runs-on: ubuntu-20.04
+      runs-on: ubuntu-latest
       strategy:
           matrix:
               ocp-version: [ 'dev-master' ]
