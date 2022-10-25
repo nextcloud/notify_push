@@ -12,3 +12,4 @@ flexi_logger = { version = "0.23.1", features = ["colors"] }
 log = "0.4"
 base64 = "0.13"
 miette = { version = "3", features = ["fancy"] }
+url = "2.2.2"

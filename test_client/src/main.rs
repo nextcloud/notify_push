@@ -3,8 +3,8 @@ use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Report, Result, WrapErr};
 use serde_json::Value;
 use std::env::var;
-use tungstenite::http::Request;
 use tungstenite::{connect, Message};
+use url::Url;
 
 fn main() -> Result<()> {
     Logger::try_with_str(&var("LOG").unwrap_or_else(|_| String::from("test_client=info,warn")))
@@ -28,11 +28,10 @@ fn main() -> Result<()> {
     let ws_url = get_endpoint(&nc_url, &username, &password)?;
     info!("Found push server at {}", ws_url);
 
-    let ws_request = Request::get(ws_url)
-        .body(())
+    let ws_url = Url::parse(&ws_url)
         .into_diagnostic()
         .wrap_err("Invalid websocket url")?;
-    let (mut socket, _response) = connect(ws_request)
+    let (mut socket, _response) = connect(ws_url)
         .into_diagnostic()
         .wrap_err("Can't connect to server")?;
 
