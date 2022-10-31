@@ -96,14 +96,21 @@ For OpenRC based setups, you can create a OpenRC service by creating a file name
 
 description="Push daemon for Nextcloud clients"
 
-pidfile=${pidfile:-/run/notify_push.pid}
+output_log=${output_log:-/var/log/$RC_SVCNAME.log}
+pidfile=${pidfile:-/run/$RC_SVCNAME.pid}
 
 command=${command:-/path/to/push/binary/notify_push}
 command_user=${command_user:-www-data:www-data}
 command_args="--port 7867 /path/to/nextcloud/config/config.php"
 command_background=true
+
 depend() {
-        need redis nginx php-fpm7 mariadb
+        need net redis
+        use nginx php-fpm8 mariadb postgresql
+}
+
+start_pre() {
+        checkpath --file --owner $command_user $output_log
 }
 ```
 
