@@ -58,7 +58,7 @@ jobs:
           target: x86_64-unknown-linux-musl
       - name: cross
         run: |
-          cargo install cross
+          cargo install cross --locked
       - name: Setup krankler
         run: |
           wget https://github.com/ChristophWurst/krankerl/releases/download/v0.13.0/krankerl
