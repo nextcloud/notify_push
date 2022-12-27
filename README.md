@@ -75,8 +75,8 @@ Description = Push daemon for Nextcloud clients
 
 [Service]
 Environment=PORT=7867 # Change if you already have something running on this port
-Environment=DATABASE_URL=mysql://nextcloud:CHANGEME@localhost/nextcloud?socket=/tmp/snap.nextcloud/tmp/sockets/mysql.sock
-Environment=REDIS_URL=redis+unix:///tmp/snap.nextcloud/tmp/sockets/redis.sock
+Environment=DATABASE_URL=mysql://nextcloud:CHANGEME@localhost/nextcloud?socket=/tmp/snap-private-tmp/snap.nextcloud/tmp/sockets/mysql.sock
+Environment=REDIS_URL=redis+unix:///tmp/snap-private-tmp/snap.nextcloud/tmp/sockets/redis.sock
 ExecStart=/var/snap/nextcloud/current/nextcloud/extra-apps/notify_push/bin/x86_64/notify_push /var/snap/nextcloud/current/nextcloud/config/config.php
 User=root
 
