@@ -4,7 +4,6 @@ use parse_display::Display;
 use redis::Msg;
 use serde::Deserialize;
 use serde_json::Value;
-use std::convert::TryFrom;
 use thiserror::Error;
 use tokio_stream::{Stream, StreamExt};
 
@@ -103,44 +102,48 @@ pub enum MessageDecodeError {
     Json(#[from] serde_json::Error),
 }
 
-impl TryFrom<Msg> for Event {
-    type Error = MessageDecodeError;
+impl Event {
+    fn parse(channel_prefix: &str, msg: Msg) -> Result<Option<Self>, MessageDecodeError> {
+        let channel = if let Some(channel) = msg.get_channel_name().strip_prefix(channel_prefix) {
+            channel
+        } else {
+            return Ok(None);
+        };
 
-    fn try_from(msg: Msg) -> Result<Self, Self::Error> {
-        match msg.get_channel_name() {
-            "notify_storage_update" => Ok(Event::StorageUpdate(serde_json::from_slice(
+        match channel {
+            "notify_storage_update" => Ok(Some(Event::StorageUpdate(serde_json::from_slice(
                 msg.get_payload_bytes(),
-            )?)),
-            "notify_group_membership_update" => Ok(Event::GroupUpdate(serde_json::from_slice(
+            )?))),
+            "notify_group_membership_update" => Ok(Some(Event::GroupUpdate(
+                serde_json::from_slice(msg.get_payload_bytes())?,
+            ))),
+            "notify_user_share_created" => Ok(Some(Event::ShareCreate(serde_json::from_slice(
                 msg.get_payload_bytes(),
-            )?)),
-            "notify_user_share_created" => Ok(Event::ShareCreate(serde_json::from_slice(
+            )?))),
+            "notify_test_cookie" => Ok(Some(Event::TestCookie(serde_json::from_slice(
                 msg.get_payload_bytes(),
-            )?)),
-            "notify_test_cookie" => Ok(Event::TestCookie(serde_json::from_slice(
+            )?))),
+            "notify_activity" => Ok(Some(Event::Activity(serde_json::from_slice(
                 msg.get_payload_bytes(),
-            )?)),
-            "notify_activity" => Ok(Event::Activity(serde_json::from_slice(
+            )?))),
+            "notify_notification" => Ok(Some(Event::Notification(serde_json::from_slice(
                 msg.get_payload_bytes(),
-            )?)),
-            "notify_notification" => Ok(Event::Notification(serde_json::from_slice(
+            )?))),
+            "notify_pre_auth" => Ok(Some(Event::PreAuth(serde_json::from_slice(
                 msg.get_payload_bytes(),
-            )?)),
-            "notify_pre_auth" => Ok(Event::PreAuth(serde_json::from_slice(
+            )?))),
+            "notify_custom" => Ok(Some(Event::Custom(serde_json::from_slice(
                 msg.get_payload_bytes(),
-            )?)),
-            "notify_custom" => Ok(Event::Custom(serde_json::from_slice(
+            )?))),
+            "notify_config" => Ok(Some(Event::Config(serde_json::from_slice(
                 msg.get_payload_bytes(),
-            )?)),
-            "notify_config" => Ok(Event::Config(serde_json::from_slice(
+            )?))),
+            "notify_query" => Ok(Some(Event::Query(serde_json::from_slice(
                 msg.get_payload_bytes(),
-            )?)),
-            "notify_query" => Ok(Event::Query(serde_json::from_slice(
+            )?))),
+            "notify_signal" => Ok(Some(Event::Signal(serde_json::from_slice(
                 msg.get_payload_bytes(),
-            )?)),
-            "notify_signal" => Ok(Event::Signal(serde_json::from_slice(
-                msg.get_payload_bytes(),
-            )?)),
+            )?))),
             _ => Err(MessageDecodeError::UnsupportedEventType),
         }
     }
@@ -148,6 +151,7 @@ impl TryFrom<Msg> for Event {
 
 pub async fn subscribe(
     client: &Redis,
+    db: i64,
 ) -> Result<impl Stream<Item = Result<Event, MessageDecodeError>>> {
     let mut pubsub = client.pubsub().await?;
     let channels = [
@@ -164,11 +168,13 @@ pub async fn subscribe(
         "notify_signal",
     ];
     for channel in channels.iter() {
-        pubsub.subscribe(*channel).await?;
+        pubsub.subscribe(&format!("{}_{}", db, channel)).await?;
     }
 
-    Ok(pubsub.into_on_message().map(|event| {
+    let prefix = format!("{}_", db);
+
+    Ok(pubsub.into_on_message().filter_map(move |event| {
         METRICS.add_event();
-        Event::try_from(event)
+        Event::parse(&prefix, event).transpose()
     }))
 }

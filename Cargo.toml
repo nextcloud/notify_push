@@ -6,7 +6,7 @@ edition = "2018"
 rust-version = "1.59"
 
 [dependencies]
-redis = { version = "0.21.6", features = ["tokio-comp", "aio", "cluster"] }
+redis = { version = "0.22.1", features = ["tokio-comp", "aio", "cluster"] }
 serde = { version = "1.0.145", features = ["derive"] }
 serde_json = "1.0.85"
 thiserror = "1.0.37"
@@ -30,7 +30,7 @@ flexi_logger = { version = "0.23.3", features = ["colors", "atty"] }
 tokio-stream = { version = "0.1.10", features = ["net"] }
 structopt = "0.3.26"
 derivative = "2.2.0"
-nextcloud-config-parser = { version = "0.6.0", features = ["db-sqlx", "redis-connect"] }
+nextcloud-config-parser = { version = "0.6.1", features = ["db-sqlx", "redis-connect"] }
 url = "2.3.1"
 
 [dev-dependencies]
