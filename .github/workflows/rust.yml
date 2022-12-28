@@ -38,6 +38,7 @@ jobs:
           override: true
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v1
+      - run: cargo install cross --locked
       - uses: actions-rs/cargo@v1
         with:
           use-cross: true
