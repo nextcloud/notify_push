@@ -13,8 +13,8 @@ With many clients all checking for updates a large portion of the server load ca
 By providing a way for the server to send update notifications to the clients, the need for the clients to make these
 checks can be greatly reduced.
 
-Update notifications are provided on a "best effort" basis, updates might happen without a notification being send and a
-notification can be send even if no update has actually happened. Clients are advised to still perform periodic checks
+Update notifications are provided on a "best effort" basis, updates might happen without a notification being sent and a
+notification can be sent even if no update has actually happened. Clients are advised to still perform periodic checks
 for updates on their own, although these can be run on a much lower frequency.
 
 ## Requirements
@@ -41,13 +41,12 @@ The setup required consists of three steps
 ### Push server
 
 The push server should be setup to run as a background daemon, the recommended way is by setting it up as a system service in the init system.
-If you're not using systemd than any init or process management system that runs the push server binary
-with the described environment variables will work.
+If you're not using systemd then any init or process management system that runs the push server binary with the described environment variables will work.
 
 #### systemd
 
 
-For systemd based setups, can create a systemd service by creating a file named `/etc/systemd/system/notify_push.service` with the following
+For systemd based setups, you can create a systemd service by creating a file named `/etc/systemd/system/notify_push.service` with the following
 content.
 
 ```ini
@@ -88,8 +87,7 @@ WantedBy = multi-user.target
 
 #### OpenRC
 
-For OpenRC based setups, you can create a OpenRC service by creating a file named
-`/etc/init.d/notify_push` with the following content.
+For OpenRC based setups, you can create an OpenRC service by creating a file named `/etc/init.d/notify_push` with the following content.
 
 ```sh
 #!/sbin/openrc-run
@@ -119,13 +117,11 @@ Adjust the paths, ports and user as needed.
 
 #### Configuration
 
-The push server can be configured either by loading the config from the nextcloud `config.php`
-or by setting all options through environment variables.
+The push server can be configured either by loading the config from the nextcloud `config.php` or by setting all options through environment variables.
 
 Re-using the configuration from nextcloud is the recommended way, as it ensures that the configuration remains in sync.
 
-If using the `config.php` isn't possible, you can configure the push server by setting the following environment
-variables:
+If using the `config.php` isn't possible, you can configure the push server by setting the following environment variables:
 
 - `DATABASE_URL` connection url for the Nextcloud database, e.g. `postgres://user:password@db_host/db_name`
 - `DATABASE_PREFIX` database prefix configured in Nextcloud, e.g. `oc_`
