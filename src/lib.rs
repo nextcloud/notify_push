@@ -413,7 +413,7 @@ pub async fn listen_loop(app: Arc<App>, cancel: oneshot::Receiver<()>) {
     let loop_ = async move {
         loop {
             if let Err(e) = listen(app.clone()).await {
-                eprintln!("Failed to setup redis subscription: {:#}", e);
+                log::error!("Failed to setup redis subscription: {:#}", e);
             }
             log::warn!("Redis server disconnected, reconnecting in 1s");
             sleep(Duration::from_secs(1)).await;
