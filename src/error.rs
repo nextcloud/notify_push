@@ -10,8 +10,8 @@ use thiserror::Error;
 pub enum Error {
     #[error(transparent)]
     Database(#[from] DatabaseError),
-    #[error("Error while running redis query")]
-    Redis(#[from] redis::RedisError),
+    #[error(transparent)]
+    Redis(#[from] RedisError),
     #[error(transparent)]
     #[diagnostic(transparent)]
     Config(#[from] ConfigError),
