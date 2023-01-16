@@ -3,10 +3,10 @@
 	"type": "project",
 	"require-dev": {
 		"roave/security-advisories": "dev-master",
-		"christophwurst/nextcloud": "dev-master",
 		"php-parallel-lint/php-parallel-lint": "^1.0.0",
 		"phpunit/phpunit": "^8",
 		"nextcloud/coding-standard": "^0.4.0",
+		"nextcloud/ocp": "dev-master",
 		"psalm/phar": "^4.3",
 		"psr/cache": "^1.0.1"
 	},
@@ -22,6 +22,7 @@
 		"lint": "parallel-lint --exclude src --exclude vendor --exclude target --exclude build .",
 		"cs:check": "php-cs-fixer fix --dry-run --diff",
 		"cs:fix": "php-cs-fixer fix",
+		"test:unit": "phpunit -c tests/phpunit.xml",
 		"psalm": "psalm.phar"
 	}
 }

@@ -17,7 +17,8 @@ jobs:
         php-version: ${{ matrix.php-versions }}
         coverage: none
     - name: Install dependencies
-      run: composer i
+      run: |
+        composer i
     - name: Lint
       run: composer run lint
 
@@ -30,7 +31,7 @@ jobs:
       - name: Set up php${{ matrix.php-versions }}
         uses: shivammathur/setup-php@master
         with:
-          php-version: 7.4
+          php-version: 8.0
           tools: composer:v1
           coverage: none
       - name: Install dependencies
