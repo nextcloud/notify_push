@@ -23,7 +23,7 @@ Once the app is installed, the push binary needs to be setup. You can either use
 	<bugs>https://github.com/nextcloud/notify_push/issues</bugs>
 
 	<dependencies>
-		<nextcloud min-version="20.0.13" max-version="26"/>
+		<nextcloud min-version="20.0.13" max-version="25"/>
 	</dependencies>
 
 	<repair-steps>
