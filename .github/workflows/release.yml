@@ -20,7 +20,7 @@ jobs:
           - aarch64-unknown-linux-musl
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -49,7 +49,7 @@ jobs:
         run: |
           sudo apt-get install musl-tools
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -82,7 +82,7 @@ jobs:
       - name: musl-tools
         run: |
           sudo apt-get install musl-tools
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
