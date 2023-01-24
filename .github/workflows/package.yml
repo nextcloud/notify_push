@@ -1,6 +1,15 @@
-on: [push, pull_request]
-
 name: Package
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - stable*
+
+permissions:
+  contents: read
 
 env:
   APP_NAME: notify_push
