@@ -27,7 +27,6 @@ jobs:
           toolchain: stable
           override: true
           target: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
           use-cross: true
@@ -89,7 +88,6 @@ jobs:
           toolchain: stable
           override: true
           target: x86_64-unknown-linux-musl
-      - uses: Swatinem/rust-cache@v1
       - run: cargo build --release --target x86_64-unknown-linux-musl
         working-directory: ./test_client
       - name: Upload binary to release
