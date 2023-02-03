@@ -22,7 +22,7 @@ miette = { version = "5.3.0", features = ["fancy"] }
 smallvec = { version = "1.10.0", features = ["serde"] }
 reqwest = { version = "0.11.12", default-features = false, features = ["rustls-tls", "json"] }
 warp-real-ip = "0.2.0"
-parse-display = "0.6.0"
+parse-display = "0.8.0"
 percent-encoding = "2.2.0"
 rand = "0.8.5"
 ahash = "0.8.0"
