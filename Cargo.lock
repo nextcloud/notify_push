@@ -1028,32 +1028,13 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
 name = "miette"
-version = "3.3.0"
+version = "5.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd2adcfcced5d625bf90a958a82ae5b93231f57f3df1383fee28c9b5096d35ed"
+checksum = "4afd9b301defa984bbdbe112b4763e093ed191750a0d914a78c1106b2d0fe703"
 dependencies = [
  "atty",
  "backtrace",
- "miette-derive 3.3.0",
- "once_cell",
- "owo-colors",
- "supports-color",
- "supports-hyperlinks",
- "supports-unicode",
- "terminal_size",
- "textwrap 0.14.2",
- "thiserror",
-]
-
-[[package]]
-name = "miette"
-version = "5.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a28d6092d7e94a90bb9ea8e6c26c99d5d112d49dda2afdb4f7ea8cf09e1a5a6d"
-dependencies = [
- "atty",
- "backtrace",
- "miette-derive 5.3.0",
+ "miette-derive",
  "once_cell",
  "owo-colors",
  "supports-color",
@@ -1067,20 +1048,9 @@ dependencies = [
 
 [[package]]
 name = "miette-derive"
-version = "3.3.0"
+version = "5.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c01a8b61312d367ce87956bb686731f87e4c6dd5dbc550e8f06e3c24fb1f67f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "miette-derive"
-version = "5.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f2485ed7d1fe80704928e3eb86387439609bd0c6bb96db8208daa364cfd1e09"
+checksum = "97c2401ab7ac5282ca5c8b518a87635b1a93762b0b90b9990c509888eeccba29"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1171,7 +1141,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f14cdf543656f2a1ac501c102bc17318c4973ae2d9f18e055b9d1b7d050760ec"
 dependencies = [
- "miette 5.3.0",
+ "miette",
  "php-literal-parser",
  "redis",
  "sqlx",
@@ -1211,7 +1181,7 @@ dependencies = [
  "futures",
  "http-auth-basic",
  "log",
- "miette 5.3.0",
+ "miette",
  "mini-redis",
  "nextcloud-config-parser",
  "nextcloud_appinfo",
@@ -1444,7 +1414,7 @@ checksum = "0288cf4efd4b76248536bea46afd8ec5e4b7a44a43072f3ce512c4f2f5ea4402"
 dependencies = [
  "logos",
  "memchr",
- "miette 5.3.0",
+ "miette",
  "parse-display",
  "serde",
  "thiserror",
@@ -2284,7 +2254,7 @@ dependencies = [
  "base64",
  "flexi_logger",
  "log",
- "miette 3.3.0",
+ "miette",
  "serde_json",
  "tungstenite",
  "ureq",
@@ -2297,17 +2267,6 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 dependencies = [
- "unicode-width",
-]
-
-[[package]]
-name = "textwrap"
-version = "0.14.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0066c8d12af8b5acd21e00547c3797fde4e8677254a7ee429176ccebbe93dd80"
-dependencies = [
- "smawk",
- "unicode-linebreak",
  "unicode-width",
 ]
 
