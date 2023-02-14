@@ -8,7 +8,7 @@ rust-version = "1.59"
 [dependencies]
 redis = { version = "0.21.6", features = ["tokio-comp", "aio", "cluster"] }
 serde = { version = "1.0.145", features = ["derive"] }
-serde_json = "1.0.85"
+serde_json = "1.0.93"
 thiserror = "1.0.37"
 warp = { version = "0.3.3", features = ["tls"] }
 tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread", "signal"] }
