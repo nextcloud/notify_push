@@ -1266,7 +1266,7 @@ dependencies = [
  "nextcloud-config-parser",
  "nextcloud_appinfo",
  "once_cell",
- "parse-display 0.8.0",
+ "parse-display",
  "percent-encoding",
  "rand",
  "redis",
@@ -1442,39 +1442,13 @@ dependencies = [
 
 [[package]]
 name = "parse-display"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b25af4ef94a8528b41fb49a696e361dc6ef975c782417268072d987ac327964"
-dependencies = [
- "once_cell",
- "parse-display-derive 0.6.0",
- "regex",
-]
-
-[[package]]
-name = "parse-display"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f96cc033d72896bb9a2c239a14e1141c3e2eae6d649e7c10ef4e598d66bc86c"
 dependencies = [
  "once_cell",
- "parse-display-derive 0.8.0",
+ "parse-display-derive",
  "regex",
-]
-
-[[package]]
-name = "parse-display-derive"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73f106cced1f4b645e3fca6125105cdf7407e35d1af710f290aac530f6b826b9"
-dependencies = [
- "once_cell",
- "proc-macro2",
- "quote",
- "regex",
- "regex-syntax",
- "structmeta",
- "syn",
 ]
 
 [[package]]
@@ -1521,14 +1495,14 @@ checksum = "f658886ed52e196e850cfbbfddab9eaa7f6d90dd0929e264c31e5cec07e09e57"
 
 [[package]]
 name = "php-literal-parser"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0288cf4efd4b76248536bea46afd8ec5e4b7a44a43072f3ce512c4f2f5ea4402"
+checksum = "aae9b58aaf3fdcc2970e0c98e9ff8c5865cfd2c165371007d0a7771dc79c3d93"
 dependencies = [
  "logos",
  "memchr",
  "miette",
- "parse-display 0.6.0",
+ "parse-display",
  "serde",
  "thiserror",
 ]
@@ -2369,7 +2343,7 @@ dependencies = [
  "log",
  "miette",
  "serde_json",
- "tungstenite 0.18.0",
+ "tungstenite 0.17.3",
  "ureq",
  "url",
 ]
@@ -2642,10 +2616,13 @@ dependencies = [
  "httparse",
  "log",
  "rand",
+ "rustls",
  "sha-1",
  "thiserror",
  "url",
  "utf-8",
+ "webpki",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -2661,13 +2638,10 @@ dependencies = [
  "httparse",
  "log",
  "rand",
- "rustls",
  "sha1",
  "thiserror",
  "url",
  "utf-8",
- "webpki",
- "webpki-roots",
 ]
 
 [[package]]

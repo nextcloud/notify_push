@@ -1,3 +1,4 @@
+use base64::Engine;
 use flexi_logger::{AdaptiveFormat, Logger};
 use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Report, Result, WrapErr};
@@ -74,7 +75,7 @@ fn get_endpoint(nc_url: &str, user: &str, password: &str) -> Result<String> {
             "Authorization",
             &format!(
                 "Basic {}",
-                base64::encode(&format!("{}:{}", user, password))
+                base64::engine::general_purpose::STANDARD.encode(&format!("{}:{}", user, password))
             ),
         )
         .set("Accept", "application/json")
