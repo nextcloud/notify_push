@@ -33,7 +33,7 @@ impl Redis {
             }
             config => {
                 let client =
-                    block_in_place(|| ClusterClient::open(config.to_vec())?.get_connection())?;
+                    block_in_place(|| ClusterClient::new(config.to_vec())?.get_connection())?;
                 RedisConnection::Cluster(client)
             }
         };
