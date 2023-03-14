@@ -12,7 +12,7 @@ serde_json = "1.0.93"
 thiserror = "1.0.38"
 warp = { version = "0.3.3", features = ["tls"] }
 tokio = { version = "1.25.0", features = ["macros", "rt-multi-thread", "signal"] }
-futures = "0.3.26"
+futures = "0.3.27"
 log = "0.4.17"
 sqlx = { version = "0.6.2", features = ["runtime-tokio-rustls", "any", "macros", "mysql", "sqlite", "postgres"] }
 dotenv = "0.15.0"
