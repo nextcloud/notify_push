@@ -23,6 +23,7 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush;
 
+use OC\Files\Storage\Wrapper\Jail;
 use OCA\NotifyPush\Queue\IQueue;
 use OCP\Activity\IConsumer;
 use OCP\Activity\IEvent;
@@ -39,7 +40,7 @@ use OCP\Share\Events\ShareCreatedEvent;
 use OCP\Share\IShare;
 
 class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
-	private $queue;
+	private IQueue $queue;
 
 	public function __construct(IQueue $queue) {
 		$this->queue = $queue;
@@ -59,9 +60,18 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 			if (strpos($event->getPath(), 'appdata_') === 0) {
 				return;
 			}
+			$path = $event->getPath();
+
+			$storage = $event->getStorage();
+			while ($storage->instanceOfStorage(Jail::class)) {
+				/** @var $storage Jail */
+				$path = $storage->getUnjailedPath($path);
+				$storage = $storage->getUnjailedStorage();
+			}
+
 			$this->queue->push('notify_storage_update', [
 				'storage' => $event->getStorageId(),
-				'path' => $event->getPath(),
+				'path' => $path,
 				'file_id' => $event->getFileId(),
 			]);
 		}

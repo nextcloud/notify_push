@@ -53,3 +53,13 @@ namespace OC\Files\Cache {
 
 	}
 }
+
+namespace OC\Files\Storage\Wrapper {
+
+	use OCP\Files\Storage\IStorage;
+
+	interface Jail extends IStorage {
+		public function getUnjailedPath(string $path): string;
+		public function getUnjailedStorage(): IStorage;
+	}
+}
