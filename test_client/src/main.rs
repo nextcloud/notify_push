@@ -26,7 +26,11 @@ fn main() -> Result<()> {
         }
     };
 
-    let ws_url = get_endpoint(&nc_url, &username, &password)?;
+    let ws_url = if nc_url.starts_with("ws") {
+        nc_url
+    } else {
+        get_endpoint(&nc_url, &username, &password)?
+    };
     info!("Found push server at {}", ws_url);
 
     let ws_url = Url::parse(&ws_url)
