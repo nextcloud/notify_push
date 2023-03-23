@@ -3,6 +3,7 @@ use crate::metrics::METRICS;
 use crate::{Result, UserId};
 use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
+use log::debug;
 use rand::{thread_rng, Rng};
 use sqlx::any::AnyConnectOptions;
 use sqlx::{Any, AnyPool, FromRow};
@@ -101,7 +102,7 @@ impl StorageMapping {
         &self,
         storage: u32,
     ) -> Result<Vec<UserStorageAccess>, DatabaseError> {
-        log::debug!("querying storage mapping for {}", storage);
+        debug!("querying storage mapping for {}", storage);
         let users = sqlx::query_as::<Any, UserStorageAccess>(&format!(
             "\
                 SELECT user_id, path \
@@ -115,6 +116,8 @@ impl StorageMapping {
         .await
         .map_err(DatabaseError::Query)?;
         METRICS.add_mapping_query();
+
+        debug!("got storage mappings for {}: {:?}", storage, users);
 
         Ok(users)
     }
