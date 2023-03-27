@@ -287,7 +287,6 @@ async fn test_auth_failure() {
     assert_next_message(&mut client, "err: Invalid credentials").await;
 }
 
-#[track_caller]
 async fn assert_next_message(
     client: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
     expected: &str,
@@ -303,7 +302,6 @@ async fn assert_next_message(
     );
 }
 
-#[track_caller]
 async fn assert_no_message(client: &mut WebSocketStream<MaybeTlsStream<TcpStream>>) {
     sleep(Duration::from_millis(5)).await;
     assert!(timeout(Duration::from_millis(10), client.next())
