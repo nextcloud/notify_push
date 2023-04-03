@@ -1,0 +1,36 @@
+#! /bin/sh
+#
+# $FreeBSD$
+#
+
+# PROVIDE: nextcloud_notify_push
+# REQUIRE: NETWORKING DAEMON
+# KEYWORD: shutdown
+
+#
+# Add the following lines to /etc/rc.conf to enable nextcloud_notify_push:
+#
+#nextcloud_notify_push_enable="YES"
+#nextcloud_notify_push_droot="YOUR NEXTCLOUD DIRECTORY ROOT"
+
+. /etc/rc.subr
+
+name="nextcloud_notify_push"
+rcvar="nextcloud_notify_push_enable"
+
+load_rc_config $name
+
+: ${nextcloud_notify_push_enable:=NO}
+: ${nextcloud_notify_push_droot:=/usr/local/www/html}
+: ${nextcloud_notify_push_config:=${nextcloud_notify_push_droot}/config/config.php}
+: ${nextcloud_notify_push_flags:=-p 7867}
+
+my_flags=${nextcloud_notify_push_flags}
+nextcloud_notify_push_flags=
+
+pidfile=/var/run/nextcloud_notify_push.pid
+binary="/NEXTCLOUD_ROOT/apps/notify_push/bin/fbsd_amd64/notify_push"
+command="/usr/sbin/daemon"
+command_args="-S -u www -P ${pidfile} -- ${binary} ${my_flags} ${nextcloud_notify_push_config}"
+
+run_rc_command "$1"
