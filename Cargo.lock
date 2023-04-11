@@ -1279,7 +1279,7 @@ checksum = "7686893b7ea383d63029e8f2f7bbcbfb88cdb82b567910ce98fa19cca06fa86f"
 dependencies = [
  "miette",
  "php-literal-parser",
- "redis",
+ "redis 0.22.3",
  "sqlx",
  "thiserror",
 ]
@@ -1325,7 +1325,7 @@ dependencies = [
  "parse-display",
  "percent-encoding",
  "rand",
- "redis",
+ "redis 0.23.0",
  "reqwest",
  "serde",
  "serde_json",
@@ -1712,6 +1712,19 @@ name = "redis"
 version = "0.22.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa8455fa3621f6b41c514946de66ea0531f57ca017b2e6c7cc368035ea5b46df"
+dependencies = [
+ "combine",
+ "itoa",
+ "percent-encoding",
+ "ryu",
+ "url",
+]
+
+[[package]]
+name = "redis"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ea8c51b5dc1d8e5fd3350ec8167f464ec0995e79f2e90a075b63371500d557f"
 dependencies = [
  "async-trait",
  "bytes",
