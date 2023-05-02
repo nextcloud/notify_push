@@ -27,7 +27,7 @@ percent-encoding = "2.2.0"
 rand = "0.8.5"
 ahash = "0.8.3"
 flexi_logger = { version = "0.25.3", features = ["colors", "is-terminal"] }
-tokio-stream = { version = "0.1.12", features = ["net"] }
+tokio-stream = { version = "0.1.14", features = ["net"] }
 structopt = "0.3.26"
 derivative = "2.2.0"
 nextcloud-config-parser = { version = "0.7.1", features = ["db-sqlx", "redis-connect"] }
