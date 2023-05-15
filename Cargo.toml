@@ -26,7 +26,7 @@ parse-display = "0.8.0"
 percent-encoding = "2.2.0"
 rand = "0.8.5"
 ahash = "0.8.3"
-flexi_logger = { version = "0.25.4", features = ["colors", "is-terminal"] }
+flexi_logger = { version = "=0.25.3", features = ["colors", "is-terminal"] }
 tokio-stream = { version = "0.1.14", features = ["net"] }
 structopt = "0.3.26"
 derivative = "2.2.0"
