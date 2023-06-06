@@ -26,11 +26,15 @@ namespace OCA\NotifyPush;
 class BinaryFinder {
 	public function getArch(): string {
 		$arch = php_uname('m');
+		$os = php_uname('s');
 		if (strpos($arch, 'armv7') === 0) {
 			return 'armv7';
 		}
 		if (strpos($arch, 'aarch64') === 0) {
 			return 'aarch64';
+		}
+		if (strpos($arch, 'amd64') == 0 && strpos($os, 'FreBSD') == 0) {
+			return 'fbsd_amd64';
 		}
 		return $arch;
 	}
