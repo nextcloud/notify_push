@@ -29,7 +29,7 @@ my_flags=${nextcloud_notify_push_flags}
 nextcloud_notify_push_flags=
 
 pidfile=/var/run/nextcloud_notify_push.pid
-binary="/${nextcloud_notify_push_droot}/apps/notify_push/bin/fbsd_amd64/notify_push"
+binary="${nextcloud_notify_push_droot}/apps/notify_push/bin/fbsd_amd64/notify_push"
 command="/usr/sbin/daemon"
 command_args="-S -u www -P ${pidfile} -- ${binary} ${my_flags} ${nextcloud_notify_push_config}"
 
