@@ -8,6 +8,7 @@ use rand::{thread_rng, Rng};
 use sqlx::any::AnyConnectOptions;
 use sqlx::{Any, AnyPool, FromRow};
 use std::time::Instant;
+use ahash::RandomState;
 use tokio::time::Duration;
 
 #[derive(Debug, Clone, FromRow)]
@@ -39,7 +40,7 @@ impl CachedAccess {
 }
 
 pub struct StorageMapping {
-    cache: DashMap<u32, CachedAccess>,
+    cache: DashMap<u32, CachedAccess, RandomState>,
     connection: AnyPool,
     prefix: String,
 }
@@ -64,7 +65,7 @@ impl StorageMapping {
     async fn get_storage_mapping(
         &self,
         storage: u32,
-    ) -> Result<Ref<'_, u32, CachedAccess>, DatabaseError> {
+    ) -> Result<Ref<'_, u32, CachedAccess, RandomState>, DatabaseError> {
         if let Some(cached) = self.cache.get(&storage).filter(|cached| cached.is_valid()) {
             Ok(cached)
         } else {
