@@ -18,6 +18,7 @@ use tokio::time::timeout;
 use warp::filters::ws::{Message, WebSocket};
 
 const USER_CONNECTION_LIMIT: usize = 64;
+const PING_INTERVAL: Duration = Duration::from_secs(30);
 
 #[derive(Default)]
 pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<PushMessage>, PassthruHasher>);
@@ -61,12 +62,14 @@ impl ActiveConnections {
 pub struct ConnectionOptions {
     pub listen_file_id: AtomicBool,
     pub max_debounce_time: usize,
+    pub max_connection_time: Duration,
 }
 
 impl ConnectionOptions {
-    pub fn new(max_debounce_time: usize) -> Self {
+    pub fn new(max_debounce_time: usize, max_connection_time: usize) -> Self {
         ConnectionOptions {
             max_debounce_time,
+            max_connection_time: Duration::from_secs(max_connection_time as u64),
             ..ConnectionOptions::default()
         }
     }
@@ -129,8 +132,8 @@ pub async fn handle_user_socket(
 
         let mut reset = app.reset_rx();
 
-        let ping_interval = Duration::from_secs(30);
-        let mut last_send = Instant::now() - ping_interval;
+        let connection_start_time = Instant::now();
+        let mut last_send = connection_start_time - PING_INTERVAL;
 
         'tx_loop: loop {
             tokio::select! {
@@ -146,6 +149,12 @@ pub async fn handle_user_socket(
                             }
                         }
                         Err(_timout) => {
+                            if opts.max_connection_time != Duration::ZERO && now - connection_start_time > opts.max_connection_time {
+                                user_ws_tx.close().await.ok();
+                                log::debug!("Connection closed by exceeding maximum connection time");
+                                break 'tx_loop;
+                            }
+
                             for msg in send_queue.drain(now, METRICS.active_connection_count() + 50000, opts.max_debounce_time) {
                                 last_send = now;
                                 METRICS.add_message();
@@ -153,7 +162,7 @@ pub async fn handle_user_socket(
                                 user_ws_tx.feed(msg.into_message(&opts)).await.ok();
                             }
 
-                            if now.duration_since(last_send) > ping_interval {
+                            if now.duration_since(last_send) > PING_INTERVAL {
                                 let data = rng.gen::<NonZeroUsize>().into();
                                 let last_ping = expect_pong.swap(data, Ordering::SeqCst);
                                 if last_ping > 0 {
