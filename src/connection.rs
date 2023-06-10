@@ -6,6 +6,7 @@ use crate::{App, UserId};
 use ahash::RandomState;
 use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
+use rand::{Rng, SeedableRng};
 use std::net::IpAddr;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -107,6 +108,10 @@ pub async fn handle_user_socket(
     let expect_pong = &expect_pong;
 
     let transmit = async {
+        // Use faster random generator for generating ping messages, they dont need to be
+        // cryptographically secure. It is also OK to use same sequence for every connection.
+        let mut rng = rand::rngs::SmallRng::seed_from_u64(0);
+
         let mut send_queue = SendQueue::default();
 
         let mut reset = app.reset_rx();
@@ -136,7 +141,7 @@ pub async fn handle_user_socket(
                             }
 
                             if now.duration_since(last_send) > ping_interval {
-                                let data = rand::random::<NonZeroUsize>().into();
+                                let data = rng.gen::<NonZeroUsize>().into();
                                 let last_ping = expect_pong.swap(data, Ordering::SeqCst);
                                 if last_ping > 0 {
                                     log::info!("{} didn't reply to ping, closing", user_id);
