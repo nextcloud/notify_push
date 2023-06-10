@@ -95,8 +95,7 @@ impl App {
         let nc_client = nc::Client::new(&config.nextcloud_url, allow_self_signed)?;
         let test_cookie = AtomicU32::new(0);
 
-        let storage_mapping =
-            StorageMapping::from_connection(connection, config.database_prefix).await?;
+        let storage_mapping = StorageMapping::from_connection(connection, config.database_prefix);
         let pre_auth = DashMap::default();
 
         let redis = Redis::new(config.redis)?;
