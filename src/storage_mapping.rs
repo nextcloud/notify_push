@@ -1,6 +1,7 @@
 use crate::error::DatabaseError;
 use crate::metrics::METRICS;
 use crate::{Result, UserId};
+use ahash::RandomState;
 use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use log::debug;
@@ -8,7 +9,6 @@ use rand::{thread_rng, Rng};
 use sqlx::any::AnyConnectOptions;
 use sqlx::{Any, AnyPool, FromRow};
 use std::time::Instant;
-use ahash::RandomState;
 use tokio::time::Duration;
 
 #[derive(Debug, Clone, FromRow)]
