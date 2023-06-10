@@ -60,7 +60,7 @@ pub struct Custom {
     pub user: UserId,
     pub message: String,
     #[serde(default)]
-    pub body: Value,
+    pub body: Box<Value>, // use `Box` to reduce size of `Event` enum from 72 to 48 bytes
 }
 
 #[derive(Debug, Deserialize, Display)]

@@ -52,7 +52,7 @@ pub enum PushMessage {
     #[display("notify_notification")]
     Notification,
     #[display("{0}")]
-    Custom(String, Value),
+    Custom(String, Box<Value>),
 }
 
 impl PushMessage {
@@ -89,11 +89,14 @@ impl PushMessage {
             },
             PushMessage::Activity => Message::text(String::from("notify_activity")),
             PushMessage::Notification => Message::text(String::from("notify_notification")),
-            PushMessage::Custom(ty, Value::Null) => Message::text(ty),
             PushMessage::Custom(ty, body) => Message::text({
-                let mut str = ty;
-                write!(&mut str, " {}", body).ok();
-                str
+                if *body == Value::Null {
+                    ty
+                } else {
+                    let mut str = ty;
+                    write!(&mut str, " {}", body).ok();
+                    str
+                }
             }),
         }
     }
