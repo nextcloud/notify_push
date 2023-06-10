@@ -402,7 +402,7 @@ where
                 server
                     .serve_incoming_with_graceful_shutdown(stream, cancel)
                     .map(move |_| {
-                        fs::remove_file(&socket_path).ok();
+                        fs::remove_file(socket_path).ok();
                     }),
             ))
         }
