@@ -359,7 +359,7 @@ async fn test_notify_file() {
     redis
         .publish::<_, _, ()>(
             "notify_storage_update",
-            r#"{"storage":10, "path":"foo/bar"}"#,
+            r#"{"storage":10, "path":"foo/bar", "file_id":5}"#,
         )
         .await
         .unwrap();
@@ -382,7 +382,7 @@ async fn test_notify_file_different_storage() {
     redis
         .publish::<_, _, ()>(
             "notify_storage_update",
-            r#"{"storage":11, "path":"foo/bar"}"#,
+            r#"{"storage":11, "path":"foo/bar", "file_id":5}"#,
         )
         .await
         .unwrap();
@@ -414,7 +414,7 @@ async fn test_notify_file_multiple() {
     redis
         .publish::<_, _, ()>(
             "notify_storage_update",
-            r#"{"storage":10, "path":"foo/bar"}"#,
+            r#"{"storage":10, "path":"foo/bar", "file_id":5}"#,
         )
         .await
         .unwrap();
