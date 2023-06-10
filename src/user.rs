@@ -1,3 +1,4 @@
+use crate::passthru_hasher::PassthruHasher;
 use ahash::AHasher;
 use dashmap::DashMap;
 use log::LevelFilter;
@@ -7,11 +8,10 @@ use serde::{Deserialize, Deserializer};
 use sqlx::database::HasValueRef;
 use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Type};
-use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::hash::Hasher;
 
-static USER_NAMES: Lazy<DashMap<u64, String, RandomState>> = Lazy::new(DashMap::default);
+static USER_NAMES: Lazy<DashMap<u64, String, PassthruHasher>> = Lazy::new(DashMap::default);
 
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct UserId {
