@@ -4,6 +4,7 @@ use crate::metrics::METRICS;
 use crate::passthru_hasher::PassthruHasher;
 use crate::Result;
 use crate::{App, UserId};
+use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
 use rand::{Rng, SeedableRng};
@@ -23,23 +24,35 @@ pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<PushMessage>, Pas
 
 impl ActiveConnections {
     pub fn add(&self, user: UserId) -> Result<broadcast::Receiver<PushMessage>> {
-        if let Some(sender) = self.0.get(&user) {
-            // stop a single user from trying to eat all the resources
-            if sender.receiver_count() > USER_CONNECTION_LIMIT {
-                Err(AuthenticationError::LimitExceeded.into())
-            } else {
-                Ok(sender.subscribe())
+        match self.0.entry(user.clone()) {
+            Entry::Occupied(entry) => {
+                let sender = entry.get();
+                if sender.receiver_count() > USER_CONNECTION_LIMIT {
+                    Err(AuthenticationError::LimitExceeded.into())
+                } else {
+                    Ok(sender.subscribe())
+                }
             }
-        } else {
-            let (tx, rx) = broadcast::channel(4);
-            self.0.insert(user, tx);
-            Ok(rx)
+            Entry::Vacant(entry) => {
+                let (tx, rx) = broadcast::channel(4);
+                entry.insert(tx);
+                Ok(rx)
+            }
         }
     }
 
     pub fn send_to_user(&self, user: &UserId, msg: PushMessage) {
         if let Some(tx) = self.0.get(user) {
             tx.send(msg).ok();
+        }
+    }
+
+    pub fn remove(&self, user: &UserId) {
+        if let Entry::Occupied(e) = self.0.entry(user.clone()) {
+            if e.get().receiver_count() == 1 {
+                log::debug!("Removing {} from active connections", user);
+                e.remove();
+            }
         }
     }
 }
@@ -210,6 +223,7 @@ pub async fn handle_user_socket(
     select(transmit, receive).await;
 
     METRICS.remove_connection();
+    app.connections.remove(&user_id);
 }
 
 async fn read_socket_auth_message(rx: &mut WebSocket) -> Result<Message, WebSocketError> {
