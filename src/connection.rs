@@ -35,6 +35,7 @@ impl ActiveConnections {
                 }
             }
             Entry::Vacant(entry) => {
+                METRICS.add_user();
                 let (tx, rx) = broadcast::channel(4);
                 entry.insert(tx);
                 Ok(rx)
@@ -52,6 +53,7 @@ impl ActiveConnections {
         if let Entry::Occupied(e) = self.0.entry(user.clone()) {
             if e.get().receiver_count() == 1 {
                 log::debug!("Removing {} from active connections", user);
+                METRICS.remove_user();
                 e.remove();
             }
         }
