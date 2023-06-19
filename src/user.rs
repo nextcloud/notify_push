@@ -9,11 +9,12 @@ use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Type};
 use std::collections::hash_map::DefaultHasher;
 use std::fmt;
+use std::fmt::Formatter;
 use std::hash::Hasher;
 
 static USER_NAMES: Lazy<DashMap<u64, String, RandomState>> = Lazy::new(DashMap::default);
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct UserId {
     hash: u64,
 }
@@ -104,6 +105,20 @@ impl fmt::Display for UserId {
             }
         } else {
             f.write_str("unknown user (Set log level to INFO or higher)")
+        }
+    }
+}
+
+impl fmt::Debug for UserId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if log::max_level() >= LevelFilter::Info {
+            if let Some(user_name) = USER_NAMES.get(&self.hash) {
+                write!(f, "{}(#{})", user_name.value(), self.hash)
+            } else {
+                write!(f, "user #{}", self.hash)
+            }
+        } else {
+            write!(f, "user #{} (Set log level to INFO or higher)", self.hash)
         }
     }
 }

@@ -21,45 +21,35 @@ declare(strict_types=1);
  *
  */
 
-namespace {
-	class OC {
-		/** @var string */
-		public static $configDir;
+namespace OCA\NotifyPush\Command;
+
+use OCA\NotifyPush\Queue\IQueue;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+
+class Reset extends Command {
+	private $queue;
+
+	public function __construct(
+		IQueue $queue
+	) {
+		parent::__construct();
+		$this->queue = $queue;
 	}
-}
 
-namespace OC {
-	class RedisFactory {
-		public function getInstance(): \Redis {}
-		public function isAvailable(){}
+	/**
+	 * @return void
+	 */
+	protected function configure() {
+		$this
+			->setName('notify_push:reset')
+			->setDescription('Cancel all active connections to the push server');
+		parent::configure();
 	}
-}
 
-namespace OC\AppFramework\Http {
-
-	use OCP\IRequest;
-
-	abstract class Request implements IRequest {
-		public $server = [];
-	}
-}
-
-namespace OC\Files\Cache {
-
-	use OCP\EventDispatcher\Event;
-	use OCP\Files\Cache\ICacheEvent;
-
-	abstract class AbstractCacheEvent extends Event implements ICacheEvent {
-
-	}
-}
-
-namespace OC\Files\Storage\Wrapper {
-
-	use OCP\Files\Storage\IStorage;
-
-	interface Jail extends IStorage {
-		public function getUnjailedPath(string $path): string;
-		public function getUnjailedStorage(): IStorage;
+	protected function execute(InputInterface $input, OutputInterface $output) {
+		$this->queue->push("notify_signal", "reset");
+		return 0;
 	}
 }

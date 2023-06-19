@@ -30,6 +30,9 @@ use OCP\IConfig;
 use OCP\Security\CSP\AddContentSecurityPolicyEvent;
 use Psr\Log\LoggerInterface;
 
+/**
+ * @implements IEventListener<AddContentSecurityPolicyEvent>
+ */
 class CSPListener implements IEventListener {
 	private $config;
 	private $logger;

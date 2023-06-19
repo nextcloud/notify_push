@@ -1,6 +1,5 @@
 use crate::metrics::METRICS;
-use crate::{Redis, UserId};
-use color_eyre::{eyre::WrapErr, Result};
+use crate::{Redis, Result, UserId};
 use parse_display::Display;
 use redis::Msg;
 use serde::Deserialize;
@@ -13,6 +12,7 @@ use tokio_stream::{Stream, StreamExt};
 pub struct StorageUpdate {
     pub storage: u32,
     pub path: String,
+    pub file_id: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -63,6 +63,12 @@ pub struct Custom {
     pub body: Value,
 }
 
+#[derive(Debug, Deserialize, Display)]
+#[serde(rename_all = "snake_case")]
+pub enum Signal {
+    Reset,
+}
+
 #[derive(Debug, Display)]
 pub enum Event {
     #[display("storage update notification for storage {0.storage} and path {0.path}")]
@@ -85,6 +91,8 @@ pub enum Event {
     Config(Config),
     #[display("{0} query")]
     Query(Query),
+    #[display("{0} signal")]
+    Signal(Signal),
 }
 
 #[derive(Debug, Error)]
@@ -130,6 +138,9 @@ impl TryFrom<Msg> for Event {
             "notify_query" => Ok(Event::Query(serde_json::from_slice(
                 msg.get_payload_bytes(),
             )?)),
+            "notify_signal" => Ok(Event::Signal(serde_json::from_slice(
+                msg.get_payload_bytes(),
+            )?)),
             _ => Err(MessageDecodeError::UnsupportedEventType),
         }
     }
@@ -138,10 +149,7 @@ impl TryFrom<Msg> for Event {
 pub async fn subscribe(
     client: &Redis,
 ) -> Result<impl Stream<Item = Result<Event, MessageDecodeError>>> {
-    let mut pubsub = client
-        .pubsub()
-        .await
-        .wrap_err("Failed to connect to redis")?;
+    let mut pubsub = client.pubsub().await?;
     let channels = [
         "notify_storage_update",
         "notify_group_membership_update",
@@ -153,12 +161,10 @@ pub async fn subscribe(
         "notify_custom",
         "notify_config",
         "notify_query",
+        "notify_signal",
     ];
     for channel in channels.iter() {
-        pubsub
-            .subscribe(*channel)
-            .await
-            .wrap_err("Failed to subscribe to redis pubsub")?;
+        pubsub.subscribe(*channel).await?;
     }
 
     Ok(pubsub.into_on_message().map(|event| {

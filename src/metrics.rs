@@ -1,6 +1,5 @@
-use crate::config::Bind;
-use crate::serve_at;
-use color_eyre::Result;
+use crate::config::{Bind, TlsConfig};
+use crate::{serve_at, Result};
 use serde::{Serialize, Serializer};
 use std::fmt::Write;
 use std::future::Future;
@@ -16,7 +15,7 @@ pub struct Metrics {
     total_connection_count: AtomicUsize,
     mapping_query_count: AtomicUsize,
     events_received: AtomicUsize,
-    messages_send: AtomicUsize,
+    messages_sent: AtomicUsize,
 }
 
 #[derive(Serialize)]
@@ -25,7 +24,7 @@ struct SerializeMetrics {
     total_connection_count: usize,
     mapping_query_count: usize,
     events_received: usize,
-    messages_send: usize,
+    messages_sent: usize,
 }
 
 impl From<Metrics> for SerializeMetrics {
@@ -35,7 +34,7 @@ impl From<Metrics> for SerializeMetrics {
             total_connection_count: metrics.total_connection_count(),
             mapping_query_count: metrics.mapping_query_count(),
             events_received: metrics.events_received(),
-            messages_send: metrics.messages_send(),
+            messages_sent: metrics.messages_sent(),
         }
     }
 }
@@ -47,7 +46,7 @@ impl From<&Metrics> for SerializeMetrics {
             total_connection_count: metrics.total_connection_count(),
             mapping_query_count: metrics.mapping_query_count(),
             events_received: metrics.events_received(),
-            messages_send: metrics.messages_send(),
+            messages_sent: metrics.messages_sent(),
         }
     }
 }
@@ -68,7 +67,7 @@ impl Metrics {
             total_connection_count: AtomicUsize::new(0),
             mapping_query_count: AtomicUsize::new(0),
             events_received: AtomicUsize::new(0),
-            messages_send: AtomicUsize::new(0),
+            messages_sent: AtomicUsize::new(0),
         }
     }
 
@@ -88,8 +87,8 @@ impl Metrics {
         self.events_received.load(Ordering::Relaxed)
     }
 
-    pub fn messages_send(&self) -> usize {
-        self.messages_send.load(Ordering::Relaxed)
+    pub fn messages_sent(&self) -> usize {
+        self.messages_sent.load(Ordering::Relaxed)
     }
 
     pub fn add_connection(&self) {
@@ -110,13 +109,14 @@ impl Metrics {
     }
 
     pub fn add_message(&self) {
-        self.messages_send.fetch_add(1, Ordering::Relaxed);
+        self.messages_sent.fetch_add(1, Ordering::Relaxed);
     }
 }
 
 pub fn serve_metrics(
     bind: Bind,
     cancel: oneshot::Receiver<()>,
+    tls: Option<&TlsConfig>,
 ) -> Result<impl Future<Output = ()> + Send> {
     let metrics = warp::path!("metrics").map(|| {
         let mut response = String::with_capacity(128);
@@ -143,10 +143,10 @@ pub fn serve_metrics(
         let _ = writeln!(
             &mut response,
             "message_count_total {}",
-            METRICS.messages_send()
+            METRICS.messages_sent()
         );
         response
     });
 
-    serve_at(metrics, bind, cancel)
+    serve_at(metrics, bind, cancel, tls)
 }

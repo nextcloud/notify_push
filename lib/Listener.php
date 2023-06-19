@@ -23,11 +23,13 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush;
 
+use OC\Files\Storage\Wrapper\Jail;
 use OCA\NotifyPush\Queue\IQueue;
 use OCP\Activity\IConsumer;
 use OCP\Activity\IEvent;
 use OCP\EventDispatcher\Event;
 use OCP\Files\Cache\ICacheEvent;
+use OCP\Files\IHomeStorage;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
 use OCP\Notification\IApp;
@@ -38,7 +40,7 @@ use OCP\Share\Events\ShareCreatedEvent;
 use OCP\Share\IShare;
 
 class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
-	private $queue;
+	private IQueue $queue;
 
 	public function __construct(IQueue $queue) {
 		$this->queue = $queue;
@@ -46,9 +48,31 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 
 	public function cacheListener(Event $event): void {
 		if ($event instanceof ICacheEvent) {
+			// ignore files in home storage but outside home directory (trashbin, versions, etc)
+			if (
+				$event->getStorage()->instanceOfStorage(IHomeStorage::class) && !(
+					$event->getPath() === 'files' || strpos($event->getPath(), "files/") === 0
+				)
+			) {
+				return;
+			}
+			// ignore appdata
+			if (strpos($event->getPath(), 'appdata_') === 0) {
+				return;
+			}
+			$path = $event->getPath();
+
+			$storage = $event->getStorage();
+			while ($storage->instanceOfStorage(Jail::class)) {
+				/** @var $storage Jail */
+				$path = $storage->getUnjailedPath($path);
+				$storage = $storage->getUnjailedStorage();
+			}
+
 			$this->queue->push('notify_storage_update', [
 				'storage' => $event->getStorageId(),
-				'path' => $event->getPath(),
+				'path' => $path,
+				'file_id' => $event->getFileId(),
 			]);
 		}
 	}

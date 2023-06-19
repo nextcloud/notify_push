@@ -13,8 +13,8 @@ With many clients all checking for updates a large portion of the server load ca
 By providing a way for the server to send update notifications to the clients, the need for the clients to make these
 checks can be greatly reduced.
 
-Update notifications are provided on a "best effort" basis, updates might happen without a notification being send and a
-notification can be send even if no update has actually happened. Clients are advised to still perform periodic checks
+Update notifications are provided on a "best effort" basis, updates might happen without a notification being sent and a
+notification can be sent even if no update has actually happened. Clients are advised to still perform periodic checks
 for updates on their own, although these can be run on a much lower frequency.
 
 ## Requirements
@@ -40,13 +40,13 @@ The setup required consists of three steps
 
 ### Push server
 
-#### Setting up the service
+The push server should be setup to run as a background daemon, the recommended way is by setting it up as a system service in the init system.
+If you're not using systemd then any init or process management system that runs the push server binary with the described environment variables will work.
 
-The push server should be setup to run as a background daemon, the recommended way is by setting up a systemd service to
-run the server. If you're not using systemd than any init or process management system that runs the push server binary
-with the described environment variables will work.
+#### systemd
 
-You can create a systemd service by creating a file named `/etc/systemd/system/notify_push.service` with the following
+
+For systemd based setups, you can create a systemd service by creating a file named `/etc/systemd/system/notify_push.service` with the following
 content.
 
 ```ini
@@ -63,8 +63,6 @@ User=www-data
 WantedBy = multi-user.target
 ```
 
-Adjusting the paths and ports as needed.
-
 <details>
 <summary>Snap configuration (click to expand)</summary>
 
@@ -76,8 +74,8 @@ Description = Push daemon for Nextcloud clients
 
 [Service]
 Environment=PORT=7867 # Change if you already have something running on this port
-Environment=DATABASE_URL=mysql://nextcloud:CHANGEME@localhost/nextcloud?socket=/tmp/snap.nextcloud/tmp/sockets/mysql.sock
-Environment=REDIS_URL=redis+unix:///tmp/snap.nextcloud/tmp/sockets/redis.sock
+Environment=DATABASE_URL=mysql://nextcloud:CHANGEME@localhost/nextcloud?socket=/tmp/snap-private-tmp/snap.nextcloud/tmp/sockets/mysql.sock
+Environment=REDIS_URL=redis+unix:///tmp/snap-private-tmp/snap.nextcloud/tmp/sockets/redis.sock
 ExecStart=/var/snap/nextcloud/current/nextcloud/extra-apps/notify_push/bin/x86_64/notify_push /var/snap/nextcloud/current/nextcloud/config/config.php
 User=root
 
@@ -87,15 +85,43 @@ WantedBy = multi-user.target
 
 </details>
 
+#### OpenRC
+
+For OpenRC based setups, you can create an OpenRC service by creating a file named `/etc/init.d/notify_push` with the following content.
+
+```sh
+#!/sbin/openrc-run
+
+description="Push daemon for Nextcloud clients"
+
+output_log=${output_log:-/var/log/$RC_SVCNAME.log}
+pidfile=${pidfile:-/run/$RC_SVCNAME.pid}
+
+command=${command:-/path/to/push/binary/notify_push}
+command_user=${command_user:-www-data:www-data}
+command_args="--port 7867 /path/to/nextcloud/config/config.php"
+command_background=true
+
+depend() {
+        need net redis
+        use nginx php-fpm8 mariadb postgresql
+}
+
+start_pre() {
+        checkpath --file --owner $command_user $output_log
+}
+```
+
+Adjust the paths, ports and user as needed.
+
+
 #### Configuration
 
-The push server can be configured either by loading the config from the nextcloud `config.php`
-or by setting all options through environment variables.
+The push server can be configured either by loading the config from the nextcloud `config.php` or by setting all options through environment variables.
 
 Re-using the configuration from nextcloud is the recommended way, as it ensures that the configuration remains in sync.
 
-If using the `config.php` isn't possible, you can configure the push server by setting the following environment
-variables:
+If using the `config.php` isn't possible, you can configure the push server by setting the following environment variables:
 
 - `DATABASE_URL` connection url for the Nextcloud database, e.g. `postgres://user:password@db_host/db_name`
 - `DATABASE_PREFIX` database prefix configured in Nextcloud, e.g. `oc_`
@@ -113,19 +139,31 @@ Alternatively you can configure the server to listen on a unix socket by setting
 Note that Nextcloud load all files matching `*.config.php` in the config directory in additional to the main config file.
 You can enable this same behavior by passing the `--glob-config` option.
 
+#### TLS Configuration
+
+The push server can be configured to serve over TLS. This is mostly intended for securing the traffic between the push server
+and the reverse proxy if they are running on different hosts, running without a reverse proxy (or load balancer) is not recommended.
+
+TLS can be enabled by setting the `--tls-cert` and `--tls-key` arguments (or the `TLS_CERT` and `TLS_KEY` environment variables).
+
 #### Starting the service
 
 Once the systemd service file is set up with the correct configuration you can start it using
 
-`sudo systemctl start notify_push`
+- systemd: `sudo systemctl start notify_push`
+- OpenRc: `sudo rc-service notify_push start`
 
 and enable it to automatically start on boot using
 
-`sudo systemctl enable notify_push`
+- systemd: `sudo systemctl enable notify_push`
+- OpenRc: `sudo rc-update add notify_push` 
+
 
 Every time this app receives an update you should restart the systemd service using
 
-`sudo systemctl restart notify_push`
+- systemd: `sudo systemctl restart notify_push`
+- OpenRc: `sudo rc-service notify_push restart`
+
 
 <details>
 <summary>Alternatively, you can do this automatically via systemctl by creating the following systemd service and path (click to expand)</summary>
@@ -236,7 +274,7 @@ sudo systemctl restart apache2
 ```Caddyfile
 route /push/* {
     uri strip_prefix /push
-    reverse_proxy http://127.0.0.1:7867/
+    reverse_proxy http://127.0.0.1:7867
 }
 ```
 
@@ -300,8 +338,8 @@ For information about how to use the push server in your own app or client, see 
 ## Test client
 
 For development and testing purposes a test client is provided which can be downloaded from
-the [github actions](https://github.com/nextcloud/notify_push/actions/workflows/rust.yml) page.<br>
-(Click on a run from the list, scroll to the bottom and click on `test_client` to download the binary.)<br>
+the [current release](https://github.com/nextcloud/notify_push/releases/latest) page.<br>
+(Click on `test_client` to download the binary.)<br>
 Please note: the Test client is only build for x86_64 Linux currently.
 
 ```bash

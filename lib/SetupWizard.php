@@ -25,48 +25,38 @@ namespace OCA\NotifyPush;
 
 use OCA\NotifyPush\Queue\IQueue;
 use OCA\NotifyPush\Queue\RedisQueue;
-use OCP\App\IAppManager;
 use OCP\Http\Client\IClientService;
 use OCP\IConfig;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 class SetupWizard {
-	private $appManager;
 	private $queue;
 	private $test;
 	private $client;
 	private $config;
 	private $httpsCache = [];
+	private $binaryFinder;
 
 	public function __construct(
-		IAppManager $appManager,
 		IQueue $queue,
 		SelfTest $test,
 		IClientService $clientService,
-		IConfig $config
+		IConfig $config,
+		BinaryFinder $binaryFinder
 	) {
-		$this->appManager = $appManager;
 		$this->queue = $queue;
 		$this->test = $test;
 		$this->client = $clientService->newClient();
 		$this->config = $config;
+		$this->binaryFinder = $binaryFinder;
 	}
 
 	public function getArch(): string {
-		$arch = php_uname('m');
-		if (strpos($arch, 'armv7') === 0) {
-			return 'armv7';
-		}
-		if (strpos($arch, 'aarch64') === 0) {
-			return 'aarch64';
-		}
-		return $arch;
+		return $this->binaryFinder->getArch();
 	}
 
 	private function getBinaryPath(): string {
-		$basePath = realpath(__DIR__ . '/../bin/');
-		$arch = $this->getArch();
-		return "$basePath/$arch/notify_push";
+		return $this->binaryFinder->getBinaryPath();
 	}
 
 	public function hasBundledBinaries(): bool {
@@ -255,7 +245,7 @@ Description = Push daemon for Nextcloud clients
 [Service]
 Environment=PORT=7867
 Environment=NEXTCLOUD_URL=$ncUrl
-${selfSigned}ExecStart=$path $config
+{$selfSigned}ExecStart=$path $config
 User=$user
 
 [Install]

@@ -1,8 +1,8 @@
 mod nc;
 
 use crate::config::nc::parse_config_file;
-use color_eyre::eyre::ContextCompat;
-use color_eyre::{eyre::WrapErr, Report, Result};
+use crate::error::ConfigError;
+use crate::{Error, Result};
 use derivative::Derivative;
 use redis::ConnectionInfo;
 use sqlx::any::AnyConnectOptions;
@@ -12,9 +12,10 @@ use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use structopt::StructOpt;
+use structopt::{clap::AppSettings, StructOpt};
 
 #[derive(StructOpt, Debug)]
+#[structopt(global_setting = AppSettings::ColoredHelp)]
 #[structopt(name = "notify_push")]
 pub struct Opt {
     /// The database connect url
@@ -68,6 +69,15 @@ pub struct Opt {
     /// Load other files named *.config.php in the config folder
     #[structopt(long)]
     pub glob_config: bool,
+    /// TLS certificate
+    #[structopt(long)]
+    pub tls_cert: Option<PathBuf>,
+    /// TLS key
+    #[structopt(long)]
+    pub tls_key: Option<PathBuf>,
+    /// The maximum debounce time between messages, in seconds.
+    #[structopt(long)]
+    pub max_debounce_time: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -81,6 +91,14 @@ pub struct Config {
     pub bind: Bind,
     pub allow_self_signed: bool,
     pub no_ansi: bool,
+    pub tls: Option<TlsConfig>,
+    pub max_debounce_time: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct TlsConfig {
+    pub key: PathBuf,
+    pub cert: PathBuf,
 }
 
 #[derive(Clone, Derivative)]
@@ -107,18 +125,17 @@ impl Display for Bind {
 }
 
 impl TryFrom<PartialConfig> for Config {
-    type Error = Report;
+    type Error = Error;
 
     fn try_from(config: PartialConfig) -> Result<Self> {
         let socket_permissions = config
             .socket_permissions
             .map(|perm| {
                 if perm.len() != 4 && !perm.starts_with('0') {
-                    return Err(Report::msg(
-                        "socket permissions should be provided in the octal form `0xxx`",
-                    ));
+                    return Err(ConfigError::SocketPermissions(perm, None));
                 }
-                Ok(u32::from_str_radix(&perm, 8)?)
+                Ok(u32::from_str_radix(&perm, 8)
+                    .map_err(|e| ConfigError::SocketPermissions(perm, Some(e)))?)
             })
             .transpose()?
             .unwrap_or(0o666);
@@ -146,15 +163,13 @@ impl TryFrom<PartialConfig> for Config {
 
         let mut nextcloud_url = config
             .nextcloud_url
-            .ok_or_else(|| Report::msg("No nextcloud url configured"))?;
+            .ok_or_else(|| ConfigError::NoNextcloud)?;
         if !nextcloud_url.ends_with('/') {
             nextcloud_url.push('/');
         }
 
         Ok(Config {
-            database: config
-                .database
-                .ok_or_else(|| Report::msg("No database url configured"))?,
+            database: config.database.ok_or_else(|| ConfigError::NoDatabase)?,
             database_prefix: config
                 .database_prefix
                 .unwrap_or_else(|| String::from("oc_")),
@@ -165,6 +180,8 @@ impl TryFrom<PartialConfig> for Config {
             bind,
             allow_self_signed: config.allow_self_signed.unwrap_or(false),
             no_ansi: config.no_ansi.unwrap_or(false),
+            tls: config.tls,
+            max_debounce_time: config.max_debounce_time.unwrap_or(15),
         })
     }
 }
@@ -199,24 +216,35 @@ struct PartialConfig {
     pub socket_permissions: Option<String>,
     pub allow_self_signed: Option<bool>,
     pub no_ansi: Option<bool>,
+    pub tls: Option<TlsConfig>,
+    pub max_debounce_time: Option<usize>,
 }
 
 impl PartialConfig {
     fn from_env() -> Result<Self> {
-        let database = parse_var("DATABASE_URL").wrap_err("Failed to parse DATABASE_URL")?;
+        let database = parse_var("DATABASE_URL")?;
         let database_prefix = var("DATABASE_PREFIX").ok();
-        let redis = parse_var("REDIS_URL").wrap_err("Failed to parse REDIS_URL")?;
+        let redis = parse_var("REDIS_URL")?;
         let nextcloud_url = var("NEXTCLOUD_URL").ok();
-        let port = parse_var("PORT").ok().wrap_err("Invalid PORT")?;
-        let metrics_port = parse_var("METRICS_PORT").wrap_err("Invalid METRICS_PORT")?;
-        let metrics_socket =
-            parse_var("METRICS_SOCKET_PATH").wrap_err("Invalid METRICS_SOCKET_PATH")?;
+        let port = parse_var("PORT")?;
+        let metrics_port = parse_var("METRICS_PORT")?;
+        let metrics_socket = parse_var("METRICS_SOCKET_PATH")?;
         let log_level = var("LOG").ok();
-        let bind = parse_var("BIND").wrap_err("Invalid BIND")?;
+        let bind = parse_var("BIND")?;
         let socket = var("SOCKET_PATH").map(PathBuf::from).ok();
         let socket_permissions = var("SOCKET_PERMISSIONS").ok();
         let allow_self_signed = var("ALLOW_SELF_SIGNED").map(|val| val == "true").ok();
         let no_ansi = var("NO_ANSI").map(|val| val == "true").ok();
+
+        let tls_cert = parse_var("TLS_CERT")?;
+        let tls_key = parse_var("TLS_KEY")?;
+
+        let tls = if let (Some(cert), Some(key)) = (tls_cert, tls_key) {
+            Some(TlsConfig { cert, key })
+        } else {
+            None
+        };
+        let max_debounce_time = parse_var("MAX_DEBOUNCE_TIME")?;
 
         Ok(PartialConfig {
             database,
@@ -232,14 +260,22 @@ impl PartialConfig {
             socket_permissions,
             allow_self_signed,
             no_ansi,
+            tls,
+            max_debounce_time,
         })
     }
 
     fn from_file(file: impl AsRef<Path>, glob: bool) -> Result<Self> {
-        parse_config_file(file, glob)
+        Ok(parse_config_file(file, glob)?)
     }
 
     fn from_opt(opt: Opt) -> Self {
+        let tls = if let (Some(cert), Some(key)) = (opt.tls_cert, opt.tls_key) {
+            Some(TlsConfig { cert, key })
+        } else {
+            None
+        };
+
         PartialConfig {
             database: opt.database_url,
             database_prefix: opt.database_prefix,
@@ -258,6 +294,8 @@ impl PartialConfig {
                 None
             },
             no_ansi: if opt.no_ansi { Some(true) } else { None },
+            tls,
+            max_debounce_time: opt.max_debounce_time,
         }
     }
 
@@ -280,11 +318,13 @@ impl PartialConfig {
             socket_permissions: self.socket_permissions.or(fallback.socket_permissions),
             allow_self_signed: self.allow_self_signed.or(fallback.allow_self_signed),
             no_ansi: self.no_ansi.or(fallback.no_ansi),
+            tls: self.tls.or(fallback.tls),
+            max_debounce_time: self.max_debounce_time.or(fallback.max_debounce_time),
         }
     }
 }
 
-fn parse_var<T>(name: &str) -> Result<Option<T>>
+fn parse_var<T>(name: &'static str) -> Result<Option<T>>
 where
     T: FromStr + 'static,
     T::Err: std::error::Error + Sync + Send,
@@ -293,5 +333,5 @@ where
         .ok()
         .map(|val| T::from_str(&val))
         .transpose()
-        .map_err(Report::from)
+        .map_err(|e| ConfigError::Env(name, Box::new(e)).into())
 }

@@ -1,15 +1,16 @@
-use crate::config::{Bind, Config};
-use crate::connection::{handle_user_socket, ActiveConnections};
+use crate::config::{Bind, Config, TlsConfig};
+use crate::connection::{handle_user_socket, ActiveConnections, ConnectionOptions};
+pub use crate::error::Error;
+use crate::error::{SelfTestError, SocketError};
 use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
 };
-use crate::message::MessageType;
+use crate::message::{PushMessage, UpdatedFiles};
 use crate::metrics::METRICS;
 use crate::redis::Redis;
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
 use ahash::RandomState;
-use color_eyre::{eyre::WrapErr, Result};
 use dashmap::DashMap;
 use flexi_logger::LoggerHandle;
 use futures::future::{select, Either};
@@ -25,8 +26,8 @@ use std::os::unix::fs::PermissionsExt;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 use tokio::net::UnixListener;
-use tokio::sync::oneshot;
 use tokio::sync::Mutex;
+use tokio::sync::{broadcast, oneshot};
 use tokio::time::sleep;
 use tokio_stream::wrappers::UnixListenerStream;
 use warp::filters::addr::remote;
@@ -35,6 +36,7 @@ use warp_real_ip::get_forwarded_for;
 
 pub mod config;
 pub mod connection;
+pub mod error;
 pub mod event;
 pub mod message;
 pub mod metrics;
@@ -42,6 +44,8 @@ pub mod nc;
 pub mod redis;
 pub mod storage_mapping;
 pub mod user;
+
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub struct App {
     connections: ActiveConnections,
@@ -51,6 +55,8 @@ pub struct App {
     test_cookie: AtomicU32,
     redis: Redis,
     log_handle: Mutex<LoggerHandle>,
+    reset_tx: broadcast::Sender<()>,
+    _reset_rx: broadcast::Receiver<()>,
 }
 
 impl App {
@@ -64,6 +70,8 @@ impl App {
 
         let redis = Redis::new(config.redis)?;
 
+        let (reset_tx, reset_rx) = broadcast::channel(1);
+
         Ok(App {
             connections,
             nc_client,
@@ -72,6 +80,8 @@ impl App {
             storage_mapping,
             redis,
             log_handle: Mutex::new(log_handle),
+            reset_tx,
+            _reset_rx: reset_rx,
         })
     }
 
@@ -91,6 +101,8 @@ impl App {
 
         let redis = Redis::new(config.redis)?;
 
+        let (reset_tx, reset_rx) = broadcast::channel(1);
+
         Ok(App {
             connections,
             nc_client,
@@ -99,28 +111,19 @@ impl App {
             storage_mapping,
             redis,
             log_handle: Mutex::new(log_handle),
+            reset_tx,
+            _reset_rx: reset_rx,
         })
     }
 
-    pub async fn self_test(&self) -> Result<()> {
+    pub async fn self_test(&self) -> Result<(), SelfTestError> {
         let _ = self
             .storage_mapping
             .get_users_for_storage_path(1, "")
-            .await
-            .wrap_err("Failed to test database access")?;
-        let mut redis = self
-            .redis
-            .connect()
-            .await
-            .wrap_err("Failed to connect to redis")?;
-        redis
-            .del("notify_push_app_version")
-            .await
-            .wrap_err("Failed to clear app version")?;
-        self.nc_client
-            .request_app_version()
-            .await
-            .wrap_err("Failed to request app version")?;
+            .await?;
+        let mut redis = self.redis.connect().await?;
+        redis.del("notify_push_app_version").await?;
+        self.nc_client.request_app_version().await?;
         match redis.get("notify_push_app_version").await {
             Ok(version) if version == env!("NOTIFY_PUSH_VERSION") => {}
             Ok(version) => {
@@ -138,7 +141,11 @@ impl App {
 
     async fn handle_event(&self, event: Event) {
         match event {
-            Event::StorageUpdate(StorageUpdate { storage, path }) => {
+            Event::StorageUpdate(StorageUpdate {
+                storage,
+                path,
+                file_id,
+            }) => {
                 match self
                     .storage_mapping
                     .get_users_for_storage_path(storage, &path)
@@ -147,7 +154,7 @@ impl App {
                     Ok(users) => {
                         for user in users {
                             self.connections
-                                .send_to_user(&user, MessageType::File)
+                                .send_to_user(&user, PushMessage::File(file_id.into()))
                                 .await;
                         }
                     }
@@ -156,12 +163,12 @@ impl App {
             }
             Event::GroupUpdate(GroupUpdate { user, .. }) => {
                 self.connections
-                    .send_to_user(&user, MessageType::File)
+                    .send_to_user(&user, PushMessage::File(UpdatedFiles::Unknown))
                     .await;
             }
             Event::ShareCreate(ShareCreate { user }) => {
                 self.connections
-                    .send_to_user(&user, MessageType::File)
+                    .send_to_user(&user, PushMessage::File(UpdatedFiles::Unknown))
                     .await;
             }
             Event::TestCookie(cookie) => {
@@ -169,12 +176,12 @@ impl App {
             }
             Event::Activity(Activity { user }) => {
                 self.connections
-                    .send_to_user(&user, MessageType::Activity)
+                    .send_to_user(&user, PushMessage::Activity)
                     .await;
             }
             Event::Notification(Notification { user }) => {
                 self.connections
-                    .send_to_user(&user, MessageType::Notification)
+                    .send_to_user(&user, PushMessage::Notification)
                     .await;
             }
             Event::PreAuth(PreAuth { user, token }) => {
@@ -186,7 +193,7 @@ impl App {
                 body,
             }) => {
                 self.connections
-                    .send_to_user(&user, MessageType::Custom(message, body))
+                    .send_to_user(&user, PushMessage::Custom(message, body))
                     .await;
             }
             Event::Config(event::Config::LogSpec(spec)) => {
@@ -213,7 +220,17 @@ impl App {
                 }
                 Err(e) => log::warn!("Failed to set metrics: {}", e),
             },
+            Event::Signal(event::Signal::Reset) => {
+                log::info!("Stopping all open connections");
+                if let Err(e) = self.reset_tx.send(()) {
+                    log::warn!("Failed to send reset command to all connections: {}", e);
+                }
+            }
         }
+    }
+
+    pub fn reset_rx(&self) -> broadcast::Receiver<()> {
+        self.reset_tx.subscribe()
     }
 }
 
@@ -221,6 +238,8 @@ pub fn serve(
     app: Arc<App>,
     bind: Bind,
     cancel: oneshot::Receiver<()>,
+    tls: Option<&TlsConfig>,
+    max_debounce_time: usize,
 ) -> Result<impl Future<Output = ()> + Send> {
     let app = warp::any().map(move || app.clone());
 
@@ -234,12 +253,16 @@ pub fn serve(
         .and(remote())
         .and(get_forwarded_for())
         .map(
-            |ws: warp::ws::Ws, app, remote: Option<SocketAddr>, mut forwarded_for: Vec<IpAddr>| {
+            move |ws: warp::ws::Ws,
+                  app,
+                  remote: Option<SocketAddr>,
+                  mut forwarded_for: Vec<IpAddr>| {
                 if let Some(remote) = remote {
                     forwarded_for.push(remote.ip());
                 }
                 log::debug!("new websocket connection from {:?}", forwarded_for.first());
-                ws.on_upgrade(move |socket| handle_user_socket(socket, app, forwarded_for))
+                let opts = ConnectionOptions::new(max_debounce_time);
+                ws.on_upgrade(move |socket| handle_user_socket(socket, app, forwarded_for, opts))
             },
         )
         .with(cors);
@@ -334,35 +357,49 @@ pub fn serve(
 
     let routes = routes.clone().or(warp::path!("push" / ..).and(routes));
 
-    serve_at(routes, bind, cancel)
+    serve_at(routes, bind, cancel, tls)
 }
 
-fn serve_at<F, C>(filter: F, bind: Bind, cancel: C) -> Result<impl Future<Output = ()> + Send>
+fn serve_at<F, C>(
+    filter: F,
+    bind: Bind,
+    cancel: C,
+    tls: Option<&TlsConfig>,
+) -> Result<impl Future<Output = ()> + Send>
 where
     C: Future + Send + Sync + 'static,
     F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,
 {
     let cancel = cancel.map(|_| ());
-    match bind {
-        Bind::Tcp(addr) => {
-            let (_, server) = warp::serve(filter).bind_with_graceful_shutdown(addr, cancel);
-            Ok(Either::Left(server))
+    let server = warp::serve(filter);
+    match (bind, tls) {
+        (Bind::Tcp(addr), Some(tls)) => {
+            let (_, server) = server
+                .tls()
+                .cert_path(&tls.cert)
+                .key_path(&tls.key)
+                .bind_with_graceful_shutdown(addr, cancel);
+            Ok(Either::Left(Either::Left(server)))
         }
-        Bind::Unix(socket_path, permissions) => {
+        (Bind::Tcp(addr), None) => {
+            let (_, server) = server.bind_with_graceful_shutdown(addr, cancel);
+            Ok(Either::Left(Either::Right(server)))
+        }
+        (Bind::Unix(socket_path, permissions), tls) => {
+            if tls.is_some() {
+                log::warn!("Serving with TLS over a unix socket is not supported");
+            }
             fs::remove_file(&socket_path).ok();
 
-            let listener = UnixListener::bind(&socket_path).wrap_err_with(|| {
-                format!(
-                    "Failed to setup socket at {}",
-                    socket_path.to_string_lossy()
-                )
-            })?;
-            fs::set_permissions(&socket_path, PermissionsExt::from_mode(permissions))?;
+            let listener = UnixListener::bind(&socket_path)
+                .map_err(|e| SocketError::Bind(e, socket_path.to_string_lossy().to_string()))?;
+            fs::set_permissions(&socket_path, PermissionsExt::from_mode(permissions))
+                .map_err(SocketError::SocketPermissions)?;
 
             let stream = UnixListenerStream::new(listener);
             Ok(Either::Right(
-                warp::serve(filter)
+                server
                     .serve_incoming_with_graceful_shutdown(stream, cancel)
                     .map(move |_| {
                         fs::remove_file(&socket_path).ok();
@@ -376,7 +413,7 @@ pub async fn listen_loop(app: Arc<App>, cancel: oneshot::Receiver<()>) {
     let loop_ = async move {
         loop {
             if let Err(e) = listen(app.clone()).await {
-                eprintln!("Failed to setup redis subscription: {:#}", e);
+                log::error!("Failed to setup redis subscription: {:#}", e);
             }
             log::warn!("Redis server disconnected, reconnecting in 1s");
             sleep(Duration::from_secs(1)).await;

@@ -70,7 +70,7 @@ class Metrics extends Command {
 				$output->writeln("Total connection count: " . $metrics['total_connection_count']);
 				$output->writeln("Total database query count: " . $metrics['mapping_query_count']);
 				$output->writeln("Events received: " . $metrics['events_received']);
-				$output->writeln("Messages send: " . $metrics['messages_send']);
+				$output->writeln("Messages sent: " . $metrics['messages_sent']);
 				return 0;
 			} else {
 				$output->writeln("<error>No metrics received from push server</error>");

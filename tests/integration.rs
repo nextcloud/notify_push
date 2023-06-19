@@ -5,12 +5,14 @@ use futures::{pin_mut, FutureExt};
 use futures::{SinkExt, StreamExt};
 use http_auth_basic::Credentials;
 use notify_push::config::{Bind, Config};
+use notify_push::message::DEBOUNCE_ENABLE;
 use notify_push::{listen_loop, serve, App};
 use once_cell::sync::Lazy;
 use redis::AsyncCommands;
 use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
 use std::net::SocketAddr;
+use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::oneshot;
@@ -28,12 +30,9 @@ static LAST_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(1024));
 async fn listen_available_port() -> Option<TcpListener> {
     let mut last_port = LAST_PORT.lock().unwrap();
     for port in (*last_port + 1)..65535 {
-        match TcpListener::bind(("127.0.0.1", port)).await {
-            Ok(tcp) => {
-                *last_port = port;
-                return Some(tcp);
-            }
-            _ => {}
+        if let Ok(tcp) = TcpListener::bind(("127.0.0.1", port)).await {
+            *last_port = port;
+            return Some(tcp);
         }
     }
 
@@ -54,6 +53,7 @@ static LOG_HANDLE: Lazy<LoggerHandle> =
 
 impl Services {
     pub async fn new() -> Self {
+        DEBOUNCE_ENABLE.store(false, Ordering::SeqCst);
         let redis_tcp = listen_available_port()
             .await
             .expect("Can't find open port for redis");
@@ -151,9 +151,11 @@ impl Services {
             nextcloud_url: format!("http://{}/", self.nextcloud),
             metrics_bind: None,
             log_level: "".to_string(),
-            bind: Bind::Tcp(self.nextcloud.clone()),
+            bind: Bind::Tcp(self.nextcloud),
             allow_self_signed: false,
             no_ansi: false,
+            tls: None,
+            max_debounce_time: 15,
         }
     }
 
@@ -178,7 +180,7 @@ impl Services {
 
         let bind = Bind::Tcp(addr);
         spawn(async move {
-            let serve = serve(app.clone(), bind, serve_rx).unwrap();
+            let serve = serve(app.clone(), bind, serve_rx, None, 15).unwrap();
             let listen = listen_loop(app.clone(), listen_rx);
 
             pin_mut!(serve);
@@ -285,11 +287,11 @@ async fn test_auth_failure() {
     assert_next_message(&mut client, "err: Invalid credentials").await;
 }
 
-#[track_caller]
 async fn assert_next_message(
     client: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
     expected: &str,
 ) {
+    sleep(Duration::from_millis(100)).await;
     assert_eq!(
         timeout(Duration::from_millis(200), client.next())
             .await
@@ -300,7 +302,6 @@ async fn assert_next_message(
     );
 }
 
-#[track_caller]
 async fn assert_no_message(client: &mut WebSocketStream<MaybeTlsStream<TcpStream>>) {
     sleep(Duration::from_millis(5)).await;
     assert!(timeout(Duration::from_millis(10), client.next())
@@ -428,6 +429,8 @@ async fn test_pre_auth() {
     let services = Services::new().await;
 
     let server_handle = services.spawn_server().await;
+
+    sleep(Duration::from_millis(500)).await;
 
     let mut redis = services.redis_client().await;
     redis

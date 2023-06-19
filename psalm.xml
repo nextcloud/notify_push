@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <psalm
-	errorLevel="4"
+	errorLevel="5"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xmlns="https://getpsalm.org/schema/config"
 	xsi:schemaLocation="https://getpsalm.org/schema/config"
@@ -8,9 +8,12 @@
 >
 	<projectFiles>
 		<directory name="lib"/>
+		<ignoreFiles>
+			<directory name="vendor" />
+		</ignoreFiles>
 	</projectFiles>
 	<extraFiles>
-		<directory name="vendor/christophwurst/nextcloud"/>
+		<directory name="vendor/nextcloud/ocp"/>
 	</extraFiles>
 	<stubs>
 		<file name="tests/stub.phpstub" preloadClasses="true"/>

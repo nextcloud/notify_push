@@ -23,22 +23,26 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\Migration;
 
-use OCA\NotifyPush\SetupWizard;
+use OCA\NotifyPush\BinaryFinder;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
 
 class Install implements IRepairStep {
-	private $setupWizard;
+	private $binaryFinder;
 
-	public function __construct(SetupWizard $setupWizard) {
-		$this->setupWizard = $setupWizard;
+	public function __construct(BinaryFinder $setupWizard) {
+		$this->binaryFinder = $setupWizard;
 	}
 
 	public function getName() {
 		return 'Set binary permissions';
 	}
 
+	/**
+	 * @return void
+	 */
 	public function run(IOutput $output) {
-		$this->setupWizard->testBinary();
+		$path = $this->binaryFinder->getBinaryPath();
+		@chmod($path, 0755);
 	}
 }

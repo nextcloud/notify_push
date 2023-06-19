@@ -1,6 +1,15 @@
-on: [push, pull_request]
-
 name: Package
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - stable*
+
+permissions:
+  contents: read
 
 env:
   APP_NAME: notify_push
@@ -14,7 +23,7 @@ jobs:
         run: |
           sudo apt-get install musl-tools
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -23,7 +32,7 @@ jobs:
           target: x86_64-unknown-linux-musl
       - name: cross
         run: |
-          cargo install cross
+          cargo install cross --locked
       - name: Setup krankler
         run: |
           wget https://github.com/ChristophWurst/krankerl/releases/download/v0.13.0/krankerl
@@ -31,7 +40,7 @@ jobs:
       - name: Package app
         run: |
           ./krankerl package
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: ${{ env.APP_NAME }}.tar.gz
           path: build/artifacts/${{ env.APP_NAME }}.tar.gz

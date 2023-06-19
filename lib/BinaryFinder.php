@@ -21,45 +21,23 @@ declare(strict_types=1);
  *
  */
 
-namespace {
-	class OC {
-		/** @var string */
-		public static $configDir;
+namespace OCA\NotifyPush;
+
+class BinaryFinder {
+	public function getArch(): string {
+		$arch = php_uname('m');
+		if (strpos($arch, 'armv7') === 0) {
+			return 'armv7';
+		}
+		if (strpos($arch, 'aarch64') === 0) {
+			return 'aarch64';
+		}
+		return $arch;
 	}
-}
 
-namespace OC {
-	class RedisFactory {
-		public function getInstance(): \Redis {}
-		public function isAvailable(){}
-	}
-}
-
-namespace OC\AppFramework\Http {
-
-	use OCP\IRequest;
-
-	abstract class Request implements IRequest {
-		public $server = [];
-	}
-}
-
-namespace OC\Files\Cache {
-
-	use OCP\EventDispatcher\Event;
-	use OCP\Files\Cache\ICacheEvent;
-
-	abstract class AbstractCacheEvent extends Event implements ICacheEvent {
-
-	}
-}
-
-namespace OC\Files\Storage\Wrapper {
-
-	use OCP\Files\Storage\IStorage;
-
-	interface Jail extends IStorage {
-		public function getUnjailedPath(string $path): string;
-		public function getUnjailedStorage(): IStorage;
+	public function getBinaryPath(): string {
+		$basePath = realpath(__DIR__ . '/../bin/');
+		$arch = $this->getArch();
+		return "$basePath/$arch/notify_push";
 	}
 }

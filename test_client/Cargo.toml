@@ -5,10 +5,11 @@ authors = ["Robin Appelman <robin@icewind.nl>"]
 edition = "2018"
 
 [dependencies]
-tungstenite = { version = "0.14", default-features = false, features = ["rustls-tls"] }
-color-eyre = "0.5"
-serde_json = "1"
-ureq = "2"
-flexi_logger = { version = "0.18", features = ["colors"] }
-log = "0.4"
-base64 = "0.13"
+tungstenite = { version = "0.19.0", features = ["rustls-tls-webpki-roots"] }
+serde_json = "1.0.96"
+ureq = "2.6.2"
+flexi_logger = { version = "0.25.3", features = ["colors"] }
+log = "0.4.17"
+base64 = "0.21.0"
+miette = { version = "5.8.0", features = ["fancy"] }
+url = "2.3.1"
