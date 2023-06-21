@@ -24,7 +24,7 @@ reqwest = { version = "0.11.17", default-features = false, features = ["rustls-t
 warp-real-ip = "0.2.0"
 parse-display = "0.8.0"
 percent-encoding = "2.2.0"
-rand = "0.8.5"
+rand = { version = "0.8.5", features = ["small_rng"] }
 ahash = "0.8.3"
 flexi_logger = { version = "=0.25.3", features = ["colors", "is-terminal"] }
 tokio-stream = { version = "0.1.14", features = ["net"] }
