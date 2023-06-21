@@ -1,9 +1,9 @@
 use crate::error::ConfigError;
 use crate::Result;
 use redis::aio::{Connection, PubSub};
-use redis::cluster::{ClusterClient, ClusterConnection};
-use redis::{AsyncCommands, Client, Commands, ConnectionInfo, RedisError};
-use tokio::task::block_in_place;
+use redis::cluster::ClusterClient;
+use redis::cluster_async::ClusterConnection;
+use redis::{AsyncCommands, Client, ConnectionInfo, RedisError};
 
 pub struct Redis {
     config: Vec<ConnectionInfo>,
@@ -32,8 +32,9 @@ impl Redis {
                 RedisConnection::Async(client)
             }
             config => {
-                let client =
-                    block_in_place(|| ClusterClient::new(config.to_vec())?.get_connection())?;
+                let client = ClusterClient::new(config.to_vec())?
+                    .get_async_connection()
+                    .await?;
                 RedisConnection::Cluster(client)
             }
         };
@@ -47,13 +48,13 @@ pub enum RedisConnection {
 }
 
 impl RedisConnection {
-    pub async fn del(&mut self, key: &str) -> Result<(), redis::RedisError> {
+    pub async fn del(&mut self, key: &str) -> Result<(), RedisError> {
         match self {
             RedisConnection::Async(client) => {
-                client.del::<_, ()>(key).await?;
+                client.del(key).await?;
             }
             RedisConnection::Cluster(client) => {
-                block_in_place(|| client.del::<_, ()>(key))?;
+                client.del(key).await?;
             }
         }
         Ok(())
@@ -61,18 +62,18 @@ impl RedisConnection {
 
     pub async fn get(&mut self, key: &str) -> Result<String> {
         Ok(match self {
-            RedisConnection::Async(client) => client.get::<_, String>(key).await?,
-            RedisConnection::Cluster(client) => block_in_place(|| client.get::<_, String>(key))?,
+            RedisConnection::Async(client) => client.get(key).await?,
+            RedisConnection::Cluster(client) => client.get(key).await?,
         })
     }
 
     pub async fn set(&mut self, key: &str, value: &str) -> Result<()> {
         match self {
             RedisConnection::Async(client) => {
-                client.set::<_, _, ()>(key, value).await?;
+                client.set(key, value).await?;
             }
             RedisConnection::Cluster(client) => {
-                block_in_place(|| client.set::<_, _, ()>(key, value))?;
+                client.set(key, value).await?;
             }
         }
         Ok(())
