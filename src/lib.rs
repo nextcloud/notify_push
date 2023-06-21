@@ -95,8 +95,7 @@ impl App {
         let nc_client = nc::Client::new(&config.nextcloud_url, allow_self_signed)?;
         let test_cookie = AtomicU32::new(0);
 
-        let storage_mapping =
-            StorageMapping::from_connection(connection, config.database_prefix).await?;
+        let storage_mapping = StorageMapping::from_connection(connection, config.database_prefix);
         let pre_auth = DashMap::default();
 
         let redis = Redis::new(config.redis)?;
@@ -154,8 +153,7 @@ impl App {
                     Ok(users) => {
                         for user in users {
                             self.connections
-                                .send_to_user(&user, PushMessage::File(file_id.into()))
-                                .await;
+                                .send_to_user(&user, PushMessage::File(file_id.into()));
                         }
                     }
                     Err(e) => log::error!("{:#}", e),
@@ -163,26 +161,21 @@ impl App {
             }
             Event::GroupUpdate(GroupUpdate { user, .. }) => {
                 self.connections
-                    .send_to_user(&user, PushMessage::File(UpdatedFiles::Unknown))
-                    .await;
+                    .send_to_user(&user, PushMessage::File(UpdatedFiles::Unknown));
             }
             Event::ShareCreate(ShareCreate { user }) => {
                 self.connections
-                    .send_to_user(&user, PushMessage::File(UpdatedFiles::Unknown))
-                    .await;
+                    .send_to_user(&user, PushMessage::File(UpdatedFiles::Unknown));
             }
             Event::TestCookie(cookie) => {
                 self.test_cookie.store(cookie, Ordering::SeqCst);
             }
             Event::Activity(Activity { user }) => {
-                self.connections
-                    .send_to_user(&user, PushMessage::Activity)
-                    .await;
+                self.connections.send_to_user(&user, PushMessage::Activity);
             }
             Event::Notification(Notification { user }) => {
                 self.connections
-                    .send_to_user(&user, PushMessage::Notification)
-                    .await;
+                    .send_to_user(&user, PushMessage::Notification);
             }
             Event::PreAuth(PreAuth { user, token }) => {
                 self.pre_auth.insert(token, (Instant::now(), user));
@@ -193,8 +186,7 @@ impl App {
                 body,
             }) => {
                 self.connections
-                    .send_to_user(&user, PushMessage::Custom(message, body))
-                    .await;
+                    .send_to_user(&user, PushMessage::Custom(message, body));
             }
             Event::Config(event::Config::LogSpec(spec)) => {
                 match self.log_handle.lock().await.parse_and_push_temp_spec(&spec) {
