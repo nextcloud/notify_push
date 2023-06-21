@@ -134,8 +134,8 @@ impl TryFrom<PartialConfig> for Config {
                 if perm.len() != 4 && !perm.starts_with('0') {
                     return Err(ConfigError::SocketPermissions(perm, None));
                 }
-                Ok(u32::from_str_radix(&perm, 8)
-                    .map_err(|e| ConfigError::SocketPermissions(perm, Some(e)))?)
+                u32::from_str_radix(&perm, 8)
+                    .map_err(|e| ConfigError::SocketPermissions(perm, Some(e)))
             })
             .transpose()?
             .unwrap_or(0o666);
