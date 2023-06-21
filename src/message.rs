@@ -1,7 +1,7 @@
 use crate::connection::ConnectionOptions;
 use parse_display::Display;
 use serde_json::Value;
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 use std::cmp::{max, min};
 use std::fmt::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -30,16 +30,9 @@ impl UpdatedFiles {
     }
 }
 
-impl From<Option<u64>> for UpdatedFiles {
-    fn from(id: Option<u64>) -> Self {
-        match id {
-            Some(id) => {
-                let mut ids = SmallVec::new();
-                ids.push(id);
-                UpdatedFiles::Known(ids)
-            }
-            None => UpdatedFiles::Unknown,
-        }
+impl From<u64> for UpdatedFiles {
+    fn from(id: u64) -> Self {
+        UpdatedFiles::Known(smallvec![id])
     }
 }
 
