@@ -72,7 +72,7 @@ class Setup extends Command {
 				$output->writeln("<error>🗴 bundled binaries are not available.</error>");
 				$output->writeln("  If you're trying to setup the app from git, you can find build instruction in the README: https://github.com/nextcloud/notify_push");
 				$output->writeln("  And pre-built binaries for x86_64, armv7, aarch64 and freebsd (amd64) in the github actions.");
-				$output->writeln("  Once you have a <info>notify_push</info> binary it should be placed in <info>" . realpath(__DIR__ . '/../../bin/' . $this->setupWizard->getArch())) . "</info>";
+				$output->writeln("  Once you have a <info>notify_push</info> binary it should be placed in <info>" . realpath(__DIR__ . '/../../'). '/bin/' . $this->setupWizard->getArch()) . "</info>";
 				return 1;
 			}
 
