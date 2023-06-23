@@ -60,7 +60,7 @@ class SetupWizard {
 	}
 
 	public function hasBundledBinaries(): bool {
-		return is_dir(__DIR__ . '/../bin/x86_64');
+		return is_dir(__DIR__ . '/../bin/' . $this->binaryFinder->getArch());
 	}
 
 	public function hasBinary(): bool {
