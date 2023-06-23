@@ -23,15 +23,13 @@ jobs:
           sudo apt-get install musl-tools
       - name: Checkout code
         uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          target: x86_64-unknown-linux-musl
+          targets: x86_64-unknown-linux-musl
       - name: cross
         run: |
-          cargo install cross --locked
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall --no-confirm cross
       ### Adjustments end ###
 
       - name: Check actor permission

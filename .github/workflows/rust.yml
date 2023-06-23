@@ -17,12 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          target: x86_64-unknown-linux-musl
+          targets: x86_64-unknown-linux-musl
       - uses: Swatinem/rust-cache@v2.2.0
       - uses: actions-rs/cargo@v1
         with:
@@ -33,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: check
     strategy:
+      fail-fast: false
       matrix:
         target:
           - x86_64-unknown-linux-musl
@@ -43,20 +41,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          target: ${{ matrix.target }}
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2.2.0
         with:
           key: ${{ matrix.target }}
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --release --target ${{ matrix.target }}
+      - name: setup cross
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall --no-confirm cross
+      - name: build
+        run: |
+          cross build --release --target ${{ matrix.target }}
       - uses: actions/upload-artifact@v3
         with:
           name: notify_push-${{ matrix.target }}
@@ -69,11 +66,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
+          targets: x86_64-unknown-linux-musl
       - uses: Swatinem/rust-cache@v2.2.0
       - uses: actions-rs/cargo@v1
         with:
@@ -88,12 +83,9 @@ jobs:
         run: |
           sudo apt-get install musl-tools
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          target: x86_64-unknown-linux-musl
+          targets: x86_64-unknown-linux-musl
       - uses: Swatinem/rust-cache@v2.2.0
       - run: cargo build --release --target x86_64-unknown-linux-musl
         working-directory: ./test_client
@@ -108,12 +100,9 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@1.64.0
         with:
-          profile: minimal
-          toolchain: "1.64"
-          override: true
-          target: x86_64-unknown-linux-musl
+          targets: x86_64-unknown-linux-musl
       - uses: Swatinem/rust-cache@v2.2.0
       - uses: actions-rs/cargo@v1
         with:

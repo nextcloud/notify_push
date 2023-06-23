@@ -22,17 +22,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          target: ${{ matrix.target }}
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --release --target ${{ matrix.target }}
+          targets: ${{ matrix.target }}
+      - name: setup cross
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall --no-confirm cross
+      - name: build
+        run: |
+          cross build --release --target ${{ matrix.target }}
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -50,12 +49,9 @@ jobs:
         run: |
           sudo apt-get install musl-tools
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          target: x86_64-unknown-linux-musl
+          targets: x86_64-unknown-linux-musl
       - run: cargo build --release --target x86_64-unknown-linux-musl
         working-directory: ./test_client
       - name: Upload binary to release
