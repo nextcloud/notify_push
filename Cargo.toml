@@ -2,8 +2,8 @@
 name = "notify_push"
 version = "0.1.0" # this version number is unused, the version number for the binary will be extracted from the appinfo/info.xml during build
 authors = ["Robin Appelman <robin@icewind.nl>"]
-edition = "2018"
-rust-version = "1.64"
+edition = "2021"
+rust-version = "1.64.0"
 
 [dependencies]
 redis = { version = "0.23.0", default-features = false, features = ["tokio-comp", "aio", "cluster", "cluster-async"] }
@@ -14,7 +14,7 @@ warp = { version = "0.3.5", features = ["tls"] }
 tokio = { version = "1.28.2", features = ["macros", "rt-multi-thread", "signal"] }
 futures = "0.3.28"
 log = "0.4.19"
-sqlx = { version = "0.6.3", features = ["runtime-tokio-rustls", "any", "macros", "mysql", "sqlite", "postgres"] }
+sqlx = { version = "0.6.3", features = ["runtime-tokio-rustls", "any", "mysql", "sqlite", "postgres"] }
 dotenv = "0.15.0"
 dashmap = "5.4.0"
 once_cell = "1.18.0"

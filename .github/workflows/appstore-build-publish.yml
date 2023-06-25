@@ -18,18 +18,15 @@ jobs:
 
     steps:
       ### Adjustments start ###
-      - name: musl-tools
-        run: |
-          sudo apt-get install musl-tools
+      - uses: cachix/install-nix-action@v20
+      - uses: cachix/cachix-action@v12
+        with:
+          name: notify-push
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
       - name: Checkout code
         uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-unknown-linux-musl
-      - name: cross
-        run: |
-          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-          cargo binstall --no-confirm cross
+          fetch-depth: 0
       ### Adjustments end ###
 
       - name: Check actor permission
