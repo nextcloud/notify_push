@@ -130,10 +130,9 @@ should be compiled in release mode for optimal performance and targeting musl li
 cargo build --release --target=x86_64-unknown-linux-musl
 ```
 
-Cross compiling for other platform is done easiest using [`cross`](https://github.com/rust-embedded/cross), for example:
+### Cross compiling
 
-```bash
-cross build --release --target=aarch64-unknown-linux-musl
-```
+Cross compiling to other platforms can be done using two ways:
 
-If you're running into an issue building the `termion` dependency on a non-linux OS, try building with `--no-default-features`.
+- using [`nix`](https://nixos.org/download.html) and `nix build .#aarch64-unknown-linux-musl` (recommended, binaries can be found in `./result/bin`)
+- using [`cross`](https://github.com/rust-embedded/cross) and `cross build --release --target=aarch64-unknown-linux-musl`

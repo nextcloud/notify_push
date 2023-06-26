@@ -11,96 +11,78 @@ on:
 permissions:
   contents: read
 
+env:
+  APP_NAME: notify_push
+
 jobs:
   check:
-    name: Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: cachix/install-nix-action@v20
+      - uses: cachix/cachix-action@v12
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          target: x86_64-unknown-linux-musl
-      - uses: Swatinem/rust-cache@v2.2.0
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
+          name: notify-push
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - run: nix build .#check
 
-  build:
-    name: Build release
+  clippy:
     runs-on: ubuntu-latest
     needs: check
-    strategy:
-      matrix:
-        target:
-          - x86_64-unknown-linux-musl
-          - i686-unknown-linux-musl
-          - armv7-unknown-linux-musleabihf
-          - aarch64-unknown-linux-musl
-          - x86_64-unknown-freebsd
-
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: cachix/install-nix-action@v20
+      - uses: cachix/cachix-action@v12
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          target: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v2.2.0
+          name: notify-push
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - run: nix build .#clippy
+
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v20
+      - id: set-matrix
+        run: echo "matrix={\"target\":$(nix eval --json ".#targets.x86_64-linux")}" | tee $GITHUB_OUTPUT
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [check, matrix]
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.matrix.outputs.matrix)}}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v20
+      - uses: cachix/cachix-action@v12
         with:
-          key: ${{ matrix.target }}
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --release --target ${{ matrix.target }}
+          name: notify-push
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - run: nix build .#${{ matrix.target }}
       - uses: actions/upload-artifact@v3
         with:
           name: notify_push-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/notify_push
-
-  test:
-    name: Tests
-    runs-on: ubuntu-latest
-    needs: check
-
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: Swatinem/rust-cache@v2.2.0
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
+          path: result/bin/notify_push
 
   build-test-client:
     name: Build test client
     runs-on: ubuntu-latest
 
     steps:
-      - name: musl-tools
-        run: |
-          sudo apt-get install musl-tools
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: cachix/install-nix-action@v20
+      - uses: cachix/cachix-action@v12
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          target: x86_64-unknown-linux-musl
-      - uses: Swatinem/rust-cache@v2.2.0
-      - run: cargo build --release --target x86_64-unknown-linux-musl
-        working-directory: ./test_client
+          name: notify-push
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - run: nix build .#test_client
       - uses: actions/upload-artifact@v3
         with:
           name: test_client
-          path: target/x86_64-unknown-linux-musl/release/test_client
+          path: result/bin/test_client
 
   msrv:
     name: Check MSRV
@@ -108,13 +90,34 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: cachix/install-nix-action@v20
+      - uses: cachix/cachix-action@v12
         with:
-          profile: minimal
-          toolchain: "1.64"
-          override: true
-          target: x86_64-unknown-linux-musl
-      - uses: Swatinem/rust-cache@v2.2.0
-      - uses: actions-rs/cargo@v1
+          name: notify-push
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - run: nix build .#checkMsrv
+
+  package:
+    name: Package nightly release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: cachix/install-nix-action@v20
+      - uses: cachix/cachix-action@v12
         with:
-          command: check
+          name: notify-push
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup krankerl
+        run: |
+          wget https://github.com/ChristophWurst/krankerl/releases/download/v0.14.0/krankerl_0.14.0_amd64.deb
+          sudo dpkg -i krankerl_0.14.0_amd64.deb
+      - name: Package app
+        run: krankerl package
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.APP_NAME }}.tar.gz
+          path: build/artifacts/${{ env.APP_NAME }}.tar.gz
