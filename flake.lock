@@ -10,11 +10,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1687786336,
-        "narHash": "sha256-iQvGEzrJ4Ps5V/rVOUt93DgPuDBvGRiQ8PvIP9N1QFE=",
+        "lastModified": 1687805997,
+        "narHash": "sha256-ds6C3F/iHVZA9fcpw5D7sCBlbWMthWAvnto5MsBcq2Q=",
         "owner": "icewind1991",
         "repo": "cross-naersk",
-        "rev": "bcbbfbb1e8b3965dff37e4f7fe133fe4bf226489",
+        "rev": "b00653508036927b8e21cd00048f383fb6642cf4",
         "type": "github"
       },
       "original": {

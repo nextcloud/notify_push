@@ -21,7 +21,7 @@
     cross-naersk,
   }:
     utils.lib.eachDefaultSystem (system: let
-      overlays = [ (import rust-overlay) ];
+      overlays = [(import rust-overlay)];
       pkgs = import nixpkgs {
         inherit system overlays;
       };
@@ -40,9 +40,9 @@
       assetNameForTarget = target: "notify_push-${target}";
 
       cross-naersk' = pkgs.callPackage cross-naersk {
-      	inherit naersk;
-      	rustVersion = "beta"; # required for 32bit musl targets since nix uses musl 1.2
-	  };
+        inherit naersk;
+        toolchain = pkgs.rust-bin.beta.latest.default; # required for 32bit musl targets since nix uses musl 1.2
+      };
 
       src = lib.sources.sourceByRegex (lib.cleanSource ./.) ["Cargo.*" "(src|tests|test_client|build.rs|appinfo)(/.*)?"];
 
@@ -50,47 +50,53 @@
         pname = "notify_push";
         inherit src;
       };
-      buildTarget = target: (cross-naersk' target).buildPackage nearskOpt;
-      hostNaersk = (cross-naersk' hostTarget);
+      buildTarget = target: (cross-naersk'.buildPackage target) nearskOpt;
+      hostNaersk = cross-naersk'.hostNaersk;
 
-    msrv = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.rust-version;
-	  naerskMsrv = let
-	    toolchain = pkgs.rust-bin.stable."${msrv}".default;
-	  in
-	    pkgs.callPackage naersk {
-        cargo = toolchain;
-        rustc = toolchain;
-	    };
+      msrv = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.rust-version;
+      naerskMsrv = let
+        toolchain = pkgs.rust-bin.stable."${msrv}".default;
+      in
+        pkgs.callPackage naersk {
+          cargo = toolchain;
+          rustc = toolchain;
+        };
     in rec {
       # `nix build`
-      packages = nixpkgs.lib.attrsets.genAttrs targets buildTarget // rec {
-        notify_push = hostNaersk.buildPackage nearskOpt;
-        check = hostNaersk.buildPackage (nearskOpt // {
-          mode = "check";
-        });
-        clippy = hostNaersk.buildPackage (nearskOpt // {
-          mode = "clippy";
-        });
-        test = hostNaersk.buildPackage (nearskOpt // {
-          mode = "test";
-        });
-        checkMsrv = naerskMsrv.buildPackage (nearskOpt // {
-          mode = "check";
-        });
-        test_client = (cross-naersk' "x86_64-unknown-linux-musl").buildPackage (nearskOpt // {
-          cargoBuildOptions = x: x ++ [ "-p" "test_client" ];
-        });
-        default = notify_push;
-      };
+      packages =
+        (nixpkgs.lib.attrsets.genAttrs targets buildTarget)
+        // rec {
+          notify_push = hostNaersk.buildPackage nearskOpt;
+          check = hostNaersk.buildPackage (nearskOpt
+            // {
+              mode = "check";
+            });
+          clippy = hostNaersk.buildPackage (nearskOpt
+            // {
+              mode = "clippy";
+            });
+          test = hostNaersk.buildPackage (nearskOpt
+            // {
+              mode = "test";
+            });
+          checkMsrv = naerskMsrv.buildPackage (nearskOpt
+            // {
+              mode = "check";
+            });
+          test_client = (cross-naersk'.buildPackage "x86_64-unknown-linux-musl") (nearskOpt
+            // {
+              cargoBuildOptions = x: x ++ ["-p" "test_client"];
+            });
+          default = notify_push;
+        };
 
       inherit targets;
 
-      devShells.default = pkgs.mkShell ({
+      devShells.default = cross-naersk'.mkShell targets {
         nativeBuildInputs = with pkgs; [
           (rust-bin.beta.latest.default.override {targets = targets ++ [hostTarget];})
           krankerl
         ];
-
-      } // (hostNaersk.defaultCrossArgsForTargets targets));
+      };
     });
 }
