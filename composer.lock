@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "53adf596e7248d85adffe83517718b0b",
+    "content-hash": "7d915d7a2660f30061a52496494f5269",
     "packages": [],
     "packages-dev": [
         {
@@ -183,12 +183,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/nextcloud-deps/ocp.git",
-                "reference": "edb683cb75f1e4fd95577ed0b92109f532c781d7"
+                "reference": "441ea025d4a73ec587e05dfb673a6c143086eba3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nextcloud-deps/ocp/zipball/edb683cb75f1e4fd95577ed0b92109f532c781d7",
-                "reference": "edb683cb75f1e4fd95577ed0b92109f532c781d7",
+                "url": "https://api.github.com/repos/nextcloud-deps/ocp/zipball/441ea025d4a73ec587e05dfb673a6c143086eba3",
+                "reference": "441ea025d4a73ec587e05dfb673a6c143086eba3",
                 "shasum": ""
             },
             "require": {
@@ -220,7 +220,7 @@
                 "issues": "https://github.com/nextcloud-deps/ocp/issues",
                 "source": "https://github.com/nextcloud-deps/ocp/tree/master"
             },
-            "time": "2023-06-01T00:49:51+00:00"
+            "time": "2023-06-24T00:43:35+00:00"
         },
         {
             "name": "phar-io/manifest",
