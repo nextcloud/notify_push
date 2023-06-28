@@ -40,10 +40,24 @@ jobs:
           asset_name: notify_push-${{ matrix.target }}
           tag: ${{ github.ref }}
 
+
+  test-client-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v20
+      - id: set-matrix
+        run: echo "matrix=$(nix eval --json ".#testClientMatrix.x86_64-linux")" | tee $GITHUB_OUTPUT
+
   build-test-client:
     name: Build test client
     runs-on: ubuntu-latest
-
+    needs: test-client-matrix
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.test-client-matrix.outputs.matrix)}}
     steps:
       - uses: actions/checkout@v3
       - uses: cachix/install-nix-action@v20
@@ -51,11 +65,11 @@ jobs:
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-      - run: nix build .#test_client
+      - run: nix build .#test_client-${{ matrix.target }}
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: result/bin/test_client
-          asset_name: test_client
+          file: result/bin/test_client${{ matrix.extension }}
+          asset_name: test_client-${{ matrix.target }}${{ matrix.extension }}
           tag: ${{ github.ref }}

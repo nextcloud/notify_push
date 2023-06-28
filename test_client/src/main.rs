@@ -55,8 +55,8 @@ fn main() -> Result<()> {
 
     loop {
         if let Message::Text(text) = socket.read_message().into_diagnostic()? {
-            if text.starts_with("err: ") {
-                warn!("Received error: {}", &text[5..]);
+            if let Some(err) = text.strip_prefix("err: ") {
+                warn!("Received error: {}", err);
                 return Ok(());
             } else if text.starts_with("notify_file") {
                 info!("Received file update notification {}", text);
@@ -79,7 +79,7 @@ fn get_endpoint(nc_url: &str, user: &str, password: &str) -> Result<String> {
             "Authorization",
             &format!(
                 "Basic {}",
-                base64::engine::general_purpose::STANDARD.encode(&format!("{}:{}", user, password))
+                base64::engine::general_purpose::STANDARD.encode(format!("{}:{}", user, password))
             ),
         )
         .set("Accept", "application/json")
