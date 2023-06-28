@@ -35,6 +35,19 @@
         "aarch64-unknown-linux-musl"
         "x86_64-unknown-freebsd"
       ];
+      clientTargets = [
+        "x86_64-unknown-linux-musl"
+        "i686-unknown-linux-musl"
+        "armv7-unknown-linux-musleabihf"
+        "aarch64-unknown-linux-musl"
+        "x86_64-unknown-freebsd"
+        "x86_64-pc-windows-gnu"
+      ];
+
+      inherit (builtins) listToAttrs fromTOML readFile;
+      inherit (lib.attrsets) genAttrs nameValuePair;
+      inherit (lib.lists) map;
+      inherit (cross-naersk') execSufficForTarget;
 
       artifactForTarget = target: "notify_push";
       assetNameForTarget = target: "notify_push-${target}";
@@ -50,10 +63,16 @@
         pname = "notify_push";
         inherit src;
       };
-      buildTarget = target: (cross-naersk'.buildPackage target) nearskOpt;
+      testClientOpts = nearskOpt // {
+        cargoBuildOptions = x: x ++ ["-p" "test_client"];
+      };
+      buildServer = target: (cross-naersk'.buildPackage target) nearskOpt;
+      buildTestClient = target: (cross-naersk'.buildPackage target) testClientOpts;
       hostNaersk = cross-naersk'.hostNaersk;
 
-      msrv = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.rust-version;
+      checks = ["check" "clippy" "test"];
+
+      msrv = (fromTOML (readFile ./Cargo.toml)).package.rust-version;
       naerskMsrv = let
         toolchain = pkgs.rust-bin.stable."${msrv}".default;
       in
@@ -61,36 +80,37 @@
           cargo = toolchain;
           rustc = toolchain;
         };
+
+      testClientArtifactForTarget = target: "test_client${execSufficForTarget target}";
+
     in rec {
       # `nix build`
       packages =
-        (nixpkgs.lib.attrsets.genAttrs targets buildTarget)
+        # cross compile notify_push for all targets
+        (genAttrs targets buildServer) //
+        # cross compile build test_client for all test_client-targets
+        (listToAttrs (map (target: nameValuePair "test_client-${target}" (buildTestClient target)) clientTargets)) //
+        # check,test,clippy for notify_push
+        (genAttrs checks (mode: hostNaersk.buildPackage (nearskOpt // { inherit mode;}))) //
+        # check,test,clippy for test_client
+        (listToAttrs (map (mode: nameValuePair "test_client-${mode}" (hostNaersk.buildPackage (testClientOpts // { inherit mode;}))) checks))
         // rec {
           notify_push = hostNaersk.buildPackage nearskOpt;
-          check = hostNaersk.buildPackage (nearskOpt
-            // {
-              mode = "check";
-            });
-          clippy = hostNaersk.buildPackage (nearskOpt
-            // {
-              mode = "clippy";
-            });
-          test = hostNaersk.buildPackage (nearskOpt
-            // {
-              mode = "test";
-            });
+          test_client = hostNaersk.buildPackage testClientOpts;
           checkMsrv = naerskMsrv.buildPackage (nearskOpt
             // {
               mode = "check";
             });
-          test_client = (cross-naersk'.buildPackage "x86_64-unknown-linux-musl") (nearskOpt
-            // {
-              cargoBuildOptions = x: x ++ ["-p" "test_client"];
-            });
           default = notify_push;
         };
 
-      inherit targets;
+      inherit targets clientTargets;
+      testClientMatrix = {
+        include = map (target: {
+          inherit target;
+          extension = execSufficForTarget target;
+        }) clientTargets;
+      };
 
       devShells.default = cross-naersk'.mkShell targets {
         nativeBuildInputs = with pkgs; [
