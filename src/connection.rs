@@ -1,9 +1,9 @@
 use crate::error::{AuthenticationError, WebSocketError};
 use crate::message::{PushMessage, SendQueue};
 use crate::metrics::METRICS;
+use crate::passthru_hasher::PassthruHasher;
 use crate::Result;
 use crate::{App, UserId};
-use ahash::RandomState;
 use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
 use rand::{Rng, SeedableRng};
@@ -19,7 +19,7 @@ use warp::filters::ws::{Message, WebSocket};
 const USER_CONNECTION_LIMIT: usize = 64;
 
 #[derive(Default)]
-pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<PushMessage>, RandomState>);
+pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<PushMessage>, PassthruHasher>);
 
 impl ActiveConnections {
     pub fn add(&self, user: UserId) -> Result<broadcast::Receiver<PushMessage>> {

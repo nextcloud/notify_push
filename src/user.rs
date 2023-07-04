@@ -1,17 +1,21 @@
+use crate::passthru_hasher::PassthruHasher;
 use ahash::RandomState;
 use dashmap::DashMap;
 use log::LevelFilter;
+use once_cell::race::OnceBox;
 use once_cell::sync::Lazy;
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer};
 use sqlx::database::HasValueRef;
 use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Type};
-use std::collections::hash_map::DefaultHasher;
 use std::fmt;
-use std::hash::Hasher;
+use std::hash::{BuildHasher, Hasher};
 
-static USER_NAMES: Lazy<DashMap<u64, String, RandomState>> = Lazy::new(DashMap::default);
+static USER_NAMES: Lazy<DashMap<u64, String, PassthruHasher>> = Lazy::new(DashMap::default);
+
+// Use the same hash state for generating user hash for every instance
+static RANDOM_STATE: OnceBox<RandomState> = OnceBox::new();
 
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct UserId {
@@ -20,7 +24,8 @@ pub struct UserId {
 
 impl UserId {
     pub fn new(user_id: &str) -> Self {
-        let mut hash = DefaultHasher::new();
+        let state = RANDOM_STATE.get_or_init(|| Box::new(RandomState::new()));
+        let mut hash = state.build_hasher();
         hash.write(user_id.as_bytes());
         let hash = hash.finish();
 
