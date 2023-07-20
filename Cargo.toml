@@ -19,7 +19,7 @@ dotenv = "0.15.0"
 dashmap = "5.4.0"
 once_cell = "1.18.0"
 miette = { version = "5.9.0", features = ["fancy"] }
-smallvec = { version = "1.10.0", features = ["serde"] }
+smallvec = { version = "1.11.0", features = ["serde"] }
 reqwest = { version = "0.11.18", default-features = false, features = ["rustls-tls", "json"] }
 warp-real-ip = "0.2.0"
 parse-display = "0.8.1"
