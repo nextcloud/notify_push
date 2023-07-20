@@ -11,5 +11,5 @@ ureq = "2.7.1"
 flexi_logger = { version = "0.25.5", features = ["colors"] }
 log = "0.4.19"
 base64 = "0.21.2"
-miette = { version = "5.9.0", features = ["fancy"] }
+miette = { version = "5.10.0", features = ["fancy"] }
 url = "2.4.0"
