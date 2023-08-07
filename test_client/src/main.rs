@@ -41,20 +41,20 @@ fn main() -> Result<()> {
         .wrap_err("Can't connect to server")?;
 
     socket
-        .write_message(Message::Text(username))
+        .send(Message::Text(username))
         .into_diagnostic()
         .wrap_err("Failed to send username")?;
     socket
-        .write_message(Message::Text(password))
+        .send(Message::Text(password))
         .into_diagnostic()
         .wrap_err("Failed to send password")?;
     socket
-        .write_message(Message::Text("listen notify_file_id".into()))
+        .send(Message::Text("listen notify_file_id".into()))
         .into_diagnostic()
         .wrap_err("Failed to send username")?;
 
     loop {
-        if let Message::Text(text) = socket.read_message().into_diagnostic()? {
+        if let Message::Text(text) = socket.read().into_diagnostic()? {
             if let Some(err) = text.strip_prefix("err: ") {
                 warn!("Received error: {}", err);
                 return Ok(());
