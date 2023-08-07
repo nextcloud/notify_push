@@ -54,7 +54,6 @@
 
       cross-naersk' = pkgs.callPackage cross-naersk {
         inherit naersk;
-        toolchain = pkgs.rust-bin.beta.latest.default; # required for 32bit musl targets since nix uses musl 1.2
       };
 
       src = lib.sources.sourceByRegex (lib.cleanSource ./.) ["Cargo.*" "(src|tests|test_client|build.rs|appinfo)(/.*)?"];
@@ -116,6 +115,8 @@
         nativeBuildInputs = with pkgs; [
           (rust-bin.beta.latest.default.override {targets = targets ++ [hostTarget];})
           krankerl
+          cargo-edit
+          bacon
         ];
       };
     });
