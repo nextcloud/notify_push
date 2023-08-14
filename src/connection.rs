@@ -25,7 +25,7 @@ pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<PushMessage>, Pas
 
 impl ActiveConnections {
     pub fn add(&self, user: UserId) -> Result<broadcast::Receiver<PushMessage>> {
-        match self.0.entry(user.clone()) {
+        match self.0.entry(user) {
             Entry::Occupied(entry) => {
                 let sender = entry.get();
                 if sender.receiver_count() > USER_CONNECTION_LIMIT {
