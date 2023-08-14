@@ -72,6 +72,7 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
     let tls = config.tls.clone();
     let metrics_bind = config.metrics_bind.clone();
     let max_debounce_time = config.max_debounce_time;
+    let max_connection_time = config.max_connection_time;
     let app = Arc::new(App::new(config, log_handle).await?);
     if let Err(e) = app.self_test().await {
         log::error!("Self test failed: {:#}", e);
@@ -84,6 +85,7 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
         serve_cancel_handle,
         tls.as_ref(),
         max_debounce_time,
+        max_connection_time
     )?);
 
     if let Some(metrics_bind) = metrics_bind {

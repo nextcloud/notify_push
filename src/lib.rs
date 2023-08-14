@@ -233,6 +233,7 @@ pub fn serve(
     cancel: oneshot::Receiver<()>,
     tls: Option<&TlsConfig>,
     max_debounce_time: usize,
+    max_connection_time: usize,
 ) -> Result<impl Future<Output = ()> + Send> {
     let app = warp::any().map(move || app.clone());
 
@@ -254,7 +255,7 @@ pub fn serve(
                     forwarded_for.push(remote.ip());
                 }
                 log::debug!("new websocket connection from {:?}", forwarded_for.first());
-                let opts = ConnectionOptions::new(max_debounce_time);
+                let opts = ConnectionOptions::new(max_debounce_time, max_connection_time);
                 ws.on_upgrade(move |socket| handle_user_socket(socket, app, forwarded_for, opts))
             },
         )

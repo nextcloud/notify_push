@@ -78,6 +78,9 @@ pub struct Opt {
     /// The maximum debounce time between messages, in seconds.
     #[structopt(long)]
     pub max_debounce_time: Option<usize>,
+    /// The maximum connection time, in seconds. Zero means unlimited.
+    #[structopt(long)]
+    pub max_connection_time: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -93,6 +96,7 @@ pub struct Config {
     pub no_ansi: bool,
     pub tls: Option<TlsConfig>,
     pub max_debounce_time: usize,
+    pub max_connection_time: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -182,6 +186,7 @@ impl TryFrom<PartialConfig> for Config {
             no_ansi: config.no_ansi.unwrap_or(false),
             tls: config.tls,
             max_debounce_time: config.max_debounce_time.unwrap_or(15),
+            max_connection_time: config.max_connection_time.unwrap_or(0),
         })
     }
 }
@@ -218,6 +223,7 @@ struct PartialConfig {
     pub no_ansi: Option<bool>,
     pub tls: Option<TlsConfig>,
     pub max_debounce_time: Option<usize>,
+    pub max_connection_time: Option<usize>,
 }
 
 impl PartialConfig {
@@ -245,6 +251,7 @@ impl PartialConfig {
             None
         };
         let max_debounce_time = parse_var("MAX_DEBOUNCE_TIME")?;
+        let max_connection_time = parse_var("MAX_CONNECTION_TIME")?;
 
         Ok(PartialConfig {
             database,
@@ -262,6 +269,7 @@ impl PartialConfig {
             no_ansi,
             tls,
             max_debounce_time,
+            max_connection_time,
         })
     }
 
@@ -296,6 +304,7 @@ impl PartialConfig {
             no_ansi: if opt.no_ansi { Some(true) } else { None },
             tls,
             max_debounce_time: opt.max_debounce_time,
+            max_connection_time: opt.max_connection_time,
         }
     }
 
@@ -320,6 +329,7 @@ impl PartialConfig {
             no_ansi: self.no_ansi.or(fallback.no_ansi),
             tls: self.tls.or(fallback.tls),
             max_debounce_time: self.max_debounce_time.or(fallback.max_debounce_time),
+            max_connection_time: self.max_connection_time.or(fallback.max_connection_time),
         }
     }
 }
