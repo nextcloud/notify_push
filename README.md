@@ -220,7 +220,18 @@ sudo systemctl enable notify_push-watcher.path
 It is **strongly** recommended to set up the push service behind a reverse proxy, this both removes the need to open
 a new port to the internet and handles the TLS encryption of the connection to prevent sending credentials in plain text.
 
-You can probably use the same webserver that you're already using for your nextcloud
+You can probably use the same webserver that you're already using for your nextcloud.
+
+<details>
+<summary>Snap configuration (click to expand)</summary>
+
+If you have installed Nextcloud via Snap, you need to use the following command instead to enable the reverse proxy as the configuration itself is read-only:
+
+    sudo snap set nextcloud http.notify-push-reverse-proxy=true
+
+Read more [on their Wiki](https://github.com/nextcloud-snap/nextcloud-snap/wiki/FAQ's#q-how-to-install-files-hpb-client-push)!
+
+</details>
 
 #### Nginx
 
