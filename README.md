@@ -38,6 +38,9 @@ The setup required consists of three steps
 - Configuring the reverse proxy
 - Configuring the nextcloud app
 
+> __For Nextcloud Snap users:__ \
+The snap team made a wiki page how to install Client Push in Nextcloud snap. See [their Wiki page](https://github.com/nextcloud-snap/nextcloud-snap/wiki/Configure-HPB-client-push-for-Nextcloud-snap)!
+
 ### Push server
 
 The push server should be setup to run as a background daemon, the recommended way is by setting it up as a system service in the init system.
@@ -62,28 +65,6 @@ User=www-data
 [Install]
 WantedBy = multi-user.target
 ```
-
-<details>
-<summary>Snap configuration (click to expand)</summary>
-
-If you have installed Nextcloud via Snap, you need to use the following file instead and replace `CHANGEME` in `DATABASE_URL` with the value of `dbpassword` from `/var/snap/nextcloud/current/nextcloud/config/config.php`
-
-```ini
-[Unit]
-Description = Push daemon for Nextcloud clients
-
-[Service]
-Environment=PORT=7867 # Change if you already have something running on this port
-Environment=DATABASE_URL=mysql://nextcloud:CHANGEME@localhost/nextcloud?socket=/tmp/snap-private-tmp/snap.nextcloud/tmp/sockets/mysql.sock
-Environment=REDIS_URL=redis+unix:///tmp/snap-private-tmp/snap.nextcloud/tmp/sockets/redis.sock
-ExecStart=/var/snap/nextcloud/current/nextcloud/extra-apps/notify_push/bin/x86_64/notify_push /var/snap/nextcloud/current/nextcloud/config/config.php
-User=root
-
-[Install]
-WantedBy = multi-user.target
-```
-
-</details>
 
 #### OpenRC
 
@@ -220,7 +201,7 @@ sudo systemctl enable notify_push-watcher.path
 It is **strongly** recommended to set up the push service behind a reverse proxy, this both removes the need to open
 a new port to the internet and handles the TLS encryption of the connection to prevent sending credentials in plain text.
 
-You can probably use the same webserver that you're already using for your nextcloud
+You can probably use the same webserver that you're already using for your nextcloud.
 
 #### Nginx
 
