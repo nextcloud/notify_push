@@ -112,7 +112,6 @@ class Setup extends Command {
 				$output->writeln("<error>🗴 bundled binary not working on your system.</error>");
 				if ($this->setupWizard->hasSELinux()) {
 					$output->writeln("  It looks like your system has SELinux enabled which might be blocking execution of the binary.");
-					$output->writeln("  It looks like your system has SELinux enabled which might be blocking execution of the binary.");
 				}
 				$this->readmeLink($output);
 				return 1;
@@ -120,6 +119,7 @@ class Setup extends Command {
 
 			if (!$this->setupWizard->hasSystemd()) {
 				$output->writeln("<error>🗴 your system doesn't seem to be using systemd.</error>");
+				$output->writeln("  You can still use the app without systemd by following the manual setup instructions.");
 				$this->readmeLink($output);
 				return 1;
 			}
