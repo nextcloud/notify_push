@@ -120,6 +120,8 @@
             cargo-edit
             cargo-outdated
             bacon
+            php
+            phpPackages.composer
           ];
         };
 	    msrv = cross-naersk'.mkShell targets {
