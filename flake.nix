@@ -72,9 +72,8 @@
       checks = ["check" "clippy" "test"];
 
       msrv = (fromTOML (readFile ./Cargo.toml)).package.rust-version;
-      msrvToolchain = pkgs.rust-bin.stable."${msrv}".default;
       naerskMsrv = let
-        toolchain = msrvToolchain;
+        toolchain = pkgs.rust-bin.stable."${msrv}".default;
       in
         pkgs.callPackage naersk {
           cargo = toolchain;
@@ -112,23 +111,13 @@
         }) clientTargets;
       };
 
-      devShells = {
-	    default = cross-naersk'.mkShell targets {
-          nativeBuildInputs = with pkgs; [
-            (rust-bin.beta.latest.default.override {targets = targets ++ [hostTarget];})
-            krankerl
-            cargo-edit
-            cargo-outdated
-            bacon
-            php
-            phpPackages.composer
-          ];
-        };
-	    msrv = cross-naersk'.mkShell targets {
-          nativeBuildInputs = with pkgs; [
-            msrvToolchain
-          ];
-        };
+      devShells.default = cross-naersk'.mkShell targets {
+        nativeBuildInputs = with pkgs; [
+          (rust-bin.beta.latest.default.override {targets = targets ++ [hostTarget];})
+          krankerl
+          cargo-edit
+          bacon
+        ];
       };
     });
 }
