@@ -22,12 +22,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Set up php
-        uses: shivammathur/setup-php@c5fc0d8281aba02c7fda07d3a70cc5371548067d # v2
+      - name: Get php version
+        id: versions
+        uses: icewind1991/nextcloud-version-matrix@334a77e02e5684ba9da35933db0d7110356bf3ba # v1.1.0
+
+      - name: Set up php${{ steps.versions.outputs.php-max }}
+        uses: shivammathur/setup-php@81cd5ae0920b34eef300e1775313071038a53429 # v2
         with:
-          php-version: 8.1
+          php-version: ${{ steps.versions.outputs.php-max }}
           coverage: none
           ini-file: development
         env:
