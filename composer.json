@@ -4,9 +4,9 @@
 	"require-dev": {
 		"roave/security-advisories": "dev-master",
 		"php-parallel-lint/php-parallel-lint": "^1.0.0",
-		"phpunit/phpunit": "^8",
+		"phpunit/phpunit": "^9.6.13",
 		"nextcloud/coding-standard": "^v1.1.1",
-		"nextcloud/ocp": "dev-master",
+		"nextcloud/ocp": "dev-stable25",
 		"psalm/phar": "^4.3",
 		"symfony/console": "5.4.19"
 	},

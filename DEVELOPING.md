@@ -118,7 +118,7 @@ listen('my_message_type', (message_type, optional_body) => {
 
 ## Building
 
-The server binary is built using rust and cargo, and requires a minimum of rust `1.64`.
+The server binary is built using rust and cargo, and requires a minimum of rust `1.66`.
 
 - Install `rust` through your package manager or [rustup](https://rustup.rs/)
 - Run `cargo build`
