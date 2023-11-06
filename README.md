@@ -291,6 +291,8 @@ by setting the `METRICS_PORT` environment variable.
 
 Once set the metrics are available in a prometheus compatible format at `/metrics` on the configured port.
 
+Additionally you can manually check the metrics by running the `occ notify_push:metrics` command, this will function even if you haven't setup `METRICS_PORT`.
+
 ### Self-signed certificates
 
 If your nextcloud is using a self-signed certificate then you either need to set the `NEXTCLOUD_URL` to a non-https, local url,
