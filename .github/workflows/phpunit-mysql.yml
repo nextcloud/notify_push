@@ -18,14 +18,15 @@ jobs:
   matrix:
     runs-on: ubuntu-latest
     outputs:
-      php-versions: ${{ steps.versions.outputs.php-versions }}
-      server-max: ${{ steps.versions.outputs.branches-max-list }}
+      matrix: ${{ steps.versions.outputs.matrix }}
     steps:
       - name: Checkout app
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Get version matrix
         id: versions
-        uses: icewind1991/nextcloud-version-matrix@c2bf575a3516752db5ce2915499d3f694885e2c7 # v1.0.0
+        uses: icewind1991/nextcloud-version-matrix@8238a96541a763c633c093b203f3c8a33fcee037 # v1.0.0
+        with:
+          matrix: '{"mysql-versions": ["8.1"]}'
 
   changes:
     runs-on: ubuntu-latest
@@ -58,10 +59,7 @@ jobs:
     if: needs.changes.outputs.src != 'false'
 
     strategy:
-      matrix:
-        php-versions: ${{fromJson(needs.matrix.outputs.php-versions)}}
-        server-versions: ${{ fromJson(needs.matrix.outputs.server-max) }}
-        mysql-versions: ['8.1']
+      matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
 
     name: MySQL ${{ matrix.mysql-versions }} PHP ${{ matrix.php-versions }} Nextcloud ${{ matrix.server-versions }}
 
@@ -118,7 +116,7 @@ jobs:
         # Only run if phpunit config file exists
         if: steps.check_composer.outputs.files_exists == 'true'
         working-directory: apps/${{ env.APP_NAME }}
-        run: composer i
+        run: rm composer.lock && composer i
 
       - name: Set up Nextcloud
         env:
