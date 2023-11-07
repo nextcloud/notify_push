@@ -23,10 +23,6 @@ jobs:
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-      - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          fetch-depth: 0
       ### Adjustments end ###
 
       - name: Check actor permission
@@ -44,6 +40,9 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           path: ${{ env.APP_NAME }}
+          ### Adjustment start ###
+          fetch-depth: 0
+          ### Adjustment end ###
 
       - name: Get appinfo data
         id: appinfo
