@@ -33,7 +33,7 @@ class BinaryFinder {
 		if (strpos($arch, 'aarch64') === 0) {
 			return 'aarch64';
 		}
-		if (strpos($os, 'FreeBSD') == 0) {
+		if (strpos($os, 'FreeBSD') === 0) {
 			$arch = 'fbsd_' . $arch;
 		}
 		return $arch;
