@@ -35,7 +35,7 @@ url = "2.4.1"
 
 [dev-dependencies]
 mini-redis = "0.4.1"
-tokio-tungstenite = "0.20.1"
+tokio-tungstenite = "0.21.0"
 http-auth-basic = "0.3.3"
 test_client = { path = "test_client" }
 
