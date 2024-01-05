@@ -133,14 +133,14 @@ class SelfTest {
 
 		// test that the push server is a trusted proxy
 		try {
-			$remote = $this->client->get($server . '/test/remote/1.2.3.4', ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
+			$resolvedRemote = $this->client->get($server . '/test/remote/1.2.3.4', ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
 			return self::ERROR_OTHER;
 		}
 
-		if ($ignoreProxyError || $remote === '1.2.3.4') {
+		if ($ignoreProxyError || $resolvedRemote === '1.2.3.4') {
 			$output->writeln("<info>✓ push server is a trusted proxy</info>");
 		} else {
 			$trustedProxies = $this->config->getSystemValue('trusted_proxies', []);
@@ -154,7 +154,7 @@ class SelfTest {
 				return self::ERROR_TRUSTED_PROXY;
 			}
 
-			$output->writeln("<error>🗴 push server is not a trusted proxy, please add '$remote' to the list of trusted proxies" .
+			$output->writeln("<error>🗴 push server is not a trusted proxy, please add '$resolvedRemote' to the list of trusted proxies" .
 				" or configure any existing reverse proxy to forward the 'x-forwarded-for' send by the push server.</error>");
 			$output->writeln("  See https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/reverse_proxy_configuration.html#defining-trusted-proxies for how to set trusted proxies.");
 			$output->writeln("  The following trusted proxies are currently configured: " . implode(', ', array_map(function (string $proxy) {
