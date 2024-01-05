@@ -30,6 +30,7 @@ use OCP\Http\Client\IClientService;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\HttpFoundation\IpUtils;
 
 class SelfTest {
 	public const ERROR_OTHER = 1;
@@ -154,9 +155,8 @@ class SelfTest {
 				return self::ERROR_TRUSTED_PROXY;
 			}
 
-			$output->writeln("<error>🗴 push server is not a trusted proxy, please add '$resolvedRemote' to the list of trusted proxies" .
-				" or configure any existing reverse proxy to forward the 'x-forwarded-for' send by the push server.</error>");
-			$output->writeln("  See https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/reverse_proxy_configuration.html#defining-trusted-proxies for how to set trusted proxies.");
+			$output->writeln("<error>🗴 push server is not a trusted proxy by Nextcloud or another proxy in the chain.</error>");
+			$output->writeln("  Nextcloud resolved the following client address for the test request: \"$resolvedRemote\" instead of the expected \"1.2.3.4\"");
 			$output->writeln("  The following trusted proxies are currently configured: " . implode(', ', array_map(function (string $proxy) {
 				return '"' . $proxy . '"';
 			}, $trustedProxies)));
@@ -168,9 +168,31 @@ class SelfTest {
 					return '"' . $proxy . '"';
 				}, $invalidConfig)) . "</error>");
 			}
-			$output->writeln("  The following x-forwarded-for header was received by Nextcloud: $receivedHeader");
+			$output->writeln("  The following x-forwarded-for header was received by Nextcloud: \"$receivedHeader\"");
 			$output->writeln("    from the following remote: $remote");
 			$output->writeln("");
+
+			if ($receivedHeader) {
+				$forwardedParts = array_map('trim', explode(',', $receivedHeader));
+				$forwardedClient = $forwardedParts[0];
+				$proxies = [$remote, ...array_reverse(array_slice($forwardedParts, 1))];
+				$untrusted = $this->getFirstUntrustedIp($proxies, $trustedProxies);
+				if ($untrusted) {
+					$output->writeln("  <error>$untrusted is not a trusted as a reverse proxy by Nextcloud</error>");
+					$output->writeln("  See https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/reverse_proxy_configuration.html#defining-trusted-proxies for how to add trusted proxies.");
+				} else {
+					$output->writeln("<info>✓ All proxies in the chain appear to be trusted by Nextcloud</info>");
+					if ($forwardedClient != "1.2.3.4") {
+						$output->writeln("<comment>  One of the proxies is the chain (probably $forwardedClient) seems to have stripped the x-forwarded-for header</comment>");
+						$output->writeln("  Please configure the reverse proxy at $forwardedClient to not strip the x-forwarded-for header");
+					}
+				}
+			} else {
+				$output->writeln("<comment>  No x-forwarded-for header was received by Nextcloud, $remote seems to be stripping the header from the request</comment>");
+				$output->writeln("  Please configure the reverse proxy at $remote to not strip the x-forwarded-for header");
+			}
+			$output->writeln("");
+
 			$output->writeln("  If you're having issues getting the trusted proxy setup working, you can try bypassing any existing reverse proxy");
 			$output->writeln("  in your setup by setting the `NEXTCLOUD_URL` environment variable to point directly to the internal Nextcloud webserver url");
 			$output->writeln("  (You will still need the ip address of the push server added as trusted proxy)");
@@ -204,6 +226,18 @@ class SelfTest {
 		}
 
 		return 0;
+	}
+
+	private function getFirstUntrustedIp(array $ips, array $trusted): ?string {
+		foreach ($ips as $ip) {
+			if (str_starts_with($ip, '[') && str_ends_with($ip, ']')) {
+				$ip = substr($ip, 1, -1);
+			}
+			if (!IpUtils::checkIp($ip, $trusted)) {
+				return $ip;
+			}
+		}
+		return null;
 	}
 
 	private function getStorageIdForTest() {
