@@ -41,14 +41,14 @@ class Reset extends Command {
 	/**
 	 * @return void
 	 */
-	protected function configure() {
+	protected function configure(): void {
 		$this
 			->setName('notify_push:reset')
 			->setDescription('Cancel all active connections to the push server');
 		parent::configure();
 	}
 
-	protected function execute(InputInterface $input, OutputInterface $output) {
+	protected function execute(InputInterface $input, OutputInterface $output): int {
 		$this->queue->push("notify_signal", "reset");
 		return 0;
 	}
