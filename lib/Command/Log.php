@@ -43,7 +43,7 @@ class Log extends Command {
 	/**
 	 * @return void
 	 */
-	protected function configure() {
+	protected function configure(): void {
 		$this
 			->setName('notify_push:log')
 			->setDescription('Temporarily set the log level of the push server')
@@ -52,7 +52,7 @@ class Log extends Command {
 		parent::configure();
 	}
 
-	protected function execute(InputInterface $input, OutputInterface $output) {
+	protected function execute(InputInterface $input, OutputInterface $output): int {
 		$level = $input->getArgument("level");
 		if ($input->getOption("restore")) {
 			$output->writeln("restoring log level");
