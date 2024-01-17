@@ -49,6 +49,7 @@ class AuthController extends Controller {
 
 	/**
 	 * @NoAdminRequired
+	 * @NoCSRFRequired
 	 * @return DataDisplayResponse
 	 */
 	public function preAuth() {
