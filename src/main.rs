@@ -1,3 +1,4 @@
+use clap::Parser;
 use flexi_logger::{detailed_format, AdaptiveFormat, Logger, LoggerHandle};
 use miette::{IntoDiagnostic, Result, WrapErr};
 use notify_push::config::{Config, Opt};
@@ -7,7 +8,6 @@ use notify_push::metrics::serve_metrics;
 use notify_push::{listen_loop, serve, App, Error};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use structopt::StructOpt;
 use tokio::select;
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::oneshot;
@@ -15,9 +15,9 @@ use tokio::task::spawn;
 
 fn main() -> Result<()> {
     miette::set_panic_hook();
-    let _ = dotenv::dotenv();
+    let _ = dotenvy::dotenv();
 
-    let opt: Opt = Opt::from_args();
+    let opt: Opt = Opt::parse();
     if opt.version {
         println!("notify_push {}", env!("NOTIFY_PUSH_VERSION"));
         return Ok(());
@@ -64,7 +64,7 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
         log::info!("Running with certificate validation disabled");
     }
 
-    if dotenv::var("DEBOUNCE_DISABLE").is_ok() {
+    if dotenvy::var("DEBOUNCE_DISABLE").is_ok() {
         DEBOUNCE_ENABLE.store(false, Ordering::Relaxed);
     }
 
@@ -85,7 +85,7 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
         serve_cancel_handle,
         tls.as_ref(),
         max_debounce_time,
-        max_connection_time
+        max_connection_time,
     )?);
 
     if let Some(metrics_bind) = metrics_bind {
