@@ -5,7 +5,7 @@ use crate::error::ConfigError;
 use crate::{Error, Result};
 use derivative::Derivative;
 use redis::ConnectionInfo;
-use sqlx::any::AnyConnectOptions;
+use sqlx_oldapi::any::AnyConnectOptions;
 use std::convert::{TryFrom, TryInto};
 use std::env::var;
 use std::fmt::{Display, Formatter};

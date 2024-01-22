@@ -118,7 +118,8 @@
             (rust-bin.beta.latest.default.override {targets = targets ++ [hostTarget];})
             krankerl
             cargo-edit
-            cargo-outdated
+			cargo-outdated
+			cargo-audit
             bacon
             php
             phpPackages.composer

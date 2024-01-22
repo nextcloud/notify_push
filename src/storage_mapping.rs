@@ -6,8 +6,8 @@ use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use log::debug;
 use rand::{thread_rng, Rng};
-use sqlx::any::AnyConnectOptions;
-use sqlx::{Any, AnyPool, FromRow};
+use sqlx_oldapi::any::AnyConnectOptions;
+use sqlx_oldapi::{query_as, Any, AnyPool, FromRow};
 use std::time::Instant;
 use tokio::time::Duration;
 
@@ -101,7 +101,7 @@ impl StorageMapping {
         storage: u32,
     ) -> Result<Vec<UserStorageAccess>, DatabaseError> {
         debug!("querying storage mapping for {}", storage);
-        let users = sqlx::query_as::<Any, UserStorageAccess>(&format!(
+        let users = query_as::<Any, UserStorageAccess>(&format!(
             "\
                 SELECT user_id, path \
                 FROM {prefix}mounts \
