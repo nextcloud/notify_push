@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
     utils.url = "github:numtide/flake-utils";
     naersk.url = "github:nix-community/naersk";
     naersk.inputs.nixpkgs.follows = "nixpkgs";
@@ -118,8 +118,8 @@
             (rust-bin.beta.latest.default.override {targets = targets ++ [hostTarget];})
             krankerl
             cargo-edit
-			cargo-outdated
-			cargo-audit
+            cargo-outdated
+            cargo-audit
             bacon
             php
             phpPackages.composer
