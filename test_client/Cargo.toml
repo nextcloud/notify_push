@@ -5,7 +5,7 @@ authors = ["Robin Appelman <robin@icewind.nl>"]
 edition = "2018"
 
 [dependencies]
-tungstenite = { version = "0.20.1", features = ["rustls-tls-webpki-roots"] }
+tungstenite = { version = "0.21.0", features = ["rustls-tls-webpki-roots"] }
 serde_json = "1.0.108"
 ureq = "2.8.0"
 flexi_logger = { version = "0.27.2", features = ["colors"] }

@@ -8,7 +8,7 @@ use tungstenite::{connect, Message};
 use url::Url;
 
 fn main() -> Result<()> {
-    Logger::try_with_str(&var("LOG").unwrap_or_else(|_| String::from("test_client=info,warn")))
+    Logger::try_with_str(var("LOG").unwrap_or_else(|_| String::from("test_client=info,warn")))
         .into_diagnostic()?
         .adaptive_format_for_stdout(AdaptiveFormat::Detailed)
         .adaptive_format_for_stderr(AdaptiveFormat::Detailed)

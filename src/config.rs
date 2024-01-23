@@ -3,83 +3,92 @@ mod nc;
 use crate::config::nc::parse_config_file;
 use crate::error::ConfigError;
 use crate::{Error, Result};
+use clap::builder::styling::{AnsiColor, Effects};
+use clap::builder::Styles;
+use clap::Parser;
 use derivative::Derivative;
 use redis::ConnectionInfo;
-use sqlx::any::AnyConnectOptions;
+use sqlx_oldapi::any::AnyConnectOptions;
 use std::convert::{TryFrom, TryInto};
 use std::env::var;
 use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use structopt::{clap::AppSettings, StructOpt};
 
-#[derive(StructOpt, Debug)]
-#[structopt(global_setting = AppSettings::ColoredHelp)]
-#[structopt(name = "notify_push")]
+fn styles() -> Styles {
+    Styles::styled()
+        .header(AnsiColor::Yellow.on_default() | Effects::BOLD)
+        .usage(AnsiColor::Yellow.on_default() | Effects::BOLD)
+        .literal(AnsiColor::Blue.on_default() | Effects::BOLD)
+        .placeholder(AnsiColor::Green.on_default())
+}
+
+#[derive(Parser, Debug)]
+#[command(name = "notify_push", styles = styles())]
 pub struct Opt {
     /// The database connect url
-    #[structopt(long)]
+    #[clap(long)]
     pub database_url: Option<AnyConnectOptions>,
     /// The redis connect url
-    #[structopt(long)]
+    #[clap(long)]
     pub redis_url: Vec<ConnectionInfo>,
     /// The table prefix for Nextcloud's database tables
-    #[structopt(long)]
+    #[clap(long)]
     pub database_prefix: Option<String>,
     /// The url the push server can access the nextcloud instance on
-    #[structopt(long)]
+    #[clap(long)]
     pub nextcloud_url: Option<String>,
     /// The port to serve the push server on
-    #[structopt(short, long)]
+    #[clap(short, long)]
     pub port: Option<u16>,
     /// The port to serve metrics on
-    #[structopt(short = "m", long)]
+    #[clap(short = 'm', long)]
     pub metrics_port: Option<u16>,
     /// The ip address to bind to
-    #[structopt(long)]
+    #[clap(long)]
     pub bind: Option<IpAddr>,
     /// Listen to a unix socket instead of TCP
-    #[structopt(long)]
+    #[clap(long)]
     pub socket_path: Option<PathBuf>,
     /// File permissions for
-    #[structopt(long)]
+    #[clap(long)]
     pub socket_permissions: Option<String>,
     /// Listen to a unix socket instead of TCP for serving metrics
-    #[structopt(long)]
+    #[clap(long)]
     pub metrics_socket_path: Option<PathBuf>,
     /// Disable validating of certificates when connecting to the nextcloud instance
-    #[structopt(long)]
+    #[clap(long)]
     pub allow_self_signed: bool,
     /// The path to the nextcloud config file
-    #[structopt(name = "CONFIG_FILE", parse(from_os_str))]
+    #[clap(name = "CONFIG_FILE")]
     pub config_file: Option<PathBuf>,
     /// Print the binary version and exit
-    #[structopt(long)]
+    #[clap(long)]
     pub version: bool,
     /// The log level
-    #[structopt(long)]
+    #[clap(long)]
     pub log_level: Option<String>,
     /// Print the parsed config and exit
-    #[structopt(long)]
+    #[clap(long)]
     pub dump_config: bool,
     /// Disable ansi escape sequences in logging output
-    #[structopt(long)]
+    #[clap(long)]
     pub no_ansi: bool,
     /// Load other files named *.config.php in the config folder
-    #[structopt(long)]
+    #[clap(long)]
     pub glob_config: bool,
     /// TLS certificate
-    #[structopt(long)]
+    #[clap(long)]
     pub tls_cert: Option<PathBuf>,
     /// TLS key
-    #[structopt(long)]
+    #[clap(long)]
     pub tls_key: Option<PathBuf>,
     /// The maximum debounce time between messages, in seconds.
-    #[structopt(long)]
+    #[clap(long)]
     pub max_debounce_time: Option<usize>,
     /// The maximum connection time, in seconds. Zero means unlimited.
-    #[structopt(long)]
+    #[clap(long)]
     pub max_connection_time: Option<usize>,
 }
 

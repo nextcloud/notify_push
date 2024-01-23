@@ -54,6 +54,7 @@
 
       cross-naersk' = pkgs.callPackage cross-naersk {
         inherit naersk;
+        toolchain = pkgs.rust-bin.stable.latest.default;
       };
 
       src = lib.sources.sourceByRegex (lib.cleanSource ./.) ["Cargo.*" "(src|tests|test_client|build.rs|appinfo)(/.*)?"];
@@ -119,6 +120,7 @@
             krankerl
             cargo-edit
             cargo-outdated
+            cargo-audit
             bacon
             php
             phpPackages.composer

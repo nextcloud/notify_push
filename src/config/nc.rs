@@ -10,7 +10,7 @@ pub(super) fn parse_config_file(
     let config = if glob { parse_glob(path) } else { parse(path) }?;
 
     Ok(PartialConfig {
-        database: Some(config.database.into()),
+        database: Some(config.database.url().parse()?),
         database_prefix: Some(config.database_prefix),
         nextcloud_url: Some(config.nextcloud_url),
         redis: config.redis.into_vec(),

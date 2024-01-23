@@ -53,9 +53,9 @@ pub enum NextCloudError {
 #[derive(Debug, Error, Diagnostic)]
 pub enum DatabaseError {
     #[error("Failed to connect to database")]
-    Connect(#[source] sqlx::Error),
+    Connect(#[source] sqlx_oldapi::Error),
     #[error("Failed to query database")]
-    Query(#[source] sqlx::Error),
+    Query(#[source] sqlx_oldapi::Error),
 }
 
 #[derive(Debug, Error, Diagnostic)]
@@ -96,6 +96,8 @@ pub enum ConfigError {
     SocketPermissions(String, Option<ParseIntError>),
     #[error("Failed to parse log level")]
     LogLevel(#[from] FlexiLoggerError),
+    #[error("Failed to parse database configuration: {0:#}")]
+    InvalidDatabase(#[from] sqlx_oldapi::Error),
 }
 
 #[derive(Debug, Error, Diagnostic)]
