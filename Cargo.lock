@@ -1310,9 +1310,9 @@ dependencies = [
 
 [[package]]
 name = "nextcloud-config-parser"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "587b2e52e079f4bea069c88c19b6ce8548fef45c398bfb8aac6710a5444d5eb3"
+checksum = "67c0aa2e8a655af8fb9da3ff1dcb03fcfae04e36537e320386b0066c68d976bf"
 dependencies = [
  "form_urlencoded",
  "futures-core",
