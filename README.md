@@ -321,8 +321,7 @@ For information about how to use the push server in your own app or client, see 
 
 For development and testing purposes a test client is provided which can be downloaded from
 the [current release](https://github.com/nextcloud/notify_push/releases/latest) page.<br>
-(Click on `test_client` to download the binary.)<br>
-Please note: the Test client is only build for x86_64 Linux currently.
+(Click the `test_client` for your platform to download the binary.)
 
 ```bash
 test_client https://cloud.example.com username password
