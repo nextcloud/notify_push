@@ -31,7 +31,7 @@ tokio-stream = { version = "0.1.14", features = ["net"] }
 derivative = "2.2.0"
 nextcloud-config-parser = { version = "0.9.1", features = ["redis-connect"] }
 url = "2.5.0"
-clap = { version = "4.5.1", features = ["derive"] }
+clap = { version = "4.5.2", features = ["derive"] }
 
 [dev-dependencies]
 mini-redis = "0.4.1"
