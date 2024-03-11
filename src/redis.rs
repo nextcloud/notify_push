@@ -1,6 +1,6 @@
 use crate::error::ConfigError;
 use crate::Result;
-use redis::aio::{Connection, PubSub};
+use redis::aio::{MultiplexedConnection, PubSub};
 use redis::cluster::ClusterClient;
 use redis::cluster_async::ClusterConnection;
 use redis::{AsyncCommands, Client, ConnectionInfo, RedisError};
@@ -22,14 +22,16 @@ impl Redis {
         // since pubsub performs a multicast for all nodes in a cluster,
         // listening to a single server in the cluster is sufficient for cluster setups
         let client = Client::open(self.config.first().unwrap().clone())?;
-        Ok(client.get_async_connection().await?.into_pubsub())
+        client.get_async_pubsub().await
     }
 
     pub async fn connect(&self) -> Result<RedisConnection, RedisError> {
         let connection = match self.config.as_slice() {
             [single] => {
-                let client = Client::open(single.clone())?.get_async_connection().await?;
-                RedisConnection::Async(client)
+                let client = Client::open(single.clone())?
+                    .get_multiplexed_async_connection()
+                    .await?;
+                RedisConnection::Single(client)
             }
             config => {
                 let client = ClusterClient::new(config.to_vec())?
@@ -43,14 +45,14 @@ impl Redis {
 }
 
 pub enum RedisConnection {
-    Async(Connection),
+    Single(MultiplexedConnection),
     Cluster(ClusterConnection),
 }
 
 impl RedisConnection {
     pub async fn del(&mut self, key: &str) -> Result<(), RedisError> {
         match self {
-            RedisConnection::Async(client) => {
+            RedisConnection::Single(client) => {
                 client.del(key).await?;
             }
             RedisConnection::Cluster(client) => {
@@ -62,14 +64,14 @@ impl RedisConnection {
 
     pub async fn get(&mut self, key: &str) -> Result<String> {
         Ok(match self {
-            RedisConnection::Async(client) => client.get(key).await?,
+            RedisConnection::Single(client) => client.get(key).await?,
             RedisConnection::Cluster(client) => client.get(key).await?,
         })
     }
 
     pub async fn set(&mut self, key: &str, value: &str) -> Result<()> {
         match self {
-            RedisConnection::Async(client) => {
+            RedisConnection::Single(client) => {
                 client.set(key, value).await?;
             }
             RedisConnection::Cluster(client) => {
