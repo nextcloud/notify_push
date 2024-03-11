@@ -16,26 +16,27 @@ concurrency:
 
 jobs:
   matrix:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-low
     outputs:
-      matrix: ${{ steps.versions.outputs.matrix }}
+      matrix: ${{ steps.versions.outputs.sparse-matrix }}
     steps:
       - name: Checkout app
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
       - name: Get version matrix
         id: versions
-        uses: icewind1991/nextcloud-version-matrix@8238a96541a763c633c093b203f3c8a33fcee037 # v1.0.0
+        uses: icewind1991/nextcloud-version-matrix@58becf3b4bb6dc6cef677b15e2fd8e7d48c0908f # v1.3.1
         with:
           matrix: '{"mysql-versions": ["8.1"]}'
 
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-low
 
     outputs:
       src: ${{ steps.changes.outputs.src}}
 
     steps:
-      - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         continue-on-error: true
         with:
@@ -91,7 +92,7 @@ jobs:
           path: apps/${{ env.APP_NAME }}
 
       - name: Set up php ${{ matrix.php-versions }}
-        uses: shivammathur/setup-php@81cd5ae0920b34eef300e1775313071038a53429 # v2
+        uses: shivammathur/setup-php@a4e22b60bbb9c1021113f2860347b0759f66fe5d # v2
         with:
           php-version: ${{ matrix.php-versions }}
           # https://docs.nextcloud.com/server/stable/admin_manual/installation/source_installation.html#prerequisites-for-manual-installation
@@ -108,7 +109,7 @@ jobs:
 
       - name: Check composer file existence
         id: check_composer
-        uses: andstor/file-existence-action@20b4d2e596410855db8f9ca21e96fbe18e12930b # v2
+        uses: andstor/file-existence-action@076e0072799f4942c8bc574a82233e1e4d13e9d6 # v2
         with:
           files: apps/${{ env.APP_NAME }}/composer.json
 
@@ -116,7 +117,7 @@ jobs:
         # Only run if phpunit config file exists
         if: steps.check_composer.outputs.files_exists == 'true'
         working-directory: apps/${{ env.APP_NAME }}
-        run: rm composer.lock && composer i
+        run: composer i
 
       - name: Set up Nextcloud
         env:
@@ -172,7 +173,7 @@ jobs:
   summary:
     permissions:
       contents: none
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-low
     needs: [changes, phpunit-mysql]
 
     if: always()

@@ -9,12 +9,12 @@ env:
 
 jobs:
   matrix:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-low
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v3
-      - uses: cachix/install-nix-action@v20
+      - uses: cachix/install-nix-action@v26
       - id: set-matrix
         run: echo "matrix={\"target\":$(nix eval --json ".#targets.x86_64-linux")}" | tee $GITHUB_OUTPUT
 
@@ -26,8 +26,8 @@ jobs:
       matrix: ${{fromJson(needs.matrix.outputs.matrix)}}
     steps:
       - uses: actions/checkout@v3
-      - uses: cachix/install-nix-action@v20
-      - uses: cachix/cachix-action@v12
+      - uses: cachix/install-nix-action@v26
+      - uses: cachix/cachix-action@v14
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -47,7 +47,7 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v3
-      - uses: cachix/install-nix-action@v20
+      - uses: cachix/install-nix-action@v26
       - id: set-matrix
         run: echo "matrix=$(nix eval --json ".#testClientMatrix.x86_64-linux")" | tee $GITHUB_OUTPUT
 
@@ -60,8 +60,8 @@ jobs:
       matrix: ${{fromJson(needs.test-client-matrix.outputs.matrix)}}
     steps:
       - uses: actions/checkout@v3
-      - uses: cachix/install-nix-action@v20
-      - uses: cachix/cachix-action@v12
+      - uses: cachix/install-nix-action@v26
+      - uses: cachix/cachix-action@v14
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'

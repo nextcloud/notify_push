@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   matrix:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-low
     outputs:
       ocp-matrix: ${{ steps.versions.outputs.ocp-matrix }}
     steps:
@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Get version matrix
         id: versions
-        uses: icewind1991/nextcloud-version-matrix@334a77e02e5684ba9da35933db0d7110356bf3ba # v1.1.0
+        uses: icewind1991/nextcloud-version-matrix@58becf3b4bb6dc6cef677b15e2fd8e7d48c0908f # v1.3.1
 
   static-analysis:
     runs-on: ubuntu-latest
@@ -31,32 +31,32 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix.outputs.ocp-matrix) }}
 
-    name: Nextcloud ${{ matrix.ocp-version }}
+    name: static-psalm-analysis ${{ matrix.ocp-version }}
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Set up php${{ matrix.php-versions }}
-        uses: shivammathur/setup-php@81cd5ae0920b34eef300e1775313071038a53429 # v2
+        uses: shivammathur/setup-php@a4e22b60bbb9c1021113f2860347b0759f66fe5d # v2
         with:
           php-version: ${{ matrix.php-versions }}
+          extensions: bz2, ctype, curl, dom, fileinfo, gd, iconv, intl, json, libxml, mbstring, openssl, pcntl, posix, session, simplexml, xmlreader, xmlwriter, zip, zlib, sqlite, pdo_sqlite, redis
           coverage: none
           ini-file: development
-          extensions: redis
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
-        run: rm composer.lock && composer i
+        run: composer i
 
       - name: Install dependencies
-        run: rm composer.lock && composer require --dev nextcloud/ocp:${{ matrix.ocp-version }} --ignore-platform-reqs --with-dependencies
+        run: composer require --dev nextcloud/ocp:${{ matrix.ocp-version }} --ignore-platform-reqs --with-dependencies
 
       - name: Run coding standards check
         run: composer run psalm
 
   summary:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-low
     needs: static-analysis
 
     if: always()

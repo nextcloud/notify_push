@@ -6,7 +6,7 @@
 		"php-parallel-lint/php-parallel-lint": "^1.0.0",
 		"phpunit/phpunit": "^9.6.13",
 		"nextcloud/coding-standard": "^v1.1.1",
-		"nextcloud/ocp": "dev-stable25",
+		"nextcloud/ocp": "dev-master",
 		"psalm/phar": "^4.3",
 		"symfony/console": "5.4.19",
 		"symfony/http-foundation": "^5.4.24"
