@@ -197,9 +197,9 @@ impl Services {
         }
     }
 
-    async fn redis_client(&self) -> redis::aio::Connection {
+    async fn redis_client(&self) -> redis::aio::MultiplexedConnection {
         let client = redis::Client::open(self.config().redis.first().unwrap().clone()).unwrap();
-        client.get_async_connection().await.unwrap()
+        client.get_multiplexed_async_connection().await.unwrap()
     }
 
     fn add_user(&self, username: &str, password: &str) {
