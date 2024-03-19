@@ -5,6 +5,10 @@ on: pull_request
 permissions:
   contents: read
 
+concurrency:
+  group: rust-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 env:
   APP_NAME: notify_push
 
@@ -14,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v26
-      - uses: cachix/cachix-action@v14
+      - uses: cachix/cachix-action@v13
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -26,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v26
-      - uses: cachix/cachix-action@v14
+      - uses: cachix/cachix-action@v13
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -38,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v26
-      - uses: cachix/cachix-action@v14
+      - uses: cachix/cachix-action@v13
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -63,7 +67,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v26
-      - uses: cachix/cachix-action@v14
+      - uses: cachix/cachix-action@v13
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -79,7 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v26
-      - uses: cachix/cachix-action@v14
+      - uses: cachix/cachix-action@v13
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -91,7 +95,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v26
-      - uses: cachix/cachix-action@v14
+      - uses: cachix/cachix-action@v13
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -117,7 +121,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v26
-      - uses: cachix/cachix-action@v14
+      - uses: cachix/cachix-action@v13
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -134,7 +138,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v26
-      - uses: cachix/cachix-action@v14
+      - uses: cachix/cachix-action@v13
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -146,7 +150,7 @@ jobs:
     needs: build
     steps:
       - uses: cachix/install-nix-action@v26
-      - uses: cachix/cachix-action@v14
+      - uses: cachix/cachix-action@v13
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
