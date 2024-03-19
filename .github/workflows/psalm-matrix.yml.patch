@@ -11,3 +11,16 @@ index 8e3d42f..4ee30b7 100644
            coverage: none
            ini-file: development
          env:
+diff --git a/.github/workflows/psalm-matrix.yml b/.github/workflows/psalm-matrix.yml
+index 4ee30b7..82a540b 100644
+--- a/.github/workflows/psalm-matrix.yml
++++ b/.github/workflows/psalm-matrix.yml
+@@ -50,7 +50,7 @@ jobs:
+         run: composer i
+ 
+       - name: Install dependencies
+-        run: composer require --dev nextcloud/ocp:${{ matrix.ocp-version }} --ignore-platform-reqs --with-dependencies
++        run: rm composer.lock && composer require --dev nextcloud/ocp:${{ matrix.ocp-version }} --ignore-platform-reqs --with-dependencies
+ 
+       - name: Run coding standards check
+         run: composer run psalm

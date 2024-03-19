@@ -117,7 +117,10 @@ jobs:
         # Only run if phpunit config file exists
         if: steps.check_composer.outputs.files_exists == 'true'
         working-directory: apps/${{ env.APP_NAME }}
-        run: composer i
+        run: |
+          rm composer.lock
+          composer remove nextcloud/ocp --dev
+          composer i
 
       - name: Set up Nextcloud
         env:
