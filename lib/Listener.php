@@ -30,6 +30,7 @@ use OCP\Activity\IEvent;
 use OCP\EventDispatcher\Event;
 use OCP\Files\Cache\ICacheEvent;
 use OCP\Files\IHomeStorage;
+use OCP\Files\Storage\IStorage;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
 use OCP\Notification\IApp;
@@ -48,18 +49,6 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 
 	public function cacheListener(Event $event): void {
 		if ($event instanceof ICacheEvent) {
-			// ignore files in home storage but outside home directory (trashbin, versions, etc)
-			if (
-				$event->getStorage()->instanceOfStorage(IHomeStorage::class) && !(
-					$event->getPath() === 'files' || strpos($event->getPath(), "files/") === 0
-				)
-			) {
-				return;
-			}
-			// ignore appdata
-			if (strpos($event->getPath(), 'appdata_') === 0) {
-				return;
-			}
 			$path = $event->getPath();
 
 			$storage = $event->getStorage();
@@ -69,11 +58,13 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 				$storage = $storage->getUnjailedStorage();
 			}
 
-			$this->queue->push('notify_storage_update', [
-				'storage' => $event->getStorageId(),
-				'path' => $path,
-				'file_id' => $event->getFileId(),
-			]);
+			if ($this->shouldNotifyPath($event->getStorage(), $path)) {
+				$this->queue->push('notify_storage_update', [
+					'storage' => $event->getStorageId(),
+					'path' => $path,
+					'file_id' => $event->getFileId(),
+				]);
+			}
 		}
 	}
 
@@ -133,5 +124,30 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 		$this->queue->push('notify_notification', [
 			'user' => $notification->getUser(),
 		]);
+	}
+
+	private function shouldNotifyPath(IStorage $storage, string $path): bool {
+		// ignore files in home storage but outside home directory (trashbin, versions, etc)
+		if (
+			$storage->instanceOfStorage(IHomeStorage::class)) {
+			return $path === 'files' || str_starts_with($path, "files/");
+		}
+
+		// ignore appdata
+		if (str_starts_with($path, 'appdata_')) {
+			return false;
+		}
+
+		if ($path === '__groupfolders') {
+			return false;
+		}
+		if (str_starts_with($path, '__groupfolders/versions')) {
+			return false;
+		}
+		if (str_starts_with($path, '__groupfolders/trash')) {
+			return false;
+		}
+
+		return true;
 	}
 }
