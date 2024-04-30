@@ -20,7 +20,7 @@ dashmap = "5.5.3"
 once_cell = "1.19.0"
 miette = { version = "7.2.0", features = ["fancy"] }
 smallvec = { version = "1.13.2", features = ["serde"] }
-reqwest = { version = "0.11.27", default-features = false, features = ["rustls-tls", "json"] }
+reqwest = { version = "0.12.4", default-features = false, features = ["rustls-tls", "json"] }
 warp-real-ip = "0.2.0"
 parse-display = "0.9.0"
 percent-encoding = "2.3.1"
