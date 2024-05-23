@@ -8,7 +8,7 @@ use clap::builder::Styles;
 use clap::Parser;
 use derivative::Derivative;
 use redis::ConnectionInfo;
-use sqlx_oldapi::any::AnyConnectOptions;
+use sqlx::any::AnyConnectOptions;
 use std::convert::{TryFrom, TryInto};
 use std::env::var;
 use std::fmt::{Display, Formatter};

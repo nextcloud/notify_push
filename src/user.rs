@@ -6,9 +6,9 @@ use once_cell::race::OnceBox;
 use once_cell::sync::Lazy;
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer};
-use sqlx_oldapi::database::HasValueRef;
-use sqlx_oldapi::error::BoxDynError;
-use sqlx_oldapi::{Database, Decode, Type};
+use sqlx::database::HasValueRef;
+use sqlx::error::BoxDynError;
+use sqlx::{Database, Decode, Type};
 use std::fmt;
 use std::hash::{BuildHasher, Hasher};
 
