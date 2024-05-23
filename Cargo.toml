@@ -32,6 +32,7 @@ derivative = "2.2.0"
 nextcloud-config-parser = { version = "0.10.0", features = ["redis-connect"] }
 url = "2.5.0"
 clap = { version = "4.5.4", features = ["derive"] }
+sd-notify = { version = "0.4.1", optional = true }
 
 [dev-dependencies]
 mini-redis = "0.4.1"
@@ -49,3 +50,6 @@ opt-level = 3
 lto = true
 
 [workspace]
+
+[features]
+systemd = ["dep:sd-notify"]

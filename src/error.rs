@@ -26,6 +26,9 @@ pub enum Error {
     Authentication(#[from] AuthenticationError),
     #[error("Error while communicating with Nextcloud: {0}")]
     NextCloud(#[from] NextCloudError),
+    #[cfg(feature = "systemd")]
+    #[error("Failed to notify SystemD: {0}")]
+    SystemD(#[from] std::io::Error),
 }
 
 #[derive(Debug, Error, Diagnostic)]
