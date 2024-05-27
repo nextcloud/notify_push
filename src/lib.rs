@@ -17,7 +17,7 @@ use futures::future::{select, Either};
 use futures::StreamExt;
 use futures::{pin_mut, FutureExt};
 use smallvec::alloc::sync::Arc;
-use sqlx_oldapi::AnyPool;
+use sqlx::AnyPool;
 use std::convert::Infallible;
 use std::fs;
 use std::future::Future;

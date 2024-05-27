@@ -15,6 +15,7 @@ use tokio::task::spawn;
 
 fn main() -> Result<()> {
     miette::set_panic_hook();
+    sqlx::any::install_default_drivers();
     let _ = dotenvy::dotenv();
 
     let opt: Opt = Opt::parse();

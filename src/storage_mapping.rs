@@ -6,8 +6,8 @@ use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use log::debug;
 use rand::{thread_rng, Rng};
-use sqlx_oldapi::any::AnyConnectOptions;
-use sqlx_oldapi::{query_as, Any, AnyPool, FromRow};
+use sqlx::any::AnyConnectOptions;
+use sqlx::{query_as, Any, AnyPool, FromRow};
 use std::time::Instant;
 use tokio::time::Duration;
 
