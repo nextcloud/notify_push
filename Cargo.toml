@@ -52,4 +52,5 @@ lto = true
 [workspace]
 
 [features]
+default = ["systemd"]
 systemd = ["dep:sd-notify"]
