@@ -98,6 +98,10 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
         )?);
     }
 
+    // tell SystemD that sockets have been bound to their addresses
+    #[cfg(feature = "systemd")]
+    sd_notify::notify(true, &[sd_notify::NotifyState::Ready]).map_err(Error::SystemD)?;
+
     spawn(listen_loop(app, listen_cancel_handle));
 
     // wait for either a sigint or sigterm
