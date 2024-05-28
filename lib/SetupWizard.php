@@ -246,6 +246,7 @@ Description = Push daemon for Nextcloud clients
 Environment=PORT=7867
 Environment=NEXTCLOUD_URL=$ncUrl
 {$selfSigned}ExecStart=$path $config
+Type=notify
 User=$user
 
 [Install]
