@@ -6,8 +6,6 @@ use notify_push::error::ConfigError;
 use notify_push::message::DEBOUNCE_ENABLE;
 use notify_push::metrics::serve_metrics;
 use notify_push::{listen_loop, serve, App, Error};
-#[cfg(feature = "systemd")]
-use sd_notify;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tokio::select;
