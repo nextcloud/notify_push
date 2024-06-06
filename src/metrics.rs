@@ -9,6 +9,7 @@ use warp::Filter;
 
 pub static METRICS: Metrics = Metrics::new();
 
+#[derive(Default)]
 pub struct Metrics {
     active_connection_count: AtomicUsize,
     active_user_count: AtomicUsize,
