@@ -1720,6 +1720,7 @@ dependencies = [
  "pin-project-lite",
  "rand",
  "ryu",
+ "socket2",
  "tokio",
  "tokio-util",
  "url",
