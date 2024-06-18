@@ -1377,7 +1377,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.23.1",
  "url",
  "warp",
  "warp-real-ip",
@@ -2570,7 +2570,7 @@ dependencies = [
  "log",
  "miette",
  "serde_json",
- "tungstenite",
+ "tungstenite 0.21.0",
  "ureq",
  "url",
 ]
@@ -2711,7 +2711,19 @@ dependencies = [
  "futures-util",
  "log",
  "tokio",
- "tungstenite",
+ "tungstenite 0.21.0",
+]
+
+[[package]]
+name = "tokio-tungstenite"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6989540ced10490aaf14e6bad2e3d33728a2813310a0c71d1574304c49631cd"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite 0.23.0",
 ]
 
 [[package]]
@@ -2845,6 +2857,24 @@ dependencies = [
  "url",
  "utf-8",
  "webpki-roots 0.26.1",
+]
+
+[[package]]
+name = "tungstenite"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e2e2ce1e47ed2994fd43b04c8f618008d4cabdd5ee34027cf14f9d918edd9c8"
+dependencies = [
+ "byteorder",
+ "bytes",
+ "data-encoding",
+ "http 1.1.0",
+ "httparse",
+ "log",
+ "rand",
+ "sha1",
+ "thiserror",
+ "utf-8",
 ]
 
 [[package]]
@@ -3038,7 +3068,7 @@ dependencies = [
  "serde_urlencoded",
  "tokio",
  "tokio-rustls 0.25.0",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.21.0",
  "tokio-util",
  "tower-service",
  "tracing",
