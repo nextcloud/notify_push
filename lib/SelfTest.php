@@ -156,7 +156,7 @@ class SelfTest {
 			}
 
 			$output->writeln("<error>🗴 push server is not a trusted proxy by Nextcloud or another proxy in the chain.</error>");
-			$output->writeln("  Nextcloud resolved the following client address for the test request: \"$resolvedRemote\" instead of the expected \"1.2.3.4\"");
+			$output->writeln("  Nextcloud resolved the following client address for the test request: \"$resolvedRemote\" instead of the expected \"1.2.3.4\" test value.");
 			$output->writeln("  The following trusted proxies are currently configured: " . implode(', ', array_map(function (string $proxy) {
 				return '"' . $proxy . '"';
 			}, $trustedProxies)));
