@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+ 
 use crate::metrics::METRICS;
 use crate::{Redis, Result, UserId};
 use parse_display::Display;

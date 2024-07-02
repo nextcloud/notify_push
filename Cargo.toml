@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
 [package]
 name = "notify_push"
 version = "0.1.0" # this version number is unused, the version number for the binary will be extracted from the appinfo/info.xml during build

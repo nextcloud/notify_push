@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 use crate::error::{AuthenticationError, WebSocketError};
 use crate::message::{PushMessage, SendQueue};
 use crate::metrics::METRICS;
