@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+ 
 use crate::error::{AuthenticationError, NextCloudError};
 use crate::{Result, UserId};
 use reqwest::{Response, StatusCode, Url};
