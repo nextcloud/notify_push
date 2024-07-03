@@ -10,3 +10,7 @@ License: AGPL-3.0-or-later
 Files: flake.lock flake.nix
 Copyright: 2023 Nextcloud GmbH and Nextcloud contributors
 License: AGPL-3.0-or-later
+
+Files: img/app.svg img/app-dark.svg
+Copyright: 2018-2024 Google LLC
+License: Apache-2.0
