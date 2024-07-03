@@ -1,0 +1,12 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: notify_push
+Upstream-Contact: Nextcloud <info@nextcloud.com>
+Source: https://github.com/nextcloud/notify_push
+
+Files: .envrc Cargo.lock composer.json composer.lock tests/stub.phpstub
+Copyright: 2021 Nextcloud GmbH and Nextcloud contributors
+License: AGPL-3.0-or-later
+
+Files: flake.lock flake.nix
+Copyright: 2023 Nextcloud GmbH and Nextcloud contributors
+License: AGPL-3.0-or-later

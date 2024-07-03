@@ -1,4 +1,10 @@
+<!--
+  - SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
 # Client Push
+
+[![REUSE status](https://api.reuse.software/badge/github.com/nextcloud/notify_push)](https://api.reuse.software/info/github.com/nextcloud/notify_push)
 
 Update notifications for nextcloud clients
 
