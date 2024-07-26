@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+ 
 use crate::config::PartialConfig;
 use crate::error::ConfigError;
 use nextcloud_config_parser::{parse, parse_glob};

@@ -2,23 +2,8 @@
 
 declare(strict_types=1);
 /**
- * @copyright Copyright (c) 2020 Robin Appelman <robin@icewind.nl>
- *
- * @license GNU AGPL version 3 or any later version
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 namespace OCA\NotifyPush;
@@ -30,6 +15,7 @@ use OCP\Activity\IEvent;
 use OCP\EventDispatcher\Event;
 use OCP\Files\Cache\ICacheEvent;
 use OCP\Files\IHomeStorage;
+use OCP\Files\Storage\IStorage;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
 use OCP\Notification\IApp;
@@ -48,18 +34,6 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 
 	public function cacheListener(Event $event): void {
 		if ($event instanceof ICacheEvent) {
-			// ignore files in home storage but outside home directory (trashbin, versions, etc)
-			if (
-				$event->getStorage()->instanceOfStorage(IHomeStorage::class) && !(
-					$event->getPath() === 'files' || strpos($event->getPath(), "files/") === 0
-				)
-			) {
-				return;
-			}
-			// ignore appdata
-			if (strpos($event->getPath(), 'appdata_') === 0) {
-				return;
-			}
 			$path = $event->getPath();
 
 			$storage = $event->getStorage();
@@ -69,11 +43,13 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 				$storage = $storage->getUnjailedStorage();
 			}
 
-			$this->queue->push('notify_storage_update', [
-				'storage' => $event->getStorageId(),
-				'path' => $path,
-				'file_id' => $event->getFileId(),
-			]);
+			if ($this->shouldNotifyPath($event->getStorage(), $path)) {
+				$this->queue->push('notify_storage_update', [
+					'storage' => $event->getStorageId(),
+					'path' => $path,
+					'file_id' => $event->getFileId(),
+				]);
+			}
 		}
 	}
 
@@ -133,5 +109,30 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 		$this->queue->push('notify_notification', [
 			'user' => $notification->getUser(),
 		]);
+	}
+
+	private function shouldNotifyPath(IStorage $storage, string $path): bool {
+		// ignore files in home storage but outside home directory (trashbin, versions, etc)
+		if (
+			$storage->instanceOfStorage(IHomeStorage::class)) {
+			return $path === 'files' || str_starts_with($path, "files/");
+		}
+
+		// ignore appdata
+		if (str_starts_with($path, 'appdata_')) {
+			return false;
+		}
+
+		if ($path === '__groupfolders') {
+			return false;
+		}
+		if (str_starts_with($path, '__groupfolders/versions')) {
+			return false;
+		}
+		if (str_starts_with($path, '__groupfolders/trash')) {
+			return false;
+		}
+
+		return true;
 	}
 }

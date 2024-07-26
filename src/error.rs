@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2022 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+ 
 use flexi_logger::FlexiLoggerError;
 use miette::Diagnostic;
 use redis::RedisError;
@@ -26,6 +31,9 @@ pub enum Error {
     Authentication(#[from] AuthenticationError),
     #[error("Error while communicating with Nextcloud: {0}")]
     NextCloud(#[from] NextCloudError),
+    #[cfg(feature = "systemd")]
+    #[error("Failed to notify SystemD: {0}")]
+    SystemD(#[from] std::io::Error),
 }
 
 #[derive(Debug, Error, Diagnostic)]
@@ -53,9 +61,9 @@ pub enum NextCloudError {
 #[derive(Debug, Error, Diagnostic)]
 pub enum DatabaseError {
     #[error("Failed to connect to database: {0}")]
-    Connect(#[source] sqlx_oldapi::Error),
+    Connect(#[source] sqlx::Error),
     #[error("Failed to query database: {0}")]
-    Query(#[source] sqlx_oldapi::Error),
+    Query(#[source] sqlx::Error),
 }
 
 #[derive(Debug, Error, Diagnostic)]
@@ -97,7 +105,7 @@ pub enum ConfigError {
     #[error("Failed to parse log level: {0}")]
     LogLevel(#[from] FlexiLoggerError),
     #[error("Failed to parse database configuration: {0:#}")]
-    InvalidDatabase(#[from] sqlx_oldapi::Error),
+    InvalidDatabase(#[from] sqlx::Error),
 }
 
 #[derive(Debug, Error, Diagnostic)]

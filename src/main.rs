@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+ 
 use clap::Parser;
 use flexi_logger::{detailed_format, AdaptiveFormat, Logger, LoggerHandle};
 use miette::{IntoDiagnostic, Result, WrapErr};
@@ -15,6 +20,7 @@ use tokio::task::spawn;
 
 fn main() -> Result<()> {
     miette::set_panic_hook();
+    sqlx::any::install_default_drivers();
     let _ = dotenvy::dotenv();
 
     let opt: Opt = Opt::parse();
@@ -96,6 +102,10 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
             tls.as_ref(),
         )?);
     }
+
+    // tell SystemD that sockets have been bound to their addresses
+    #[cfg(feature = "systemd")]
+    sd_notify::notify(true, &[sd_notify::NotifyState::Ready]).map_err(Error::SystemD)?;
 
     spawn(listen_loop(app, listen_cancel_handle));
 

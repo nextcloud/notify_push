@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+ 
 use crate::config::{Bind, TlsConfig};
 use crate::{serve_at, Result};
 use serde::{Serialize, Serializer};
@@ -9,6 +14,7 @@ use warp::Filter;
 
 pub static METRICS: Metrics = Metrics::new();
 
+#[derive(Default)]
 pub struct Metrics {
     active_connection_count: AtomicUsize,
     active_user_count: AtomicUsize,

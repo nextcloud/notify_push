@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+ 
 use crate::config::{Bind, Config, TlsConfig};
 use crate::connection::{handle_user_socket, ActiveConnections, ConnectionOptions};
 pub use crate::error::Error;
@@ -17,7 +22,7 @@ use futures::future::{select, Either};
 use futures::StreamExt;
 use futures::{pin_mut, FutureExt};
 use smallvec::alloc::sync::Arc;
-use sqlx_oldapi::AnyPool;
+use sqlx::AnyPool;
 use std::convert::Infallible;
 use std::fs;
 use std::future::Future;

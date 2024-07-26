@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 use crate::passthru_hasher::PassthruHasher;
 use ahash::RandomState;
 use dashmap::DashMap;
@@ -6,9 +11,8 @@ use once_cell::race::OnceBox;
 use once_cell::sync::Lazy;
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer};
-use sqlx_oldapi::database::HasValueRef;
-use sqlx_oldapi::error::BoxDynError;
-use sqlx_oldapi::{Database, Decode, Type};
+use sqlx::error::BoxDynError;
+use sqlx::{Database, Decode, Type};
 use std::fmt;
 use std::hash::{BuildHasher, Hasher};
 
@@ -81,7 +85,7 @@ impl<'r, DB: Database> Decode<'r, DB> for UserId
 where
     &'r str: Decode<'r, DB>,
 {
-    fn decode(value: <DB as HasValueRef<'r>>::ValueRef) -> Result<Self, BoxDynError> {
+    fn decode(value: DB::ValueRef<'r>) -> Result<Self, BoxDynError> {
         <&str as Decode<DB>>::decode(value).map(UserId::new)
     }
 }

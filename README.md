@@ -1,4 +1,10 @@
+<!--
+  - SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
 # Client Push
+
+[![REUSE status](https://api.reuse.software/badge/github.com/nextcloud/notify_push)](https://api.reuse.software/info/github.com/nextcloud/notify_push)
 
 Update notifications for nextcloud clients
 
@@ -60,11 +66,14 @@ Documentation=https://github.com/nextcloud/notify_push
 [Service]
 Environment = PORT=7867 # Change if you already have something running on this port
 ExecStart = /path/to/push/binary/notify_push /path/to/nextcloud/config/config.php
+Type=notify # requires the push server to have been build with the systemd feature (enabled by default)
 User=www-data
 
 [Install]
 WantedBy = multi-user.target
 ```
+
+If the push server has not been compiled with the optional systemd feature (enabled by default) the `Type=notify` line has to be removed.
 
 #### OpenRC
 

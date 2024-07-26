@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+ 
 use dashmap::DashMap;
 use flexi_logger::{Logger, LoggerHandle};
 use futures::future::select;
@@ -10,7 +15,7 @@ use notify_push::{listen_loop, serve, App};
 use once_cell::sync::Lazy;
 use redis::AsyncCommands;
 use smallvec::alloc::sync::Arc;
-use sqlx_oldapi::AnyPool;
+use sqlx::AnyPool;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU16, Ordering};
 use tokio::net::{TcpListener, TcpStream};
@@ -51,6 +56,7 @@ static LOG_HANDLE: Lazy<LoggerHandle> =
 
 impl Services {
     pub async fn new() -> Self {
+        sqlx::any::install_default_drivers();
         DEBOUNCE_ENABLE.store(false, Ordering::SeqCst);
         let redis_tcp = listen_available_port()
             .await
@@ -66,29 +72,31 @@ impl Services {
             .local_addr()
             .expect("Failed to get nextcloud mock socket address");
 
-        let db = AnyPool::connect("sqlite::memory:?cache=shared")
-            .await
-            .expect("Failed to connect sqlite database");
-
-        sqlx_oldapi::query("CREATE TABLE oc_filecache(fileid BIGINT, path TEXT)")
-            .execute(&db)
-            .await
-            .unwrap();
-        sqlx_oldapi::query("CREATE INDEX fc_id ON oc_filecache (fileid)")
-            .execute(&db)
-            .await
-            .unwrap();
-        sqlx_oldapi::query(
-            "CREATE TABLE oc_mounts(storage_id BIGINT, root_id BIGINT, user_id TEXT)",
-        )
-        .execute(&db)
+        // use the port in the db name to prevent collisions
+        let db = AnyPool::connect(&format!(
+            "sqlite:file:memory{}?mode=memory&cache=shared",
+            nextcloud_addr.port()
+        ))
         .await
-        .unwrap();
-        sqlx_oldapi::query("CREATE INDEX mount_storage ON oc_mounts (storage_id)")
+        .expect("Failed to connect sqlite database");
+
+        sqlx::query("CREATE TABLE oc_filecache(fileid BIGINT, path TEXT)")
             .execute(&db)
             .await
             .unwrap();
-        sqlx_oldapi::query("CREATE INDEX mount_root ON oc_mounts (root_id)")
+        sqlx::query("CREATE INDEX fc_id ON oc_filecache (fileid)")
+            .execute(&db)
+            .await
+            .unwrap();
+        sqlx::query("CREATE TABLE oc_mounts(storage_id BIGINT, root_id BIGINT, user_id TEXT)")
+            .execute(&db)
+            .await
+            .unwrap();
+        sqlx::query("CREATE INDEX mount_storage ON oc_mounts (storage_id)")
+            .execute(&db)
+            .await
+            .unwrap();
+        sqlx::query("CREATE INDEX mount_root ON oc_mounts (root_id)")
             .execute(&db)
             .await
             .unwrap();
@@ -207,7 +215,7 @@ impl Services {
     }
 
     async fn add_storage_mapping(&self, username: &str, storage: u32, root: u32) {
-        sqlx_oldapi::query("INSERT INTO oc_mounts(storage_id, root_id, user_id) VALUES(?, ?, ?)")
+        sqlx::query("INSERT INTO oc_mounts(storage_id, root_id, user_id) VALUES(?, ?, ?)")
             .bind(storage as i64)
             .bind(root as i64)
             .bind(username)
@@ -217,7 +225,7 @@ impl Services {
     }
 
     async fn add_filecache_item(&self, fileid: u32, path: &str) {
-        sqlx_oldapi::query("INSERT INTO oc_filecache(fileid, path) VALUES(?, ?)")
+        sqlx::query("INSERT INTO oc_filecache(fileid, path) VALUES(?, ?)")
             .bind(fileid as i64)
             .bind(path)
             .execute(&self.db)

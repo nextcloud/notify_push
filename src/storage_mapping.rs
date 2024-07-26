@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 use crate::error::DatabaseError;
 use crate::metrics::METRICS;
 use crate::{Result, UserId};
@@ -6,8 +11,8 @@ use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use log::debug;
 use rand::{thread_rng, Rng};
-use sqlx_oldapi::any::AnyConnectOptions;
-use sqlx_oldapi::{query_as, Any, AnyPool, FromRow};
+use sqlx::any::AnyConnectOptions;
+use sqlx::{query_as, Any, AnyPool, FromRow};
 use std::time::Instant;
 use tokio::time::Duration;
 
@@ -65,7 +70,7 @@ impl StorageMapping {
     async fn get_storage_mapping(
         &self,
         storage: u32,
-    ) -> Result<Ref<'_, u32, CachedAccess, RandomState>, DatabaseError> {
+    ) -> Result<Ref<'_, u32, CachedAccess>, DatabaseError> {
         if let Some(cached) = self.cache.get(&storage).filter(|cached| cached.is_valid()) {
             Ok(cached)
         } else {
