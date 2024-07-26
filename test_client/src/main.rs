@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
- 
+
 use base64::Engine;
 use flexi_logger::{AdaptiveFormat, Logger};
 use log::{debug, info, trace, warn};

@@ -2,13 +2,13 @@
  * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
- 
+
 use crate::error::{AuthenticationError, NextCloudError};
 use crate::{Result, UserId};
+use reqwest::header::HeaderName;
 use reqwest::{Response, StatusCode, Url};
 use std::fmt::Write;
 use std::net::IpAddr;
-use warp::http::HeaderName;
 
 static X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
 
