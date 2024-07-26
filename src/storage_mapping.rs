@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
- 
+
 use crate::error::DatabaseError;
 use crate::metrics::METRICS;
 use crate::{Result, UserId};
@@ -70,7 +70,7 @@ impl StorageMapping {
     async fn get_storage_mapping(
         &self,
         storage: u32,
-    ) -> Result<Ref<'_, u32, CachedAccess, RandomState>, DatabaseError> {
+    ) -> Result<Ref<'_, u32, CachedAccess>, DatabaseError> {
         if let Some(cached) = self.cache.get(&storage).filter(|cached| cached.is_valid()) {
             Ok(cached)
         } else {
