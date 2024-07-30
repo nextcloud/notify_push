@@ -39,7 +39,7 @@ sd-notify = { version = "0.4.2", optional = true }
 [dev-dependencies]
 mini-redis = "0.4.1"
 tokio-tungstenite = "0.23.1"
-http-auth-basic = "0.3.3"
+http-auth-basic = "0.3.5"
 test_client = { path = "test_client" }
 
 [build-dependencies]
