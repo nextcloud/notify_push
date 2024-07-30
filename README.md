@@ -65,7 +65,7 @@ Documentation=https://github.com/nextcloud/notify_push
 
 [Service]
 Environment = PORT=7867 # Change if you already have something running on this port
-ExecStartPre=/bin/sh -c /usr/bin/chmod +x /path/to/push/binary/notify_push
+ExecStartPre=/bin/sh -c /usr/bin/chmod +x /path/to/push/binary/notify_push # adapt command paths to your distribution if needed
 ExecStart = /path/to/push/binary/notify_push /path/to/nextcloud/config/config.php
 Type=notify # requires the push server to have been build with the systemd feature (enabled by default)
 User=www-data
