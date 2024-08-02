@@ -64,9 +64,11 @@ Description = Push daemon for Nextcloud clients
 Documentation=https://github.com/nextcloud/notify_push
 
 [Service]
-Environment = PORT=7867 # Change if you already have something running on this port
+# Change if you already have something running on this port
+Environment = PORT=7867
 ExecStart = /path/to/push/binary/notify_push /path/to/nextcloud/config/config.php
-Type=notify # requires the push server to have been build with the systemd feature (enabled by default)
+# requires the push server to have been build with the systemd feature (enabled by default)
+Type=notify
 User=www-data
 
 [Install]
