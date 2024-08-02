@@ -23,5 +23,4 @@ FROM scratch
 COPY --from=build /volume/target/x86_64-unknown-linux-musl/release/notify_push /
 EXPOSE 7867
 
-CMD ["/notify_push"]
-
+ENTRYPOINT ["/notify_push"]
