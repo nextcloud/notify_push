@@ -20,12 +20,6 @@ jobs:
     if: ${{ github.repository_owner == 'nextcloud-releases' }}
 
     steps:
-      - uses: cachix/install-nix-action@v26
-      - uses: cachix/cachix-action@v14
-        with:
-          name: notify-push
-          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-
       - name: Check actor permission
         uses: skjnldsv/check-actor-permission@69e92a3c4711150929bca9fcf34448c5bf5526e7 # v3.0
         with:
@@ -41,7 +35,6 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           path: ${{ env.APP_NAME }}
-          fetch-depth: 0
 
       - name: Get appinfo data
         id: appinfo
@@ -63,7 +56,7 @@ jobs:
       - name: Set up node ${{ steps.versions.outputs.nodeVersion }}
         # Skip if no package.json
         if: ${{ steps.versions.outputs.nodeVersion }}
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v3
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
         with:
           node-version: ${{ steps.versions.outputs.nodeVersion }}
 
@@ -79,7 +72,7 @@ jobs:
           filename: ${{ env.APP_NAME }}/appinfo/info.xml
 
       - name: Set up php ${{ steps.php-versions.outputs.php-min }}
-        uses: shivammathur/setup-php@2e947f1f6932d141d076ca441d0e1e881775e95b # v2.31.0
+        uses: shivammathur/setup-php@c541c155eee45413f5b09a52248675b1a2575231 # v2.31.1
         with:
           php-version: ${{ steps.php-versions.outputs.php-min }}
           coverage: none
@@ -102,7 +95,7 @@ jobs:
         # Skip if no package.json
         if: ${{ steps.versions.outputs.nodeVersion }}
         env:
-          NODE_ENV: production
+          CYPRESS_INSTALL_BINARY: 0
         run: |
           cd ${{ env.APP_NAME }}
           npm ci
