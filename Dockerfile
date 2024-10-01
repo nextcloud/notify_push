@@ -18,10 +18,12 @@ RUN touch src/main.rs
 
 RUN cargo build --release
 
+# Pick the executable file for the right architecture and system
+RUN mv /volume/target/*-unknown-*-musl/release/notify_push /notify_push
+
 FROM scratch
 
-COPY --from=build /volume/target/x86_64-unknown-linux-musl/release/notify_push /
+COPY --from=build /notify_push /
 EXPOSE 7867
 
 CMD ["/notify_push"]
-
