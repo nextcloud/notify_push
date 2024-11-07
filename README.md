@@ -70,6 +70,8 @@ ExecStart = /path/to/push/binary/notify_push /path/to/nextcloud/config/config.ph
 # requires the push server to have been build with the systemd feature (enabled by default)
 Type=notify
 User=www-data
+Restart=always
+RestartSec=60
 
 [Install]
 WantedBy = multi-user.target
