@@ -11,7 +11,7 @@
 	<description><![CDATA[Push update support for desktop app.
 
 Once the app is installed, the push binary needs to be setup. You can either use the setup wizard with `occ notify_push:setup` or see the [README](http://github.com/nextcloud/notify_push) for detailed setup instructions]]></description>
-	<version>0.7.0</version>
+	<version>1.0.0-dev.0</version>
 	<licence>agpl</licence>
 	<author>Robin Appelman</author>
 	<namespace>NotifyPush</namespace>
@@ -27,7 +27,7 @@ Once the app is installed, the push binary needs to be setup. You can either use
 	<bugs>https://github.com/nextcloud/notify_push/issues</bugs>
 
 	<dependencies>
-		<nextcloud min-version="24" max-version="30"/>
+		<nextcloud min-version="24" max-version="31"/>
 	</dependencies>
 
 	<repair-steps>
