@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
- 
+
 use dashmap::DashMap;
 use flexi_logger::{Logger, LoggerHandle};
 use futures::future::select;
@@ -305,7 +305,7 @@ async fn assert_next_message(
             .unwrap()
             .unwrap()
             .unwrap(),
-        Message::Text(expected.to_string())
+        Message::Text(expected.into())
     );
 }
 

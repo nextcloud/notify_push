@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
- 
+
 use crate::error::ConfigError;
 use crate::Result;
 use redis::aio::{MultiplexedConnection, PubSub};
@@ -58,10 +58,10 @@ impl RedisConnection {
     pub async fn del(&mut self, key: &str) -> Result<(), RedisError> {
         match self {
             RedisConnection::Single(client) => {
-                client.del(key).await?;
+                client.del::<_, ()>(key).await?;
             }
             RedisConnection::Cluster(client) => {
-                client.del(key).await?;
+                client.del::<_, ()>(key).await?;
             }
         }
         Ok(())
@@ -77,10 +77,10 @@ impl RedisConnection {
     pub async fn set(&mut self, key: &str, value: &str) -> Result<()> {
         match self {
             RedisConnection::Single(client) => {
-                client.set(key, value).await?;
+                client.set::<_, _, ()>(key, value).await?;
             }
             RedisConnection::Cluster(client) => {
-                client.set(key, value).await?;
+                client.set::<_, _, ()>(key, value).await?;
             }
         }
         Ok(())

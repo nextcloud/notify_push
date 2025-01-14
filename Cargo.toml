@@ -5,41 +5,39 @@ name = "notify_push"
 version = "0.1.0" # this version number is unused, the version number for the binary will be extracted from the appinfo/info.xml during build
 authors = ["Robin Appelman <robin@icewind.nl>"]
 edition = "2021"
-rust-version = "1.74.1"
+rust-version = "1.77.2"
 
 [dependencies]
-redis = { version = "0.26.0", default-features = false, features = ["tokio-comp", "aio", "cluster", "cluster-async", "keep-alive"] }
-serde = { version = "1.0.204", features = ["derive"] }
-serde_json = "1.0.120"
-thiserror = "1.0.63"
+redis = { version = "0.28.1", default-features = false, features = ["tokio-comp", "aio", "cluster", "cluster-async", "keep-alive"] }
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.135"
+thiserror = "2.0.11"
 warp = { version = "0.3.7", features = ["tls"] }
-tokio = { version = "1.39.1", features = ["macros", "rt-multi-thread", "signal"] }
-futures = "0.3.30"
-log = "0.4.22"
-sqlx = { version = "0.8.0", features = ["runtime-tokio-rustls", "any", "mysql", "sqlite", "postgres"] }
+tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread", "signal"] }
+futures = "0.3.31"
+log = "0.4.25"
+sqlx = { version = "0.8.3", features = ["runtime-tokio-rustls", "any", "mysql", "sqlite", "postgres"] }
 dotenvy = "0.15.7"
-dashmap = "6.0.1"
-once_cell = "1.19.0"
-miette = { version = "7.2.0", features = ["fancy"] }
+dashmap = "6.1.0"
+once_cell = "1.20.2"
+miette = { version = "7.4.0", features = ["fancy"] }
 smallvec = { version = "1.13.2", features = ["serde"] }
-reqwest = { version = "0.12.5", default-features = false, features = ["rustls-tls", "json"] }
+reqwest = { version = "0.12.12", default-features = false, features = ["rustls-tls", "json"] }
 warp-real-ip = "0.2.0"
 parse-display = "0.9.1"
-percent-encoding = "2.3.1"
 rand = { version = "0.8.5", features = ["small_rng"] }
 ahash = "0.8.11"
-flexi_logger = { version = "0.28.5", features = ["colors"] }
-tokio-stream = { version = "0.1.15", features = ["net"] }
-derivative = "2.2.0"
-nextcloud-config-parser = { version = "0.11.0", features = ["redis-connect"] }
-url = "2.5.2"
-clap = { version = "4.5.11", features = ["derive"] }
-sd-notify = { version = "0.4.2", optional = true }
+flexi_logger = { version = "0.29.8", features = ["colors"] }
+tokio-stream = { version = "0.1.17", features = ["net"] }
+nextcloud-config-parser = { version = "0.12.0", features = ["redis-connect"] }
+url = "2.5.4"
+clap = { version = "4.5.26", features = ["derive"] }
+sd-notify = { version = "0.4.3", optional = true }
 
 [dev-dependencies]
 mini-redis = "0.4.1"
-tokio-tungstenite = "0.23.1"
-http-auth-basic = "0.3.3"
+tokio-tungstenite = "0.26.1"
+http-auth-basic = "0.3.5"
 test_client = { path = "test_client" }
 
 [build-dependencies]
