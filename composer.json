@@ -7,7 +7,7 @@
 		"phpunit/phpunit": "^9.6.13",
 		"nextcloud/coding-standard": "^v1.1.1",
 		"nextcloud/ocp": "dev-master",
-		"psalm/phar": "^4.3",
+		"psalm/phar": "^5.26.1",
 		"symfony/console": "^6.4.17",
 		"symfony/http-foundation": "^5.4.24"
 	},
