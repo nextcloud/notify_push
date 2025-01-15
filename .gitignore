@@ -4,7 +4,9 @@ target
 .env
 bin
 build
-vendor
+composer.phar
+/vendor/
+/vendor-bin/*/vendor
 *.cache
 .direnv
 result

@@ -1,0 +1,11 @@
+{
+    "config": {
+        "platform": {
+            "php": "8.1"
+        }
+    },
+    "require-dev": {
+        "vimeo/psalm": "^5.25.0",
+		"symfony/http-foundation": "^5.4.24"
+    }
+}

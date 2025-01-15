@@ -36,7 +36,7 @@ class SelfTest {
 		IAppManager $appManager,
 	) {
 		$this->client = $clientService->newClient();
-		$this->cookie = rand(1, pow(2, 30));
+		$this->cookie = rand(1, (int)pow(2, 30));
 		$this->queue = $queue;
 		$this->config = $config;
 		$this->connection = $connection;
