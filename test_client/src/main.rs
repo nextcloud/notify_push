@@ -46,11 +46,11 @@ fn main() -> Result<()> {
         .wrap_err("Can't connect to server")?;
 
     socket
-        .send(Message::Text(username))
+        .send(Message::Text(username.into()))
         .into_diagnostic()
         .wrap_err("Failed to send username")?;
     socket
-        .send(Message::Text(password))
+        .send(Message::Text(password.into()))
         .into_diagnostic()
         .wrap_err("Failed to send password")?;
     socket

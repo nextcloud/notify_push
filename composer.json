@@ -1,28 +1,41 @@
 {
-	"name": "nextcloud/text",
-	"type": "project",
-	"require-dev": {
-		"roave/security-advisories": "dev-master",
-		"php-parallel-lint/php-parallel-lint": "^1.0.0",
-		"phpunit/phpunit": "^9.6.13",
-		"nextcloud/coding-standard": "^v1.1.1",
-		"nextcloud/ocp": "dev-master",
-		"psalm/phar": "^4.3",
-		"symfony/console": "5.4.19",
-		"symfony/http-foundation": "^5.4.24"
+	"config": {
+		"platform": {
+			"php": "8.0"
+		},
+		"allow-plugins": {
+			"bamarni/composer-bin-plugin": true
+		}
 	},
+	"name": "nextcloud/notify_push",
+	"type": "project",
 	"license": "AGPLv3",
 	"authors": [
 		{
-			"name": "Julius Härtl",
-			"email": "jus@bitgrid.net"
+			"name": "Robin Appelman",
+			"email": "robin@icewind.nl"
 		}
 	],
+	"require": {
+		"bamarni/composer-bin-plugin": "^1.8.2"
+	},
 	"scripts": {
-		"lint": "find . -name \\*.php -not -path './vendor/*' -not -path './build/*' -not -path './tests/integration/vendor/*' -print0 | xargs -0 -n1 php -l",
-		"cs:check": "php-cs-fixer fix --dry-run --diff",
 		"cs:fix": "php-cs-fixer fix",
-		"test:unit": "phpunit -c tests/phpunit.xml",
-		"psalm": "psalm.phar"
+		"cs:check": "php-cs-fixer fix --dry-run --diff",
+		"lint": "find . -name \\*.php -not -path './vendor/*' -not -path './tests/*' -print0 | xargs -0 -n1 php -l",
+		"psalm": "psalm",
+		"test:unit": "phpunit -c tests/phpunit.xml --fail-on-warning",
+		"post-install-cmd": [
+			"@composer bin all install --ansi"
+		],
+		"post-update-cmd": [
+			"@composer bin all update --ansi"
+		]
+	},
+	"extra": {
+		"bamarni-bin": {
+			"bin-links": true,
+			"forward-command": false
+		}
 	}
 }

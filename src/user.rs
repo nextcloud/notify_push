@@ -50,7 +50,7 @@ impl<'de> Deserialize<'de> for UserId {
     {
         struct UserIdVisitor;
 
-        impl<'a> Visitor<'a> for UserIdVisitor {
+        impl Visitor<'_> for UserIdVisitor {
             type Value = UserId;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

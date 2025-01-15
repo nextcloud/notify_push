@@ -27,7 +27,7 @@ class SetupWizard {
 		SelfTest $test,
 		IClientService $clientService,
 		IConfig $config,
-		BinaryFinder $binaryFinder
+		BinaryFinder $binaryFinder,
 	) {
 		$this->queue = $queue;
 		$this->test = $test;
@@ -57,7 +57,7 @@ class SetupWizard {
 		@chmod($path, 0755);
 		$output = [];
 		exec("$path --version", $output);
-		return count($output) === 1 && strpos($output[0], "notify_push") === 0;
+		return count($output) === 1 && strpos($output[0], 'notify_push') === 0;
 	}
 
 	public function isPortFree(): bool {
@@ -72,14 +72,14 @@ class SetupWizard {
 	public function hasSystemd(): bool {
 		$result = null;
 		$output = [];
-		exec("which systemctl 2>&1", $output, $result);
+		exec('which systemctl 2>&1', $output, $result);
 		return $result === 0;
 	}
 
 	public function hasSELinux(): bool {
 		$result = null;
 		$output = [];
-		exec("which getenforce 2>&1", $output, $result);
+		exec('which getenforce 2>&1', $output, $result);
 		return $result === 0;
 	}
 
@@ -94,7 +94,7 @@ class SetupWizard {
 			// using an ip address and http isn't supported by the push server
 			if (substr_count($host, '.') === 3) {
 				// since we run the push server on the same server, use localhost instead
-				return "http://localhost/" . parse_url($baseUrl, PHP_URL_PATH);
+				return 'http://localhost/' . parse_url($baseUrl, PHP_URL_PATH);
 			}
 		}
 		return $baseUrl;
@@ -108,9 +108,9 @@ class SetupWizard {
 		$path = $this->getBinaryPath();
 		$config = $this->getConfigPath();
 		$descriptorSpec = [
-			0 => ["pipe", "r"],
-			1 => ["pipe", "w"],
-			2 => ["pipe", "w"],
+			0 => ['pipe', 'r'],
+			1 => ['pipe', 'w'],
+			2 => ['pipe', 'w'],
 		];
 		$pipes = [];
 		$proc = proc_open("exec $path $config", $descriptorSpec, $pipes, null, [
@@ -122,7 +122,7 @@ class SetupWizard {
 		// give the server some time to start
 		for ($i = 0; $i < 20; $i++) {
 			usleep(100 * 1000);
-			if ($this->isBinaryRunningAt("localhost:7867")) {
+			if ($this->isBinaryRunningAt('localhost:7867')) {
 				break;
 			}
 		}
@@ -143,13 +143,13 @@ class SetupWizard {
 	}
 
 	public function isBinaryRunningAtDefaultPort(): bool {
-		return $this->isBinaryRunningAt("http://localhost:7867");
+		return $this->isBinaryRunningAt('http://localhost:7867');
 	}
 
 	private function getBaseUrl(): string {
 		$base = $this->config->getSystemValueString('overwrite.cli.url', '');
-		if (strpos($base, "https://") !== 0) {
-			$httpsBase = "https://" . ltrim($base, "http://");
+		if (strpos($base, 'https://') !== 0) {
+			$httpsBase = 'https://' . ltrim($base, 'http://');
 			if (isset($this->httpsCache[$httpsBase])) {
 				return ($this->httpsCache[$httpsBase]) ? $httpsBase : $base;
 			}
@@ -198,7 +198,7 @@ class SetupWizard {
 	 */
 	public function selfTestNonProxied(bool $ignoreProxyError = false) {
 		$output = new BufferedOutput();
-		$result = $this->test->test("http://localhost:7867", $output, $ignoreProxyError);
+		$result = $this->test->test('http://localhost:7867', $output, $ignoreProxyError);
 		if ($result === 0) {
 			return true;
 		} else {
@@ -222,7 +222,7 @@ class SetupWizard {
 		$path = $this->getBinaryPath();
 		$config = $this->getConfigPath();
 		$user = posix_getpwuid(posix_getuid())['name'];
-		$selfSigned = $selfSigned ? "Environment=ALLOW_SELF_SIGNED=true\n" : "";
+		$selfSigned = $selfSigned ? "Environment=ALLOW_SELF_SIGNED=true\n" : '';
 		$ncUrl = $this->getNextcloudUrl();
 		$service = "[Unit]
 Description = Push daemon for Nextcloud clients
@@ -260,21 +260,21 @@ WantedBy = multi-user.target
 	}
 
 	public function nginxConfig(): string {
-		return "location ^~ /push/ {
+		return 'location ^~ /push/ {
 	proxy_pass http://127.0.0.1:7867/;
 	proxy_http_version 1.1;
-	proxy_set_header Upgrade \$http_upgrade;
-	proxy_set_header Connection \"Upgrade\";
-	proxy_set_header Host \$host;
-	proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+	proxy_set_header Upgrade $http_upgrade;
+	proxy_set_header Connection "Upgrade";
+	proxy_set_header Host $host;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 }
-";
+';
 	}
 
 	public function apacheConfig(): string {
-		return "ProxyPass /push/ws ws://127.0.0.1:7867/ws
+		return 'ProxyPass /push/ws ws://127.0.0.1:7867/ws
 ProxyPass /push/ http://127.0.0.1:7867/
 ProxyPassReverse /push/ http://127.0.0.1:7867/
-";
+';
 	}
 }

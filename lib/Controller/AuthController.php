@@ -24,7 +24,7 @@ class AuthController extends Controller {
 		IRequest $request,
 		IQueue $queue,
 		ISecureRandom $random,
-		IUserSession $userSession
+		IUserSession $userSession,
 	) {
 		parent::__construct('notify_push', $request);
 		$this->queue = $queue;

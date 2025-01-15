@@ -11,12 +11,11 @@ use crate::{Error, Result};
 use clap::builder::styling::{AnsiColor, Effects};
 use clap::builder::Styles;
 use clap::Parser;
-use derivative::Derivative;
 use redis::ConnectionInfo;
 use sqlx::any::AnyConnectOptions;
 use std::convert::{TryFrom, TryInto};
 use std::env::var;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -119,25 +118,30 @@ pub struct TlsConfig {
     pub cert: PathBuf,
 }
 
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
+#[derive(Clone)]
 pub enum Bind {
     Tcp(SocketAddr),
-    Unix(
-        PathBuf,
-        #[derivative(Debug(format_with = "format_permissions"))] u32,
-    ),
+    Unix(PathBuf, u32),
 }
 
-fn format_permissions(permissions: &u32, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "0{:o}", permissions)
+impl Debug for Bind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Bind::Tcp(addr) => f.debug_tuple("Tcp").field(addr).finish(),
+            Bind::Unix(path, permissions) => f
+                .debug_tuple("Unix")
+                .field(path)
+                .field(&format!("0{:0}", permissions))
+                .finish(),
+        }
+    }
 }
 
 impl Display for Bind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Bind::Tcp(addr) => addr.fmt(f),
-            Bind::Unix(path, _) => path.to_string_lossy().fmt(f),
+            Bind::Tcp(addr) => Display::fmt(addr, f),
+            Bind::Unix(path, _) => Display::fmt(&path.display(), f),
         }
     }
 }

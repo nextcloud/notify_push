@@ -59,7 +59,7 @@ class Application extends App implements IBootstrap {
 		IEventDispatcher $eventDispatcher,
 		Listener $listener,
 		IManager $activityManager,
-		\OCP\Notification\IManager $notificationManager
+		\OCP\Notification\IManager $notificationManager,
 	): void {
 		$eventDispatcher->addServiceListener(AddContentSecurityPolicyEvent::class, CSPListener::class);
 
