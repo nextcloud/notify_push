@@ -17,7 +17,7 @@ class Reset extends Command {
 	private $queue;
 
 	public function __construct(
-		IQueue $queue
+		IQueue $queue,
 	) {
 		parent::__construct();
 		$this->queue = $queue;
@@ -34,7 +34,7 @@ class Reset extends Command {
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output): int {
-		$this->queue->push("notify_signal", "reset");
+		$this->queue->push('notify_signal', 'reset');
 		return 0;
 	}
 }

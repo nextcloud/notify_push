@@ -38,7 +38,7 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 
 			$storage = $event->getStorage();
 			while ($storage->instanceOfStorage(Jail::class)) {
-				/** @var $storage Jail */
+				/** @var Jail $storage */
 				$path = $storage->getUnjailedPath($path);
 				$storage = $storage->getUnjailedStorage();
 			}
@@ -115,7 +115,7 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 		// ignore files in home storage but outside home directory (trashbin, versions, etc)
 		if (
 			$storage->instanceOfStorage(IHomeStorage::class)) {
-			return $path === 'files' || str_starts_with($path, "files/");
+			return $path === 'files' || str_starts_with($path, 'files/');
 		}
 
 		// ignore appdata

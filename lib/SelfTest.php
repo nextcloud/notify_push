@@ -33,7 +33,7 @@ class SelfTest {
 		IConfig $config,
 		IQueue $queue,
 		IDBConnection $connection,
-		IAppManager $appManager
+		IAppManager $appManager,
 	) {
 		$this->client = $clientService->newClient();
 		$this->cookie = rand(1, pow(2, 30));
@@ -45,20 +45,20 @@ class SelfTest {
 
 	public function test(string $server, OutputInterface $output, bool $ignoreProxyError = false): int {
 		if ($this->queue instanceof RedisQueue) {
-			$output->writeln("<info>✓ redis is configured</info>");
+			$output->writeln('<info>✓ redis is configured</info>');
 		} else {
-			$output->writeln("<error>🗴 redis is not configured</error>");
+			$output->writeln('<error>🗴 redis is not configured</error>');
 			return self::ERROR_OTHER;
 		}
 
 		if (strpos($server, 'http://') === 0) {
-			$output->writeln("<comment>🗴 using unencrypted http for push server is strongly discouraged</comment>");
+			$output->writeln('<comment>🗴 using unencrypted http for push server is strongly discouraged</comment>');
 		} elseif (strpos($server, 'https://') !== 0) {
-			$output->writeln("<error>🗴 malformed server url</error>");
+			$output->writeln('<error>🗴 malformed server url</error>');
 			return self::ERROR_OTHER;
 		}
 		if (strpos($server, 'localhost') !== false) {
-			$output->writeln("<comment>🗴 push server url is set to localhost, the push server will not be reachable from other machines</comment>");
+			$output->writeln('<comment>🗴 push server url is set to localhost, the push server will not be reachable from other machines</comment>');
 		}
 
 		$this->queue->push('notify_test_cookie', $this->cookie);
@@ -73,7 +73,7 @@ class SelfTest {
 		}
 
 		if ($this->cookie === $retrievedCookie) {
-			$output->writeln("<info>✓ push server is receiving redis messages</info>");
+			$output->writeln('<info>✓ push server is receiving redis messages</info>');
 		} else {
 			$expected = $this->cookie;
 			$output->writeln("<error>🗴 push server is not receiving redis messages (received $expected, got $retrievedCookie)</error>");
@@ -91,7 +91,7 @@ class SelfTest {
 		}
 
 		if ((int)$count === $retrievedCount) {
-			$output->writeln("<info>✓ push server can load mount info from database</info>");
+			$output->writeln('<info>✓ push server can load mount info from database</info>');
 		} else {
 			$output->writeln("<error>🗴 push server can't load mount info from database</error>");
 			return self::ERROR_OTHER;
@@ -103,7 +103,7 @@ class SelfTest {
 			$retrievedCookie = (int)$response;
 
 			if ($this->cookie === $retrievedCookie) {
-				$output->writeln("<info>✓ push server can connect to the Nextcloud server</info>");
+				$output->writeln('<info>✓ push server can connect to the Nextcloud server</info>');
 			} else {
 				$output->writeln("<error>🗴 push server can't connect to the Nextcloud server</error>");
 				if (!is_numeric($response)) {
@@ -127,35 +127,35 @@ class SelfTest {
 		}
 
 		if ($ignoreProxyError || $resolvedRemote === '1.2.3.4') {
-			$output->writeln("<info>✓ push server is a trusted proxy</info>");
+			$output->writeln('<info>✓ push server is a trusted proxy</info>');
 		} else {
 			$trustedProxies = $this->config->getSystemValue('trusted_proxies', []);
 			$headers = $this->config->getSystemValue('forwarded_for_headers', ['HTTP_X_FORWARDED_FOR']);
-			$receivedHeader = $this->queue->getConnection()->get("notify_push_forwarded_header");
-			$remote = $this->queue->getConnection()->get("notify_push_remote");
+			$receivedHeader = $this->queue->getConnection()->get('notify_push_forwarded_header');
+			$remote = $this->queue->getConnection()->get('notify_push_remote');
 
 			if (array_search('HTTP_X_FORWARDED_FOR', $headers) === false) {
-				$output->writeln("<error>🗴 Nextcloud is configured to not use the `x-http-forwarded-for` header.</error>");
+				$output->writeln('<error>🗴 Nextcloud is configured to not use the `x-http-forwarded-for` header.</error>');
 				$output->writeln("<error>  Please add 'HTTP_X_FORWARDED_FOR' the the 'forwarded_for_headers' in your config.php.</error>");
 				return self::ERROR_TRUSTED_PROXY;
 			}
 
-			$output->writeln("<error>🗴 push server is not a trusted proxy by Nextcloud or another proxy in the chain.</error>");
+			$output->writeln('<error>🗴 push server is not a trusted proxy by Nextcloud or another proxy in the chain.</error>');
 			$output->writeln("  Nextcloud resolved the following client address for the test request: \"$resolvedRemote\" instead of the expected \"1.2.3.4\" test value.");
-			$output->writeln("  The following trusted proxies are currently configured: " . implode(', ', array_map(function (string $proxy) {
+			$output->writeln('  The following trusted proxies are currently configured: ' . implode(', ', array_map(function (string $proxy) {
 				return '"' . $proxy . '"';
 			}, $trustedProxies)));
 			$invalidConfig = array_filter($trustedProxies, function (string $proxy) {
 				return !$this->isValidProxyConfig($proxy);
 			});
 			if ($invalidConfig) {
-				$output->writeln("<error>    of which the following seem to be invalid: " . implode(', ', array_map(function (string $proxy) {
+				$output->writeln('<error>    of which the following seem to be invalid: ' . implode(', ', array_map(function (string $proxy) {
 					return '"' . $proxy . '"';
-				}, $invalidConfig)) . "</error>");
+				}, $invalidConfig)) . '</error>');
 			}
 			$output->writeln("  The following x-forwarded-for header was received by Nextcloud: \"$receivedHeader\"");
 			$output->writeln("    from the following remote: $remote");
-			$output->writeln("");
+			$output->writeln('');
 
 			if ($receivedHeader) {
 				$forwardedParts = array_map('trim', explode(',', $receivedHeader));
@@ -164,10 +164,10 @@ class SelfTest {
 				$untrusted = $this->getFirstUntrustedIp($proxies, $trustedProxies);
 				if ($untrusted) {
 					$output->writeln("  <error>$untrusted is not a trusted as a reverse proxy by Nextcloud</error>");
-					$output->writeln("  See https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/reverse_proxy_configuration.html#defining-trusted-proxies for how to add trusted proxies.");
+					$output->writeln('  See https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/reverse_proxy_configuration.html#defining-trusted-proxies for how to add trusted proxies.');
 				} else {
-					$output->writeln("<info>✓ All proxies in the chain appear to be trusted by Nextcloud</info>");
-					if ($forwardedClient != "1.2.3.4") {
+					$output->writeln('<info>✓ All proxies in the chain appear to be trusted by Nextcloud</info>');
+					if ($forwardedClient != '1.2.3.4') {
 						$output->writeln("<comment>  One of the proxies is the chain (probably $forwardedClient) seems to have stripped the x-forwarded-for header</comment>");
 						$output->writeln("  Please configure the reverse proxy at $forwardedClient to not strip the x-forwarded-for header");
 					}
@@ -176,24 +176,24 @@ class SelfTest {
 				$output->writeln("<comment>  No x-forwarded-for header was received by Nextcloud, $remote seems to be stripping the header from the request</comment>");
 				$output->writeln("  Please configure the reverse proxy at $remote to not strip the x-forwarded-for header");
 			}
-			$output->writeln("");
+			$output->writeln('');
 
 			$output->writeln("  If you're having issues getting the trusted proxy setup working, you can try bypassing any existing reverse proxy");
-			$output->writeln("  in your setup by setting the `NEXTCLOUD_URL` environment variable to point directly to the internal Nextcloud webserver url");
-			$output->writeln("  (You will still need the ip address of the push server added as trusted proxy)");
+			$output->writeln('  in your setup by setting the `NEXTCLOUD_URL` environment variable to point directly to the internal Nextcloud webserver url');
+			$output->writeln('  (You will still need the ip address of the push server added as trusted proxy)');
 			return self::ERROR_TRUSTED_PROXY;
 		}
 
 		// test that the binary is up to date
 		try {
-			$this->queue->getConnection()->del("notify_push_version");
+			$this->queue->getConnection()->del('notify_push_version');
 			$response = $this->client->post($server . '/test/version', ['nextcloud' => ['allow_local_address' => true], 'verify' => false]);
-			if ($response === "error") {
-				$output->writeln("<error>🗴 failed to get binary version, check the push server output for more information</error>");
+			if ($response === 'error') {
+				$output->writeln('<error>🗴 failed to get binary version, check the push server output for more information</error>');
 				return self::ERROR_OTHER;
 			}
 			usleep(10 * 1000);
-			$binaryVersion = $this->queue->getConnection()->get("notify_push_version");
+			$binaryVersion = $this->queue->getConnection()->get('notify_push_version');
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 failed to get binary version: $msg</error>");
@@ -204,7 +204,7 @@ class SelfTest {
 		$binaryVersionNoMinor = substr($binaryVersion, 0, strrpos($binaryVersion, '.'));
 
 		if ($appVersionNoMinor === $binaryVersionNoMinor) {
-			$output->writeln("<info>✓ push server is running the same version as the app</info>");
+			$output->writeln('<info>✓ push server is running the same version as the app</info>');
 		} else {
 			$output->writeln("<error>🗴 push server (version $binaryVersion) is not the same version as the app (version $appVersion).</error>");
 			return self::ERROR_OTHER;

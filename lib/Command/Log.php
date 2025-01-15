@@ -19,7 +19,7 @@ class Log extends Command {
 	private $queue;
 
 	public function __construct(
-		IQueue $queue
+		IQueue $queue,
 	) {
 		parent::__construct();
 		$this->queue = $queue;
@@ -32,22 +32,22 @@ class Log extends Command {
 		$this
 			->setName('notify_push:log')
 			->setDescription('Temporarily set the log level of the push server')
-			->addOption("restore", "r", InputOption::VALUE_NONE, "restore the log level to the previous value")
-			->addArgument("level", InputArgument::OPTIONAL, "the new log level to set");
+			->addOption('restore', 'r', InputOption::VALUE_NONE, 'restore the log level to the previous value')
+			->addArgument('level', InputArgument::OPTIONAL, 'the new log level to set');
 		parent::configure();
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output): int {
-		$level = $input->getArgument("level");
-		if ($input->getOption("restore")) {
-			$output->writeln("restoring log level");
-			$this->queue->push("notify_config", "log_restore");
+		$level = $input->getArgument('level');
+		if ($input->getOption('restore')) {
+			$output->writeln('restoring log level');
+			$this->queue->push('notify_config', 'log_restore');
 		} elseif ($level) {
 			// by default dont touch the log level of the libraries
-			if (!strpos($level, "=") and $level !== "trace") {
+			if (!strpos($level, '=') and $level !== 'trace') {
 				$level = "notify_push=$level";
 			}
-			$this->queue->push("notify_config", ["log_spec" => $level]);
+			$this->queue->push('notify_config', ['log_spec' => $level]);
 		}
 		return 0;
 	}

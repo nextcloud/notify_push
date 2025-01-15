@@ -19,7 +19,7 @@ class SelfTest extends Command {
 
 	public function __construct(
 		\OCA\NotifyPush\SelfTest $test,
-		IConfig $config
+		IConfig $config,
 	) {
 		parent::__construct();
 		$this->test = $test;
@@ -40,7 +40,7 @@ class SelfTest extends Command {
 	protected function execute(InputInterface $input, OutputInterface $output) {
 		$server = $this->config->getAppValue('notify_push', 'base_endpoint', '');
 		if (!$server) {
-			$output->writeln("<error>🗴 no push server configured</error>");
+			$output->writeln('<error>🗴 no push server configured</error>');
 			return 1;
 		}
 		return $this->test->test($server, $output);

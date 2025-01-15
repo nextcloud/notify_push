@@ -27,7 +27,7 @@ class TestController extends Controller {
 		IRequest $request,
 		IConfig $config,
 		IQueue $queue,
-		IAppManager $appManager
+		IAppManager $appManager,
 	) {
 		parent::__construct('notify_push', $request);
 		$this->config = $config;
@@ -52,8 +52,8 @@ class TestController extends Controller {
 	public function remote(): DataDisplayResponse {
 		if ($this->queue instanceof RedisQueue) {
 			if ($this->request instanceof Request) {
-				$this->queue->getConnection()->set("notify_push_forwarded_header", $this->request->getHeader('x-forwarded-for'));
-				$this->queue->getConnection()->set("notify_push_remote", $this->request->server['REMOTE_ADDR']);
+				$this->queue->getConnection()->set('notify_push_forwarded_header', $this->request->getHeader('x-forwarded-for'));
+				$this->queue->getConnection()->set('notify_push_remote', $this->request->server['REMOTE_ADDR']);
 			}
 		}
 		return new DataDisplayResponse($this->request->getRemoteAddress());
@@ -70,7 +70,7 @@ class TestController extends Controller {
 	 */
 	public function version(): void {
 		if ($this->queue instanceof RedisQueue) {
-			$this->queue->getConnection()->set("notify_push_app_version", $this->appManager->getAppVersion('notify_push'));
+			$this->queue->getConnection()->set('notify_push_app_version', $this->appManager->getAppVersion('notify_push'));
 		}
 	}
 }

@@ -41,13 +41,13 @@ class CSPListener implements IEventListener {
 		$endPointUrl = parse_url($baseEndpoint);
 
 		if (!isset($endPointUrl['host'])) {
-			$this->logger->warning("Malformed push server configured: " . $baseEndpoint);
+			$this->logger->warning('Malformed push server configured: ' . $baseEndpoint);
 			return;
 		}
 
 		$connect = $endPointUrl['host'];
 		if (isset($endPointUrl['port'])) {
-			$connect .= ':'. $endPointUrl['port'];
+			$connect .= ':' . $endPointUrl['port'];
 		}
 		if (isset($endPointUrl['scheme']) && $endPointUrl['scheme'] === 'https') {
 			$connect = 'wss://' . $connect;
