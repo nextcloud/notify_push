@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+
 /**
  * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
@@ -23,24 +24,16 @@ class SelfTest {
 
 	private $client;
 	private $cookie;
-	private $config;
-	private $queue;
-	private $connection;
-	private $appManager;
 
 	public function __construct(
 		IClientService $clientService,
-		IConfig $config,
-		IQueue $queue,
-		IDBConnection $connection,
-		IAppManager $appManager,
+		private IConfig $config,
+		private IQueue $queue,
+		private IDBConnection $connection,
+		private IAppManager $appManager,
 	) {
 		$this->client = $clientService->newClient();
 		$this->cookie = rand(1, (int)pow(2, 30));
-		$this->queue = $queue;
-		$this->config = $config;
-		$this->connection = $connection;
-		$this->appManager = $appManager;
 	}
 
 	public function test(string $server, OutputInterface $output, bool $ignoreProxyError = false): int {
@@ -58,7 +51,7 @@ class SelfTest {
 			return self::ERROR_OTHER;
 		}
 		if (strpos($server, 'localhost') !== false) {
-			$output->writeln('<comment>🗴 push server url is set to localhost, the push server will not be reachable from other machines</comment>');
+			$output->writeln('<comment>🗴 push server URL is set to localhost, the push server will not be reachable from other machines</comment>');
 		}
 
 		$this->queue->push('notify_test_cookie', $this->cookie);
@@ -163,7 +156,7 @@ class SelfTest {
 				$proxies = [$remote, ...array_reverse(array_slice($forwardedParts, 1))];
 				$untrusted = $this->getFirstUntrustedIp($proxies, $trustedProxies);
 				if ($untrusted) {
-					$output->writeln("  <error>$untrusted is not a trusted as a reverse proxy by Nextcloud</error>");
+					$output->writeln("  <error>$untrusted is not trusted as a reverse proxy by Nextcloud</error>");
 					$output->writeln('  See https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/reverse_proxy_configuration.html#defining-trusted-proxies for how to add trusted proxies.');
 				} else {
 					$output->writeln('<info>✓ All proxies in the chain appear to be trusted by Nextcloud</info>');
@@ -234,7 +227,7 @@ class SelfTest {
 			->groupBy('storage_id')
 			->setMaxResults(1);
 
-		return $query->execute()->fetch(\PDO::FETCH_NUM);
+		return $query->executeQuery()->fetch(\PDO::FETCH_NUM);
 	}
 
 	private function isValidProxyConfig(string $proxyConfig): bool {
