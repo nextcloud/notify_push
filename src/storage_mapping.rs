@@ -32,10 +32,15 @@ struct CachedAccess {
 impl CachedAccess {
     pub fn new(access: Vec<UserStorageAccess>) -> Self {
         let mut rng = thread_rng();
+        Self::with_ttl(
+            access,
+            Duration::from_millis(rng.gen_range((4 * 60 * 1000)..(5 * 60 * 1000))),
+        )
+    }
+    pub fn with_ttl(access: Vec<UserStorageAccess>, ttl: Duration) -> Self {
         Self {
             access,
-            valid_till: Instant::now()
-                + Duration::from_millis(rng.gen_range((4 * 60 * 1000)..(5 * 60 * 1000))),
+            valid_till: Instant::now() + ttl,
         }
     }
 
@@ -76,7 +81,14 @@ impl StorageMapping {
         } else {
             let users = self.load_storage_mapping(storage).await?;
 
-            self.cache.insert(storage, CachedAccess::new(users));
+            self.cache.insert(
+                storage,
+                if storage == 1 {
+                    CachedAccess::with_ttl(users, Duration::from_secs(24 * 60 * 60))
+                } else {
+                    CachedAccess::new(users)
+                },
+            );
             Ok(self.cache.get(&storage).unwrap())
         }
     }
