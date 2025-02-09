@@ -206,7 +206,7 @@ class Setup extends Command {
 				}
 
 				if (!$this->setupWizard->isBinaryRunningBehindProxy()) {
-					$output->writeln("<error>🗴 push binary doesn't seem to be reachable trough the reverse proxy, did you follow the above instructions?.</error>");
+					$output->writeln("<error>🗴 push binary doesn't seem to be reachable through the reverse proxy, did you follow the above instructions?.</error>");
 					$this->readmeLink($output);
 					return 1;
 				}
