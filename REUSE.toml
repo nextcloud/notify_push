@@ -6,7 +6,7 @@ SPDX-PackageSupplier = "Nextcloud <info@nextcloud.com>"
 SPDX-PackageDownloadLocation = "https://github.com/nextcloud/notify_push"
 
 [[annotations]]
-path = [".envrc", "Cargo.lock", "composer.json", "composer.lock", "tests/stub.phpstub"]
+path = [".envrc", ".github/CODEOWNERS", "Cargo.lock", "composer.json", "composer.lock", "tests/stub.phpstub"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2021 Nextcloud GmbH and Nextcloud contributors"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
