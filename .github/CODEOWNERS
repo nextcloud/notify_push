@@ -1,0 +1,13 @@
+# App maintainers
+/appinfo/              @icewind1991 @max-nextcloud
+/img/                  @icewind1991 @max-nextcloud
+/src/                  @icewind1991 @max-nextcloud
+/test_client/          @icewind1991 @max-nextcloud
+/tests/                @icewind1991 @max-nextcloud
+/vendor-bin/**/*.json  @icewind1991 @max-nextcloud
+Dockerfile             @icewind1991 @max-nextcloud
+*.json                 @icewind1991 @max-nextcloud
+*.md                   @icewind1991 @max-nextcloud
+*.rs                   @icewind1991 @max-nextcloud
+*.toml                 @icewind1991 @max-nextcloud
+*.xml                  @icewind1991 @max-nextcloud
