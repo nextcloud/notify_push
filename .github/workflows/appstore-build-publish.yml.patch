@@ -4,10 +4,10 @@ index 316ba14..3cb9983 100644
 +++ b/.github/workflows/appstore-build-publish.yml
 @@ -23,6 +23,12 @@ jobs:
      if: ${{ github.repository_owner == 'nextcloud-releases' }}
- 
+
      steps:
-+      - uses: cachix/install-nix-action@v26
-+      - uses: cachix/cachix-action@v14
++      - uses: cachix/install-nix-action@02a151ada4993995686f9ed4f1be7cfbb229e56f # v31
++      - uses: cachix/cachix-action@0fc020193b5a1fa3ac4575aa3a7d3aa6a35435ad # v16
 +        with:
 +          name: notify-push
 +          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -20,6 +20,6 @@ index 316ba14..3cb9983 100644
            persist-credentials: false
            path: ${{ env.APP_NAME }}
 +          fetch-depth: 0
- 
+
        - name: Get app version number
          id: app-version
