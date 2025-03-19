@@ -23,8 +23,8 @@ jobs:
     if: ${{ github.repository_owner == 'nextcloud-releases' }}
 
     steps:
-      - uses: cachix/install-nix-action@v26
-      - uses: cachix/cachix-action@v14
+      - uses: cachix/install-nix-action@02a151ada4993995686f9ed4f1be7cfbb229e56f # v31
+      - uses: cachix/cachix-action@0fc020193b5a1fa3ac4575aa3a7d3aa6a35435ad # v16
         with:
           name: notify-push
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -49,7 +49,7 @@ jobs:
 
       - name: Get app version number
         id: app-version
-        uses: skjnldsv/xpath-action@7e6a7c379d0e9abc8acaef43df403ab4fc4f770c # master
+        uses: skjnldsv/xpath-action@f5b036e9d973f42c86324833fd00be90665fbf77 # master
         with:
           filename: ${{ env.APP_NAME }}/appinfo/info.xml
           expression: "//info//version/text()"
@@ -60,7 +60,7 @@ jobs:
 
       - name: Get appinfo data
         id: appinfo
-        uses: skjnldsv/xpath-action@7e6a7c379d0e9abc8acaef43df403ab4fc4f770c # master
+        uses: skjnldsv/xpath-action@f5b036e9d973f42c86324833fd00be90665fbf77 # master
         with:
           filename: ${{ env.APP_NAME }}/appinfo/info.xml
           expression: "//info//dependencies//nextcloud/@min-version"
@@ -94,7 +94,7 @@ jobs:
           filename: ${{ env.APP_NAME }}/appinfo/info.xml
 
       - name: Set up php ${{ steps.php-versions.outputs.php-min }}
-        uses: shivammathur/setup-php@c541c155eee45413f5b09a52248675b1a2575231 # v2.31.1
+        uses: shivammathur/setup-php@9e72090525849c5e82e596468b86eb55e9cc5401 # v2.32.0
         with:
           php-version: ${{ steps.php-versions.outputs.php-min }}
           coverage: none
