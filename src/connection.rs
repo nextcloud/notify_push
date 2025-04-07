@@ -150,7 +150,7 @@ pub async fn handle_user_socket(
                         Ok(Ok(msg)) => {
                             if let Some(msg) = send_queue.push(msg, now) {
                                 log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user_id);
-                                METRICS.add_message();
+                                METRICS.add_message(msg.message_type());
                                 last_send = now;
                                 user_ws_tx.send(msg.into_message(&opts)).await.ok();
                             }
@@ -164,7 +164,7 @@ pub async fn handle_user_socket(
 
                             for msg in send_queue.drain(now, METRICS.active_connection_count() + 50000, opts.max_debounce_time) {
                                 last_send = now;
-                                METRICS.add_message();
+                                METRICS.add_message(msg.message_type());
                                 log::debug!(target: "notify_push::send", "Sending debounced {} to {}", msg, user_id);
                                 user_ws_tx.feed(msg.into_message(&opts)).await.ok();
                             }
