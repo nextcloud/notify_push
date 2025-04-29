@@ -2,7 +2,6 @@
  * SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
- 
 use crate::connection::ConnectionOptions;
 use parse_display::Display;
 use serde_json::Value;
@@ -71,9 +70,7 @@ impl PushMessage {
             PushMessage::Custom(..) => Duration::from_millis(1), // no debouncing for custom messages
         }
     }
-}
 
-impl PushMessage {
     pub fn into_message(self, opts: &ConnectionOptions) -> Message {
         match self {
             PushMessage::File(ids) => match ids {
@@ -98,6 +95,22 @@ impl PushMessage {
             }),
         }
     }
+
+    pub fn message_type(&self) -> MessageType {
+        match self {
+            PushMessage::File(_) => MessageType::File,
+            PushMessage::Activity => MessageType::Activity,
+            PushMessage::Notification => MessageType::Notification,
+            PushMessage::Custom(_, _) => MessageType::Custom,
+        }
+    }
+}
+
+pub enum MessageType {
+    File,
+    Activity,
+    Notification,
+    Custom,
 }
 
 pub static DEBOUNCE_ENABLE: AtomicBool = AtomicBool::new(true);
