@@ -11,7 +11,10 @@ use crate::{Error, Result};
 use clap::builder::styling::{AnsiColor, Effects};
 use clap::builder::Styles;
 use clap::Parser;
-use redis::ConnectionInfo;
+use nextcloud_config_parser::{
+    RedisClusterConnectionInfo, RedisConfig, RedisConnectionAddr, RedisConnectionInfo,
+};
+use redis::{ConnectionAddr, ConnectionInfo};
 use sqlx::any::AnyConnectOptions;
 use std::convert::{TryFrom, TryInto};
 use std::env::var;
@@ -100,7 +103,7 @@ pub struct Opt {
 pub struct Config {
     pub database: AnyConnectOptions,
     pub database_prefix: String,
-    pub redis: Vec<ConnectionInfo>,
+    pub redis: RedisConfig,
     pub nextcloud_url: String,
     pub metrics_bind: Option<Bind>,
     pub log_level: String,
@@ -195,7 +198,7 @@ impl TryFrom<PartialConfig> for Config {
             database_prefix: config
                 .database_prefix
                 .unwrap_or_else(|| String::from("oc_")),
-            redis: config.redis,
+            redis: config.redis.ok_or(ConfigError::NoRedis)?,
             nextcloud_url,
             metrics_bind,
             log_level: config.log_level.unwrap_or_else(|| String::from("warn")),
@@ -228,7 +231,7 @@ impl Config {
 struct PartialConfig {
     pub database: Option<AnyConnectOptions>,
     pub database_prefix: Option<String>,
-    pub redis: Vec<ConnectionInfo>,
+    pub redis: Option<RedisConfig>,
     pub nextcloud_url: Option<String>,
     pub port: Option<u16>,
     pub metrics_port: Option<u16>,
@@ -248,7 +251,7 @@ impl PartialConfig {
     fn from_env() -> Result<Self> {
         let database = parse_var("DATABASE_URL")?;
         let database_prefix = var("DATABASE_PREFIX").ok();
-        let redis = parse_var("REDIS_URL")?;
+        let redis: Option<ConnectionInfo> = parse_var("REDIS_URL")?;
         let nextcloud_url = var("NEXTCLOUD_URL").ok();
         let port = parse_var("PORT")?;
         let metrics_port = parse_var("METRICS_PORT")?;
@@ -271,10 +274,20 @@ impl PartialConfig {
         let max_debounce_time = parse_var("MAX_DEBOUNCE_TIME")?;
         let max_connection_time = parse_var("MAX_CONNECTION_TIME")?;
 
+        let redis = redis.map(|redis| {
+            RedisConfig::Single(RedisConnectionInfo {
+                addr: map_redis_addr(redis.addr),
+                db: redis.redis.db,
+                username: redis.redis.username,
+                password: redis.redis.password,
+                tls_params: None,
+            })
+        });
+
         Ok(PartialConfig {
             database,
             database_prefix,
-            redis: redis.into_iter().collect(),
+            redis,
             nextcloud_url,
             port,
             metrics_port,
@@ -302,10 +315,39 @@ impl PartialConfig {
             None
         };
 
+        let redis = match opt.redis_url.len() {
+            0 => None,
+            1 => {
+                let redis = opt.redis_url.into_iter().next().unwrap();
+                Some(RedisConfig::Single(RedisConnectionInfo {
+                    addr: map_redis_addr(redis.addr),
+                    db: redis.redis.db,
+                    username: redis.redis.username,
+                    password: redis.redis.password,
+                    tls_params: None,
+                }))
+            }
+            _ => {
+                let addr = opt
+                    .redis_url
+                    .iter()
+                    .map(|redis| map_redis_addr(redis.addr.clone()))
+                    .collect();
+                let redis = opt.redis_url.into_iter().next().unwrap().redis;
+                Some(RedisConfig::Cluster(RedisClusterConnectionInfo {
+                    addr,
+                    db: redis.db,
+                    username: redis.username,
+                    password: redis.password,
+                    tls_params: None,
+                }))
+            }
+        };
+
         PartialConfig {
             database: opt.database_url,
             database_prefix: opt.database_prefix,
-            redis: opt.redis_url,
+            redis,
             nextcloud_url: opt.nextcloud_url,
             port: opt.port,
             metrics_port: opt.metrics_port,
@@ -330,10 +372,10 @@ impl PartialConfig {
         PartialConfig {
             database: self.database.or(fallback.database),
             database_prefix: self.database_prefix.or(fallback.database_prefix),
-            redis: if self.redis.is_empty() {
-                fallback.redis
-            } else {
+            redis: if self.redis.is_some() {
                 self.redis
+            } else {
+                fallback.redis
             },
             nextcloud_url: self.nextcloud_url.or(fallback.nextcloud_url),
             port: self.port.or(fallback.port),
@@ -362,4 +404,20 @@ where
         .map(|val| T::from_str(&val))
         .transpose()
         .map_err(|e| ConfigError::Env(name, Box::new(e)).into())
+}
+
+fn map_redis_addr(addr: ConnectionAddr) -> RedisConnectionAddr {
+    match addr {
+        ConnectionAddr::Tcp(host, port) => RedisConnectionAddr::Tcp {
+            host,
+            port,
+            tls: false,
+        },
+        ConnectionAddr::TcpTls { host, port, .. } => RedisConnectionAddr::Tcp {
+            host,
+            port,
+            tls: true,
+        },
+        ConnectionAddr::Unix(path) => RedisConnectionAddr::Unix { path },
+    }
 }
