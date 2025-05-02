@@ -65,8 +65,18 @@ pub fn open_single(
     let connection_info = build_connection_info(info.addr.clone(), redis, info.tls_params.as_ref());
     Ok(match info.tls_params.as_ref() {
         None => Client::open(connection_info)?,
-        Some(certificates) => {
-            Client::build_with_tls(connection_info, build_tls_certificates(certificates)?)?
+        Some(tls_params) => {
+            // the redis library doesn't let us set both `danger_accept_invalid_hostnames` and certificates without this mess:
+            // `Client::build_with_tls` doesn't use the `danger_accept_invalid_hostnames` from the passed in info
+            // so we first use it to get build the certificates then take the connection info from it so we can configure it further
+            let mut connection_info =
+                Client::build_with_tls(connection_info, build_tls_certificates(tls_params)?)?
+                    .get_connection_info()
+                    .clone();
+            connection_info
+                .addr
+                .set_danger_accept_invalid_hostnames(tls_params.accept_invalid_hostname);
+            Client::open(connection_info)?
         }
     })
 }
@@ -123,7 +133,9 @@ fn open_cluster(info: &RedisClusterConnectionInfo) -> Result<ClusterClient, Redi
             build_connection_info(addr.clone(), redis.clone(), info.tls_params.as_ref())
         }));
     if let Some(tls) = info.tls_params.as_ref() {
-        builder = builder.certs(build_tls_certificates(tls)?)
+        builder = builder
+            .certs(build_tls_certificates(tls)?)
+            .danger_accept_invalid_hostnames(tls.accept_invalid_hostname)
     }
     builder.build()
 }

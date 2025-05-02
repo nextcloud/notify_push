@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
- 
+
 use clap::Parser;
 use flexi_logger::{detailed_format, AdaptiveFormat, Logger, LoggerHandle};
 use miette::{IntoDiagnostic, Result, WrapErr};

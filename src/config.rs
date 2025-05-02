@@ -13,6 +13,7 @@ use clap::builder::Styles;
 use clap::Parser;
 use nextcloud_config_parser::{
     RedisClusterConnectionInfo, RedisConfig, RedisConnectionAddr, RedisConnectionInfo,
+    RedisTlsParams,
 };
 use redis::{ConnectionAddr, ConnectionInfo};
 use sqlx::any::AnyConnectOptions;
@@ -40,6 +41,21 @@ pub struct Opt {
     /// The redis connect url
     #[clap(long)]
     pub redis_url: Vec<ConnectionInfo>,
+    /// The client certificate to use when connecting to redis over TLS
+    #[clap(long)]
+    pub redis_tls_cert: Option<PathBuf>,
+    /// The client key to use when connecting to redis over TLS
+    #[clap(long)]
+    pub redis_tls_key: Option<PathBuf>,
+    /// The CA certificate to use when connecting to redis over TLS
+    #[clap(long)]
+    pub redis_tls_ca: Option<PathBuf>,
+    /// Don't validate the server's hostname when connecting to redis over TLS
+    #[clap(long)]
+    pub redis_tls_dont_validate_hostname: bool,
+    /// Don't validate the server's certificate when connecting to redis over TLS
+    #[clap(long)]
+    pub redis_tls_insecure: bool,
     /// The table prefix for Nextcloud's database tables
     #[clap(long)]
     pub database_prefix: Option<String>,
@@ -252,6 +268,12 @@ impl PartialConfig {
         let database = parse_var("DATABASE_URL")?;
         let database_prefix = var("DATABASE_PREFIX").ok();
         let redis: Option<ConnectionInfo> = parse_var("REDIS_URL")?;
+        let redis_tls_cert = parse_var("REDIS_TLS_CERT")?;
+        let redis_tls_key = parse_var("REDIS_TLS_KEY")?;
+        let redis_tls_ca = parse_var("REDIS_TLS_CA")?;
+        let redis_tls_dont_validate_hostname: Option<u8> =
+            parse_var("REDIS_TLS_DONT_VALIDATE_HOSTNAME")?;
+        let redis_tls_insecure: Option<u8> = parse_var("REDIS_TLS_INSECURE")?;
         let nextcloud_url = var("NEXTCLOUD_URL").ok();
         let port = parse_var("PORT")?;
         let metrics_port = parse_var("METRICS_PORT")?;
@@ -275,12 +297,28 @@ impl PartialConfig {
         let max_connection_time = parse_var("MAX_CONNECTION_TIME")?;
 
         let redis = redis.map(|redis| {
+            let addr = map_redis_addr(redis.addr);
+
+            let accept_invalid_hostname = redis_tls_dont_validate_hostname
+                .filter(|b| *b != 0)
+                .is_some();
+            let redis_tls = matches!(addr, RedisConnectionAddr::Tcp { tls: true, .. });
+            let redis_tls_insecure = redis_tls_insecure.filter(|b| *b != 0).is_some();
+
+            let tls_params = redis_tls.then_some(RedisTlsParams {
+                local_cert: redis_tls_cert,
+                local_pk: redis_tls_key,
+                ca_file: redis_tls_ca,
+                accept_invalid_hostname,
+                insecure: redis_tls_insecure,
+            });
+
             RedisConfig::Single(RedisConnectionInfo {
-                addr: map_redis_addr(redis.addr),
+                addr,
                 db: redis.redis.db,
                 username: redis.redis.username,
                 password: redis.redis.password,
-                tls_params: None,
+                tls_params,
             })
         });
 
@@ -319,27 +357,53 @@ impl PartialConfig {
             0 => None,
             1 => {
                 let redis = opt.redis_url.into_iter().next().unwrap();
+                let addr = map_redis_addr(redis.addr);
+
+                let redis_tls = matches!(addr, RedisConnectionAddr::Tcp { tls: true, .. });
+
+                let tls_params = redis_tls.then_some(RedisTlsParams {
+                    local_cert: opt.redis_tls_cert,
+                    local_pk: opt.redis_tls_key,
+                    ca_file: opt.redis_tls_ca,
+                    accept_invalid_hostname: opt.redis_tls_dont_validate_hostname,
+                    insecure: opt.redis_tls_insecure,
+                });
+
                 Some(RedisConfig::Single(RedisConnectionInfo {
-                    addr: map_redis_addr(redis.addr),
+                    addr,
                     db: redis.redis.db,
                     username: redis.redis.username,
                     password: redis.redis.password,
-                    tls_params: None,
+                    tls_params,
                 }))
             }
             _ => {
-                let addr = opt
+                let addr: Vec<_> = opt
                     .redis_url
                     .iter()
                     .map(|redis| map_redis_addr(redis.addr.clone()))
                     .collect();
+
+                let redis_tls = matches!(
+                    addr.first(),
+                    Some(RedisConnectionAddr::Tcp { tls: true, .. })
+                );
+
+                let tls_params = redis_tls.then_some(RedisTlsParams {
+                    local_cert: opt.redis_tls_cert,
+                    local_pk: opt.redis_tls_key,
+                    ca_file: opt.redis_tls_ca,
+                    accept_invalid_hostname: opt.redis_tls_dont_validate_hostname,
+                    insecure: opt.redis_tls_insecure,
+                });
+
                 let redis = opt.redis_url.into_iter().next().unwrap().redis;
                 Some(RedisConfig::Cluster(RedisClusterConnectionInfo {
                     addr,
                     db: redis.db,
                     username: redis.username,
                     password: redis.password,
-                    tls_params: None,
+                    tls_params,
                 }))
             }
         };
