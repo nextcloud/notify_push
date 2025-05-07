@@ -1558,7 +1558,7 @@ dependencies = [
  "nextcloud_appinfo",
  "once_cell",
  "parse-display",
- "rand 0.8.5",
+ "rand 0.9.1",
  "redis",
  "reqwest",
  "sd-notify",
