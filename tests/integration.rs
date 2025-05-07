@@ -9,8 +9,10 @@ use futures::future::select;
 use futures::{pin_mut, FutureExt};
 use futures::{SinkExt, StreamExt};
 use http_auth_basic::Credentials;
+use nextcloud_config_parser::{RedisConfig, RedisConnectionAddr, RedisConnectionInfo};
 use notify_push::config::{Bind, Config};
 use notify_push::message::DEBOUNCE_ENABLE;
+use notify_push::redis::open_single;
 use notify_push::{listen_loop, serve, App};
 use once_cell::sync::Lazy;
 use redis::AsyncCommands;
@@ -153,7 +155,17 @@ impl Services {
         Config {
             database: "sqlite::memory:?cache=shared".parse().unwrap(),
             database_prefix: "oc_".to_string(),
-            redis: vec![format!("redis://{}", self.redis).parse().unwrap()],
+            redis: RedisConfig::Single(RedisConnectionInfo {
+                addr: RedisConnectionAddr::Tcp {
+                    host: self.redis.ip().to_string(),
+                    port: self.redis.port(),
+                    tls: false,
+                },
+                db: 0,
+                username: None,
+                password: None,
+                tls_params: None,
+            }),
             nextcloud_url: format!("http://{}/", self.nextcloud),
             metrics_bind: None,
             log_level: "".to_string(),
@@ -206,7 +218,7 @@ impl Services {
     }
 
     async fn redis_client(&self) -> redis::aio::MultiplexedConnection {
-        let client = redis::Client::open(self.config().redis.first().unwrap().clone()).unwrap();
+        let client = open_single(&self.config().redis.as_single().unwrap()).unwrap();
         client.get_multiplexed_async_connection().await.unwrap()
     }
 

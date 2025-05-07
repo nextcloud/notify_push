@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
- 
+
 use crate::config::PartialConfig;
 use crate::error::ConfigError;
 use nextcloud_config_parser::{parse, parse_glob};
@@ -18,7 +18,7 @@ pub(super) fn parse_config_file(
         database: Some(config.database.url().parse()?),
         database_prefix: Some(config.database_prefix),
         nextcloud_url: Some(config.nextcloud_url),
-        redis: config.redis.into_vec(),
+        redis: Some(config.redis),
         ..PartialConfig::default()
     })
 }
