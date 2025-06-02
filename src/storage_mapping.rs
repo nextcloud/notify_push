@@ -12,6 +12,7 @@ use dashmap::DashMap;
 use log::debug;
 use rand::{thread_rng, Rng};
 use sqlx::any::AnyConnectOptions;
+use sqlx::pool::PoolOptions;
 use sqlx::{query_as, Any, AnyPool, FromRow};
 use std::time::Instant;
 use tokio::time::Duration;
@@ -60,7 +61,10 @@ impl StorageMapping {
     }
 
     pub async fn new(options: AnyConnectOptions, prefix: String) -> Result<Self, DatabaseError> {
-        let connection = AnyPool::connect_with(options)
+        let connection = PoolOptions::<Any>::new()
+            .idle_timeout(Some(Duration::from_secs(1 * 60)))
+            .max_lifetime(Some(Duration::from_secs(5 * 60)))
+            .connect_with(options)
             .await
             .map_err(DatabaseError::Connect)?;
 
