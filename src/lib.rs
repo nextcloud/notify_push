@@ -418,7 +418,7 @@ pub async fn listen_loop(app: Arc<App>, cancel: oneshot::Receiver<()>) {
 }
 
 pub async fn listen(app: Arc<App>) -> Result<()> {
-    let mut event_stream = event::subscribe(&app.redis).await?;
+    let (mut pubsub_sink, mut event_stream) = event::subscribe(&app.redis).await?;
 
     let handle = move |event: Event| {
         // todo: any way to do this without cloning the arc every event (scoped?)
@@ -427,6 +427,13 @@ pub async fn listen(app: Arc<App>) -> Result<()> {
             app.handle_event(event).await;
         }
     };
+
+    let ping_handle = tokio::spawn(async move {
+        loop {
+            sleep(Duration::from_secs(15)).await;
+            let _ = pubsub_sink.ping::<()>().await;
+        }
+    });
 
     while let Some(event) = event_stream.next().await {
         match event {
@@ -440,5 +447,7 @@ pub async fn listen(app: Arc<App>) -> Result<()> {
             Err(e) => log::warn!("{e:#}"),
         }
     }
+
+    ping_handle.abort();
     Ok(())
 }

@@ -6,6 +6,7 @@
 use crate::metrics::METRICS;
 use crate::{Redis, Result, UserId};
 use parse_display::Display;
+use redis::aio::PubSubSink;
 use redis::Msg;
 use serde::Deserialize;
 use serde_json::Value;
@@ -153,7 +154,10 @@ impl TryFrom<Msg> for Event {
 
 pub async fn subscribe(
     client: &Redis,
-) -> Result<impl Stream<Item = Result<Event, MessageDecodeError>>> {
+) -> Result<(
+    PubSubSink,
+    impl Stream<Item = Result<Event, MessageDecodeError>>,
+)> {
     let mut pubsub = client.pubsub().await?;
     let channels = [
         "notify_storage_update",
@@ -172,8 +176,12 @@ pub async fn subscribe(
         pubsub.subscribe(*channel).await?;
     }
 
-    Ok(pubsub.into_on_message().map(|event| {
-        METRICS.add_event();
-        Event::try_from(event)
-    }))
+    let (sink, stream) = pubsub.split();
+    Ok((
+        sink,
+        stream.map(|event| {
+            METRICS.add_event();
+            Event::try_from(event)
+        }),
+    ))
 }
