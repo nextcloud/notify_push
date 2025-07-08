@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     let (nc_url, username, password) = match (args.next(), args.next(), args.next()) {
         (Some(host), Some(username), Some(password)) => (host, username, password),
         _ => {
-            eprintln!("usage {} <nextcloud url> <username> <password>", bin);
+            eprintln!("usage {bin} <nextcloud url> <username> <password>");
             return Ok(());
         }
     };
@@ -36,7 +36,7 @@ fn main() -> Result<()> {
     } else {
         get_endpoint(&nc_url, &username, &password)?
     };
-    info!("Found push server at {}", ws_url);
+    info!("Found push server at {ws_url}");
 
     let ws_url = Url::parse(&ws_url)
         .into_diagnostic()
@@ -61,10 +61,10 @@ fn main() -> Result<()> {
     loop {
         if let Message::Text(text) = socket.read().into_diagnostic()? {
             if let Some(err) = text.strip_prefix("err: ") {
-                warn!("Received error: {}", err);
+                warn!("Received error: {err}");
                 return Ok(());
             } else if text.starts_with("notify_file") {
-                info!("Received file update notification {}", text);
+                info!("Received file update notification {text}");
             } else if text == "notify_activity" {
                 info!("Received activity notification");
             } else if text == "notify_notification" {
@@ -72,19 +72,19 @@ fn main() -> Result<()> {
             } else if text == "authenticated" {
                 info!("Authenticated");
             } else {
-                info!("Received: {}", text);
+                info!("Received: {text}");
             }
         }
     }
 }
 
 fn get_endpoint(nc_url: &str, user: &str, password: &str) -> Result<String> {
-    let raw = ureq::get(&format!("{}/ocs/v2.php/cloud/capabilities", nc_url))
+    let raw = ureq::get(&format!("{nc_url}/ocs/v2.php/cloud/capabilities"))
         .set(
             "Authorization",
             &format!(
                 "Basic {}",
-                base64::engine::general_purpose::STANDARD.encode(format!("{}:{}", user, password))
+                base64::engine::general_purpose::STANDARD.encode(format!("{user}:{password}"))
             ),
         )
         .set("Accept", "application/json")
@@ -93,10 +93,10 @@ fn get_endpoint(nc_url: &str, user: &str, password: &str) -> Result<String> {
         .into_diagnostic()?
         .into_string()
         .into_diagnostic()?;
-    trace!("Capabilities response: {}", raw);
+    trace!("Capabilities response: {raw}");
     let json: Value = serde_json::from_str(&raw)
         .into_diagnostic()
-        .wrap_err_with(|| format!("Failed to decode json capabilities response: {}", raw))?;
+        .wrap_err_with(|| format!("Failed to decode json capabilities response: {raw}"))?;
     if let Some(capabilities) = json["ocs"]["data"]["capabilities"].as_object() {
         debug!(
             "Supported capabilities: {:?}",
@@ -116,8 +116,7 @@ fn get_endpoint(nc_url: &str, user: &str, password: &str) -> Result<String> {
         }
     } else {
         Err(Report::msg(format!(
-            "invalid capabilities response: {}",
-            json
+            "invalid capabilities response: {json}"
         )))
     }
 }

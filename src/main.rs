@@ -32,7 +32,7 @@ fn main() -> Result<()> {
     let config = Config::from_opt(opt)?;
 
     if dump_config {
-        println!("{:#?}", config);
+        println!("{config:#?}");
         return Ok(());
     }
 
@@ -64,7 +64,7 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
     let (metrics_cancel, metrics_cancel_handle) = oneshot::channel();
     let (listen_cancel, listen_cancel_handle) = oneshot::channel();
 
-    log::trace!("Running with config: {:?}", config);
+    log::trace!("Running with config: {config:?}");
 
     if config.allow_self_signed {
         log::info!("Running with certificate validation disabled");
@@ -81,10 +81,10 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
     let max_connection_time = config.max_connection_time;
     let app = Arc::new(App::new(config, log_handle).await?);
     if let Err(e) = app.self_test().await {
-        log::error!("Self test failed: {:#}", e);
+        log::error!("Self test failed: {e:#}");
     }
 
-    log::trace!("Listening on {}", bind);
+    log::trace!("Listening on {bind}");
     let server = spawn(serve(
         app.clone(),
         bind,
@@ -95,7 +95,7 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
     )?);
 
     if let Some(metrics_bind) = metrics_bind {
-        log::trace!("Metrics listening {}", metrics_bind);
+        log::trace!("Metrics listening {metrics_bind}");
         spawn(serve_metrics(
             metrics_bind,
             metrics_cancel_handle,

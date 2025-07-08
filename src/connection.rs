@@ -57,7 +57,7 @@ impl ActiveConnections {
     pub fn remove(&self, user: &UserId) {
         if let Entry::Occupied(e) = self.0.entry(user.clone()) {
             if e.get().receiver_count() == 1 {
-                log::debug!("Removing {} from active connections", user);
+                log::debug!("Removing {user} from active connections");
                 METRICS.remove_user();
                 e.remove();
             }
@@ -96,8 +96,8 @@ pub async fn handle_user_socket(
     {
         Ok(Ok(user_id)) => user_id,
         Ok(Err(e)) => {
-            log::warn!("{}", e);
-            ws.send(Message::text(format!("err: {}", e))).await.ok();
+            log::warn!("{e:#}");
+            ws.send(Message::text(format!("err: {e:#}"))).await.ok();
             return;
         }
         Err(_) => {
@@ -108,7 +108,7 @@ pub async fn handle_user_socket(
         }
     };
 
-    log::info!("new websocket authenticated as {}", user_id);
+    log::info!("new websocket authenticated as {user_id}");
     ws.send(Message::text("authenticated")).await.ok();
 
     let mut rx = match app.connections.add(user_id.clone()) {
@@ -149,7 +149,7 @@ pub async fn handle_user_socket(
                     match msg {
                         Ok(Ok(msg)) => {
                             if let Some(msg) = send_queue.push(msg, now) {
-                                log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user_id);
+                                log::debug!(target: "notify_push::send", "Sending {msg} to {user_id}");
                                 METRICS.add_message(msg.message_type());
                                 last_send = now;
                                 user_ws_tx.send(msg.into_message(&opts)).await.ok();
@@ -165,7 +165,7 @@ pub async fn handle_user_socket(
                             for msg in send_queue.drain(now, METRICS.active_connection_count() + 50000, opts.max_debounce_time) {
                                 last_send = now;
                                 METRICS.add_message(msg.message_type());
-                                log::debug!(target: "notify_push::send", "Sending debounced {} to {}", msg, user_id);
+                                log::debug!(target: "notify_push::send", "Sending debounced {msg} to {user_id}");
                                 user_ws_tx.feed(msg.into_message(&opts)).await.ok();
                             }
 
@@ -173,10 +173,10 @@ pub async fn handle_user_socket(
                                 let data = rng.gen::<NonZeroUsize>().into();
                                 let last_ping = expect_pong.swap(data, Ordering::SeqCst);
                                 if last_ping > 0 {
-                                    log::info!("{} didn't reply to ping, closing", user_id);
+                                    log::info!("{user_id} didn't reply to ping, closing");
                                     break;
                                 }
-                                log::debug!(target: "notify_push::send", "Sending ping to {}", user_id);
+                                log::debug!(target: "notify_push::send", "Sending ping to {user_id}");
                                 last_send = now;
                                 user_ws_tx
                                     .feed(Message::ping(data.to_le_bytes()))
@@ -223,9 +223,9 @@ pub async fn handle_user_socket(
                     match formatted.as_str() {
                         "WebSocket protocol error: Connection reset without closing handshake"
                         | "IO error: Connection reset by peer (os error 104)" => {
-                            log::debug!("websocket error: {}", e)
+                            log::debug!("websocket error: {e:#}")
                         }
-                        _ => log::warn!("websocket error: {}", e),
+                        _ => log::warn!("websocket error: {e:#}"),
                     };
                     break;
                 }
@@ -269,10 +269,7 @@ async fn socket_auth(
     app.pre_auth.retain(|_, (time, _)| *time > cutoff);
 
     if let Some((_, (_, user))) = app.pre_auth.remove(password) {
-        log::debug!(
-            "Authenticated socket for {} using pre authenticated token",
-            user
-        );
+        log::debug!("Authenticated socket for {user} using pre authenticated token");
         return Ok(user);
     }
 

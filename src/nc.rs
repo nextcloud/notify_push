@@ -32,7 +32,7 @@ impl Client {
         password: &str,
         forwarded_for: Vec<IpAddr>,
     ) -> Result<UserId, AuthenticationError> {
-        log::debug!("Verifying credentials for {}", username);
+        log::debug!("Verifying credentials for {username}");
         let response = self.auth_request(username, password, forwarded_for).await?;
 
         match response.status() {
@@ -65,7 +65,7 @@ impl Client {
                         if !joined.is_empty() {
                             write!(&mut joined, ", ").ok();
                         }
-                        write!(&mut joined, "{}", ip).ok();
+                        write!(&mut joined, "{ip}").ok();
                         joined
                     },
                 ),
