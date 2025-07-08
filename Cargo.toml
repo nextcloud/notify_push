@@ -22,7 +22,7 @@ dashmap = "6.1.0"
 once_cell = "1.20.2"
 miette = { version = "7.4.0", features = ["fancy"] }
 smallvec = { version = "1.13.2", features = ["serde"] }
-reqwest = { version = "0.12.12", default-features = false, features = ["rustls-tls", "rustls-tls-native-roots", "json"] }
+reqwest = { version = "0.12.22", default-features = false, features = ["rustls-tls", "rustls-tls-native-roots", "json"] }
 warp-real-ip = "0.2.0"
 parse-display = "0.10.0"
 rand = { version = "0.8.5", features = ["small_rng"] }
