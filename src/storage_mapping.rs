@@ -105,7 +105,7 @@ impl StorageMapping {
         &self,
         storage: u32,
     ) -> Result<Vec<UserStorageAccess>, DatabaseError> {
-        debug!("querying storage mapping for {}", storage);
+        debug!("querying storage mapping for {storage}");
         let users = query_as::<Any, UserStorageAccess>(&format!(
             "\
                 SELECT user_id, path \
@@ -120,7 +120,7 @@ impl StorageMapping {
         .map_err(DatabaseError::Query)?;
         METRICS.add_mapping_query();
 
-        debug!("got storage mappings for {}: {:?}", storage, users);
+        debug!("got storage mappings for {storage}: {users:?}");
 
         Ok(users)
     }

@@ -162,7 +162,7 @@ impl App {
                                 .send_to_user(&user, PushMessage::File(file_id.into()));
                         }
                     }
-                    Err(e) => log::error!("{:#}", e),
+                    Err(e) => log::error!("{e:#}"),
                 }
             }
             Event::GroupUpdate(GroupUpdate { user, .. }) => {
@@ -196,8 +196,8 @@ impl App {
             }
             Event::Config(event::Config::LogSpec(spec)) => {
                 match self.log_handle.lock().await.parse_and_push_temp_spec(&spec) {
-                    Ok(()) => log::info!("Set log level to {}", spec),
-                    Err(e) => log::error!("Failed to set log level: {:?}", e),
+                    Ok(()) => log::info!("Set log level to {spec}"),
+                    Err(e) => log::error!("Failed to set log level: {e:#}"),
                 }
             }
             Event::Config(event::Config::LogRestore) => {
@@ -213,15 +213,15 @@ impl App {
                         )
                         .await
                     {
-                        log::warn!("Failed to set metrics: {}", e);
+                        log::warn!("Failed to set metrics: {e:#}");
                     }
                 }
-                Err(e) => log::warn!("Failed to set metrics: {}", e),
+                Err(e) => log::warn!("Failed to set metrics: {e:#}"),
             },
             Event::Signal(event::Signal::Reset) => {
                 log::info!("Stopping all open connections");
                 if let Err(e) = self.reset_tx.send(()) {
-                    log::warn!("Failed to send reset command to all connections: {}", e);
+                    log::warn!("Failed to send reset command to all connections: {e:#}");
                 }
             }
         }
@@ -270,7 +270,7 @@ pub fn serve(
         .and(app.clone())
         .map(|app: Arc<App>| {
             let cookie = app.test_cookie.load(Ordering::SeqCst);
-            log::debug!("current test cookie is {}", cookie);
+            log::debug!("current test cookie is {cookie}");
             cookie.to_string()
         });
 
@@ -279,12 +279,12 @@ pub fn serve(
         .and_then(|app: Arc<App>| async move {
             let response = match app.nc_client.get_test_cookie().await {
                 Ok(cookie) => {
-                    log::debug!("got remote test cookie {}", cookie);
+                    log::debug!("got remote test cookie {cookie}");
                     cookie.to_string()
                 }
                 Err(e) => {
-                    log::warn!("Error while trying to get cookie from Nextcloud {:#}", e);
-                    format!("{:#}", e)
+                    log::warn!("Error while trying to get cookie from Nextcloud {e:#}");
+                    format!("{e:#}")
                 }
             };
 
@@ -300,16 +300,11 @@ pub fn serve(
                 .await
                 .map(|access| {
                     let count = access.count();
-                    log::debug!("storage mapping count for {} = {}", storage_id, count);
+                    log::debug!("storage mapping count for {storage_id} = {count}");
                     count
                 })
-                .map_err(|err| {
-                    log::error!(
-                        "error while getting mapping count for {}: {:#}",
-                        storage_id,
-                        err
-                    );
-                    err
+                .inspect_err(|err| {
+                    log::error!("error while getting mapping count for {storage_id}: {err:#}");
                 })
                 .unwrap_or(0);
             Result::<_, Infallible>::Ok(access.to_string())
@@ -324,7 +319,7 @@ pub fn serve(
                 .await
                 .map(|remote| remote.to_string())
                 .unwrap_or_else(|e| e.to_string());
-            log::debug!("got remote {} when trying to set remote {}", result, remote);
+            log::debug!("got remote {result} when trying to set remote {remote}");
             Result::<_, Infallible>::Ok(result)
         });
 
@@ -341,7 +336,7 @@ pub fn serve(
                     "set"
                 }
                 Err(e) => {
-                    log::warn!("Failed to get redis connection for version set: {:#}", e);
+                    log::warn!("Failed to get redis connection for version set: {e:#}");
                     "error"
                 }
             })
@@ -412,7 +407,7 @@ pub async fn listen_loop(app: Arc<App>, cancel: oneshot::Receiver<()>) {
     let loop_ = async move {
         loop {
             if let Err(e) = listen(app.clone()).await {
-                log::error!("Failed to setup redis subscription: {:#}", e);
+                log::error!("Failed to setup redis subscription: {e:#}");
             }
             log::warn!("Redis server disconnected, reconnecting in 1s");
             sleep(Duration::from_secs(1)).await;
@@ -438,12 +433,11 @@ pub async fn listen(app: Arc<App>) -> Result<()> {
             Ok(event) => {
                 log::debug!(
                     target: "notify_push::receive",
-                    "Received {}",
-                    event
+                    "Received {event}"
                 );
                 tokio::spawn(handle(event));
             }
-            Err(e) => log::warn!("{:#}", e),
+            Err(e) => log::warn!("{e:#}"),
         }
     }
     Ok(())

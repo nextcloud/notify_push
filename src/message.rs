@@ -89,7 +89,7 @@ impl PushMessage {
                     ty
                 } else {
                     let mut str = ty;
-                    write!(&mut str, " {}", body).ok();
+                    write!(&mut str, " {body}").ok();
                     str
                 }
             }),

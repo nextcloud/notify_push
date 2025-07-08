@@ -150,7 +150,7 @@ impl Debug for Bind {
             Bind::Unix(path, permissions) => f
                 .debug_tuple("Unix")
                 .field(path)
-                .field(&format!("0{:0}", permissions))
+                .field(&format!("0{permissions:0}"))
                 .finish(),
         }
     }
