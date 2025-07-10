@@ -187,6 +187,9 @@ class SelfTest {
 			}
 			usleep(10 * 1000);
 			$binaryVersion = $this->queue->getConnection()->get('notify_push_version');
+			if (!$binaryVersion) {
+				throw new \Exception('push server didn\'t set expected redis key');
+			}
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 failed to get binary version: $msg</error>");
