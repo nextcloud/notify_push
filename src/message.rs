@@ -59,13 +59,21 @@ impl PushMessage {
         }
     }
 
-    pub fn debounce_time(&self, connection_count: usize, max_debounce_time: usize) -> Duration {
+    pub fn debounce_time(
+        &self,
+        connection_count: usize,
+        max_debounce_time: usize,
+        debounce_factor: f32,
+    ) -> Duration {
         // scale the debounce time between 1s and 15s based on the number of active connections
-        // this provide a decent balance between performance and load
-        let time = max(1, min(connection_count / 10, max_debounce_time));
+        // this provides a decent balance between performance and load.
+        // Additionally, each connection will have a random debounce_factor between 0.5 and 1.5
+        // to spread out the load of notifications.
+        let time = max(1, min(connection_count / 10, max_debounce_time)) as f32;
+        let time = time * debounce_factor;
         match self {
-            PushMessage::File(_) => Duration::from_secs(time as u64),
-            PushMessage::Activity => Duration::from_secs(time as u64),
+            PushMessage::File(_) => Duration::from_secs_f32(time),
+            PushMessage::Activity => Duration::from_secs_f32(time),
             PushMessage::Notification => Duration::from_secs(1),
             PushMessage::Custom(..) => Duration::from_millis(1), // no debouncing for custom messages
         }
@@ -138,13 +146,15 @@ impl Default for SendQueueItem {
 #[derive(Debug)]
 pub struct SendQueue {
     max_debounce_time: usize,
+    debounce_factor: f32,
     items: [SendQueueItem; 3],
 }
 
 impl SendQueue {
-    pub fn new(max_debounce_time: usize) -> Self {
+    pub fn new(max_debounce_time: usize, debounce_factor: f32) -> Self {
         SendQueue {
             max_debounce_time,
+            debounce_factor,
             items: Default::default(),
         }
     }
@@ -186,11 +196,13 @@ impl SendQueue {
         connection_count: usize,
     ) -> impl Iterator<Item = PushMessage> + '_ {
         let max_debounce_time = self.max_debounce_time;
+        let debounce_factor = self.debounce_factor;
         self.items.iter_mut().filter_map(move |item| {
-            let debounce_time = item
-                .message
-                .as_ref()?
-                .debounce_time(connection_count, max_debounce_time);
+            let debounce_time = item.message.as_ref()?.debounce_time(
+                connection_count,
+                max_debounce_time,
+                debounce_factor,
+            );
             if now.duration_since(item.sent) > debounce_time {
                 if now.duration_since(item.received) > Duration::from_millis(100) {
                     item.sent = now;
@@ -208,7 +220,7 @@ impl SendQueue {
 #[test]
 fn test_send_queue_100() {
     let base_time = Instant::now();
-    let mut queue = SendQueue::new(15);
+    let mut queue = SendQueue::new(15, 1.0);
     queue.push(PushMessage::Activity, base_time);
     queue.push(
         PushMessage::File(UpdatedFiles::Known(vec![1].into())),
@@ -274,7 +286,7 @@ fn test_send_queue_100() {
 #[test]
 fn test_send_queue_1() {
     let base_time = Instant::now();
-    let mut queue = SendQueue::new(15);
+    let mut queue = SendQueue::new(15, 1.0);
     queue.push(PushMessage::Activity, base_time);
     queue.push(
         PushMessage::File(UpdatedFiles::Known(vec![1].into())),
