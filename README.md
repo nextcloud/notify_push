@@ -104,8 +104,8 @@ command_args="--port 7867 /path/to/nextcloud/config/config.php"
 command_background=true
 
 depend() {
-        need net redis
-        use nginx php-fpm8 mariadb postgresql
+        need net
+        use nginx php-fpm8 mariadb postgresql redis
 }
 
 start_pre() {
