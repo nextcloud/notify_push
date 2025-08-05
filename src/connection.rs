@@ -135,7 +135,7 @@ pub async fn handle_user_socket(
         // cryptographically secure. It is also OK to use same sequence for every connection.
         let mut rng = rand::rngs::SmallRng::seed_from_u64(0);
 
-        let mut send_queue = SendQueue::default();
+        let mut send_queue = SendQueue::new(opts.max_debounce_time);
 
         let mut reset = app.reset_rx();
 
@@ -162,7 +162,7 @@ pub async fn handle_user_socket(
                                 break 'tx_loop;
                             }
 
-                            for msg in send_queue.drain(now, METRICS.active_connection_count() + 50000, opts.max_debounce_time) {
+                            for msg in send_queue.drain(now, METRICS.active_connection_count()) {
                                 last_send = now;
                                 METRICS.add_message(msg.message_type());
                                 log::debug!(target: "notify_push::send", "Sending debounced {msg} to {user_id}");

@@ -132,14 +132,21 @@ impl Default for SendQueueItem {
     }
 }
 
-#[derive(Default, Debug)]
+/// Queue for sending outgoing messages to a user for debounce
+///
+/// The server maintains once queue per connection
+#[derive(Debug)]
 pub struct SendQueue {
+    max_debounce_time: usize,
     items: [SendQueueItem; 3],
 }
 
 impl SendQueue {
-    pub fn new() -> Self {
-        SendQueue::default()
+    pub fn new(max_debounce_time: usize) -> Self {
+        SendQueue {
+            max_debounce_time,
+            items: Default::default(),
+        }
     }
 
     fn item_mut(&mut self, message: &PushMessage) -> Option<&mut SendQueueItem> {
@@ -177,8 +184,8 @@ impl SendQueue {
         &mut self,
         now: Instant,
         connection_count: usize,
-        max_debounce_time: usize,
     ) -> impl Iterator<Item = PushMessage> + '_ {
+        let max_debounce_time = self.max_debounce_time;
         self.items.iter_mut().filter_map(move |item| {
             let debounce_time = item
                 .message
@@ -201,7 +208,7 @@ impl SendQueue {
 #[test]
 fn test_send_queue_100() {
     let base_time = Instant::now();
-    let mut queue = SendQueue::new();
+    let mut queue = SendQueue::new(15);
     queue.push(PushMessage::Activity, base_time);
     queue.push(
         PushMessage::File(UpdatedFiles::Known(vec![1].into())),
@@ -216,7 +223,7 @@ fn test_send_queue_100() {
     assert_eq!(
         Vec::<PushMessage>::new(),
         queue
-            .drain(base_time + Duration::from_millis(20), 100, 15)
+            .drain(base_time + Duration::from_millis(20), 100)
             .collect::<Vec<_>>()
     );
 
@@ -227,7 +234,7 @@ fn test_send_queue_100() {
             PushMessage::Activity
         ],
         queue
-            .drain(base_time + Duration::from_millis(200), 100, 15)
+            .drain(base_time + Duration::from_millis(200), 100)
             .collect::<Vec<_>>()
     );
 
@@ -243,7 +250,7 @@ fn test_send_queue_100() {
     assert_eq!(
         Vec::<PushMessage>::new(),
         queue
-            .drain(base_time + Duration::from_secs(10), 100, 15)
+            .drain(base_time + Duration::from_secs(10), 100)
             .collect::<Vec<_>>()
     );
 
@@ -251,7 +258,7 @@ fn test_send_queue_100() {
     assert_eq!(
         vec![PushMessage::File(UpdatedFiles::Known(vec![3, 4].into()))],
         queue
-            .drain(base_time + Duration::from_secs(70), 100, 15)
+            .drain(base_time + Duration::from_secs(70), 100)
             .collect::<Vec<_>>()
     );
 
@@ -259,7 +266,7 @@ fn test_send_queue_100() {
     assert_eq!(
         Vec::<PushMessage>::new(),
         queue
-            .drain(base_time + Duration::from_secs(300), 100, 15)
+            .drain(base_time + Duration::from_secs(300), 100)
             .collect::<Vec<_>>()
     );
 }
@@ -267,7 +274,7 @@ fn test_send_queue_100() {
 #[test]
 fn test_send_queue_1() {
     let base_time = Instant::now();
-    let mut queue = SendQueue::new();
+    let mut queue = SendQueue::new(15);
     queue.push(PushMessage::Activity, base_time);
     queue.push(
         PushMessage::File(UpdatedFiles::Known(vec![1].into())),
@@ -282,7 +289,7 @@ fn test_send_queue_1() {
     assert_eq!(
         Vec::<PushMessage>::new(),
         queue
-            .drain(base_time + Duration::from_millis(20), 1, 15)
+            .drain(base_time + Duration::from_millis(20), 1)
             .collect::<Vec<_>>()
     );
 
@@ -293,7 +300,7 @@ fn test_send_queue_1() {
             PushMessage::Activity
         ],
         queue
-            .drain(base_time + Duration::from_millis(200), 1, 15)
+            .drain(base_time + Duration::from_millis(200), 1)
             .collect::<Vec<_>>()
     );
 
@@ -309,7 +316,7 @@ fn test_send_queue_1() {
     assert_eq!(
         Vec::<PushMessage>::new(),
         queue
-            .drain(base_time + Duration::from_secs(1), 1, 15)
+            .drain(base_time + Duration::from_secs(1), 1)
             .collect::<Vec<_>>()
     );
 
@@ -317,7 +324,7 @@ fn test_send_queue_1() {
     assert_eq!(
         vec![PushMessage::File(UpdatedFiles::Known(vec![3, 4].into()))],
         queue
-            .drain(base_time + Duration::from_secs(3), 1, 15)
+            .drain(base_time + Duration::from_secs(3), 1)
             .collect::<Vec<_>>()
     );
 
@@ -325,7 +332,7 @@ fn test_send_queue_1() {
     assert_eq!(
         Vec::<PushMessage>::new(),
         queue
-            .drain(base_time + Duration::from_secs(5), 1, 15)
+            .drain(base_time + Duration::from_secs(5), 1)
             .collect::<Vec<_>>()
     );
 }
