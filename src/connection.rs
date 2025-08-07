@@ -12,7 +12,7 @@ use crate::{App, UserId};
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
-use rand::{Rng, SeedableRng};
+use rand::{thread_rng, Rng, SeedableRng};
 use std::net::IpAddr;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -131,11 +131,15 @@ pub async fn handle_user_socket(
     let expect_pong = &expect_pong;
 
     let transmit = async {
-        // Use faster random generator for generating ping messages, they dont need to be
-        // cryptographically secure. It is also OK to use same sequence for every connection.
-        let mut rng = rand::rngs::SmallRng::seed_from_u64(0);
+        // Use faster random generator for generating ping messages and time smearthey dont need to be
+        // cryptographically secure.
+        let mut rng =
+            rand::rngs::SmallRng::from_rng(thread_rng()).expect("Failed to initialize rng");
 
-        let mut send_queue = SendQueue::default();
+        // for each connection we randomize the max debounce time to remove the chance that many connections
+        // get messages at the same time and cause load peaks
+        let debounce_factor = rng.gen_range(0.5..1.5);
+        let mut send_queue = SendQueue::new(opts.max_debounce_time, debounce_factor);
 
         let mut reset = app.reset_rx();
 
@@ -162,7 +166,7 @@ pub async fn handle_user_socket(
                                 break 'tx_loop;
                             }
 
-                            for msg in send_queue.drain(now, METRICS.active_connection_count() + 50000, opts.max_debounce_time) {
+                            for msg in send_queue.drain(now, METRICS.active_connection_count()) {
                                 last_send = now;
                                 METRICS.add_message(msg.message_type());
                                 log::debug!(target: "notify_push::send", "Sending debounced {msg} to {user_id}");
