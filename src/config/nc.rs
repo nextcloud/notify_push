@@ -18,7 +18,7 @@ pub(super) fn parse_config_file(
         database: Some(config.database.url().parse()?),
         database_prefix: Some(config.database_prefix),
         nextcloud_url: Some(config.nextcloud_url),
-        redis: Some(config.redis),
+        redis: Some(config.notify_push_redis.unwrap_or(config.redis)),
         ..PartialConfig::default()
     })
 }

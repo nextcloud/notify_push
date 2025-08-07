@@ -146,7 +146,17 @@ Note that Nextcloud loads all files matching `*.config.php` in the config direct
 file.
 You can enable this same behavior by passing the `--glob-config` option.
 
-#####        
+<details>
+<summary>Using a separate redis instance for the push server
+</summary>
+
+You can optionally use a different redis instance for communications between the Nextcloud server and the push daemon.
+
+This allows spreading moving the load away from the normal redis usage or use a redis setup more optimized for the specific usage (`PUBSUB` traffic instead of cache storage).
+
+You can configure this by setting the `notify_push_redis` config option in the `config.php` of the Nextcloud server, this accepts the same options as the normal redis configurations.
+
+</details>
 
 <details>
 <summary>Connecting to redis over TLS
