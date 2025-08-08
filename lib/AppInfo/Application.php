@@ -8,12 +8,12 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\AppInfo;
 
-use OC\RedisFactory;
 use OCA\NotifyPush\Capabilities;
 use OCA\NotifyPush\CSPListener;
 use OCA\NotifyPush\Listener;
 use OCA\NotifyPush\Queue\IQueue;
 use OCA\NotifyPush\Queue\NullQueue;
+use OCA\NotifyPush\Queue\PushRedisFactory;
 use OCA\NotifyPush\Queue\RedisQueue;
 use OCP\Activity\IManager;
 use OCP\AppFramework\App;
@@ -41,10 +41,11 @@ class Application extends App implements IBootstrap {
 		$context->registerCapability(Capabilities::class);
 
 		$context->registerService(IQueue::class, function (ContainerInterface $c) {
-			/** @var RedisFactory $redisFactory */
-			$redisFactory = $c->get(RedisFactory::class);
-			if ($redisFactory->isAvailable()) {
-				return new RedisQueue($redisFactory->getInstance());
+			/** @var PushRedisFactory $factory */
+			$factory = $c->get(PushRedisFactory::class);
+			$redis = $factory->getRedis();
+			if ($redis) {
+				return new RedisQueue($redis);
 			} else {
 				return new NullQueue();
 			}
