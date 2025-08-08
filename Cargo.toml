@@ -26,7 +26,7 @@ reqwest = { version = "0.12.12", default-features = false, features = ["rustls-t
 warp-real-ip = "0.2.0"
 parse-display = "0.10.0"
 rand = { version = "0.8.5", features = ["small_rng"] }
-ahash = "0.8.11"
+ahash = "0.8.12"
 flexi_logger = { version = "0.29.8", features = ["colors"] }
 tokio-stream = { version = "0.1.17", features = ["net"] }
 nextcloud-config-parser = "0.14.0"
