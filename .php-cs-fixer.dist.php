@@ -15,6 +15,7 @@ $config
 	->ignoreVCSIgnored(true)
 	->notPath('build')
 	->notPath('l10n')
+	->notPath('tests/stubs')
 	->notPath('lib/Vendor')
 	->notPath('src')
 	->notPath('tests/configs')
