@@ -65,6 +65,7 @@ content.
 
 ```ini
 [Unit]
+After=network.target mariadb.service nginx.service postgresql.service redis.service
 Description = Push daemon for Nextcloud clients
 Documentation = https://github.com/nextcloud/notify_push
 
