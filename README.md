@@ -349,11 +349,14 @@ Alternatively you can set the log level of the push server in the `LOG` environm
 The push server can expose some basic metrics about the number of connected clients and the traffic flowing through the
 server
 by setting the `METRICS_PORT` environment variable.
+The metrics endpoint will listen on all interfaces by default (0.0.0.0).
+However, it is also possible to bind the metrics listener to a local UNIX socket by specifying a path via the
+`METRICS_SOCKET_PATH` environment variable.
 
-Once set the metrics are available in a prometheus compatible format at `/metrics` on the configured port.
+Once set the metrics are available in a prometheus compatible format at `/metrics` on the configured port or UNIX socket.
 
 Additionally you can manually check the metrics by running the `occ notify_push:metrics` command, this will function
-even if you haven't setup `METRICS_PORT`.
+even if you haven't setup `METRICS_PORT` or `METRICS_SOCKET_PATH`.
 
 ### Self-signed certificates
 
