@@ -75,19 +75,22 @@ class SelfTest {
 
 		// test if the push server can load storage mappings from the db
 		[$storageId, $count] = $this->getStorageIdForTest();
-		try {
-			$retrievedCount = (int)$this->client->get($server . '/test/mapping/' . $storageId, ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
-		} catch (\Exception $e) {
-			$msg = $e->getMessage();
-			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
-			return self::ERROR_OTHER;
-		}
+		// If no admin user was created during the installation, there are no oc_filecache and oc_mounts entries yet, so this check has to be skipped.
+		if ($storageId !== null) {
+			try {
+				$retrievedCount = (int)$this->client->get($server . '/test/mapping/' . $storageId, ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
+			} catch (\Exception $e) {
+				$msg = $e->getMessage();
+				$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
+				return self::ERROR_OTHER;
+			}
 
-		if ((int)$count === $retrievedCount) {
-			$output->writeln('<info>✓ push server can load mount info from database</info>');
-		} else {
-			$output->writeln("<error>🗴 push server can't load mount info from database</error>");
-			return self::ERROR_OTHER;
+			if ((int)$count === $retrievedCount) {
+				$output->writeln('<info>✓ push server can load mount info from database</info>');
+			} else {
+				$output->writeln("<error>🗴 push server can't load mount info from database</error>");
+				return self::ERROR_OTHER;
+			}
 		}
 
 		// test if the push server can reach nextcloud by having it request the cookie
