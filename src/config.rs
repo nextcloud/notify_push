@@ -179,7 +179,7 @@ impl TryFrom<PartialConfig> for Config {
                     .map_err(|e| ConfigError::SocketPermissions(perm, Some(e)))
             })
             .transpose()?
-            .unwrap_or(0o666);
+            .unwrap_or(0o660);
         let bind = match config.socket {
             Some(socket) => Bind::Unix(socket, socket_permissions),
             None => {
