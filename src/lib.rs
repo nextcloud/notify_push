@@ -60,6 +60,7 @@ pub struct App {
     pre_auth: DashMap<String, (Instant, UserId), RandomState>,
     test_cookie: AtomicU32,
     redis: Redis,
+    redis_db: i64,
     log_handle: Mutex<LoggerHandle>,
     reset_tx: broadcast::Sender<()>,
     _reset_rx: broadcast::Receiver<()>,
@@ -74,6 +75,7 @@ impl App {
         let storage_mapping = StorageMapping::new(config.database, config.database_prefix).await?;
         let pre_auth = DashMap::default();
 
+        let redis_db = config.redis.db();
         let redis = Redis::new(config.redis)?;
 
         let (reset_tx, reset_rx) = broadcast::channel(1);
@@ -85,6 +87,7 @@ impl App {
             pre_auth,
             storage_mapping,
             redis,
+            redis_db,
             log_handle: Mutex::new(log_handle),
             reset_tx,
             _reset_rx: reset_rx,
@@ -104,6 +107,7 @@ impl App {
         let storage_mapping = StorageMapping::from_connection(connection, config.database_prefix);
         let pre_auth = DashMap::default();
 
+        let redis_db = config.redis.db();
         let redis = Redis::new(config.redis)?;
 
         let (reset_tx, reset_rx) = broadcast::channel(1);
@@ -115,6 +119,7 @@ impl App {
             pre_auth,
             storage_mapping,
             redis,
+            redis_db,
             log_handle: Mutex::new(log_handle),
             reset_tx,
             _reset_rx: reset_rx,
@@ -418,7 +423,7 @@ pub async fn listen_loop(app: Arc<App>, cancel: oneshot::Receiver<()>) {
 }
 
 pub async fn listen(app: Arc<App>) -> Result<()> {
-    let (mut pubsub_sink, mut event_stream) = event::subscribe(&app.redis).await?;
+    let (mut pubsub_sink, mut event_stream) = event::subscribe(&app.redis, app.redis_db).await?;
 
     let handle = move |event: Event| {
         // todo: any way to do this without cloning the arc every event (scoped?)

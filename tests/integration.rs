@@ -338,7 +338,7 @@ async fn test_notify_activity() {
 
     let mut redis = services.redis_client().await;
     redis
-        .publish::<_, _, ()>("notify_activity", r#"{"user":"foo"}"#)
+        .publish::<_, _, ()>("0_notify_activity", r#"{"user":"foo"}"#)
         .await
         .unwrap();
 
@@ -356,7 +356,7 @@ async fn test_notify_activity_other_user() {
 
     let mut redis = services.redis_client().await;
     redis
-        .publish::<_, _, ()>("notify_activity", r#"{"user":"someone_else"}"#)
+        .publish::<_, _, ()>("0_notify_activity", r#"{"user":"someone_else"}"#)
         .await
         .unwrap();
 
@@ -377,7 +377,7 @@ async fn test_notify_file() {
     let mut redis = services.redis_client().await;
     redis
         .publish::<_, _, ()>(
-            "notify_storage_update",
+            "0_notify_storage_update",
             r#"{"storage":10, "path":"foo/bar", "file_id":5}"#,
         )
         .await
@@ -400,7 +400,7 @@ async fn test_notify_file_different_storage() {
     let mut redis = services.redis_client().await;
     redis
         .publish::<_, _, ()>(
-            "notify_storage_update",
+            "0_notify_storage_update",
             r#"{"storage":11, "path":"foo/bar", "file_id":5}"#,
         )
         .await
@@ -432,7 +432,7 @@ async fn test_notify_file_multiple() {
     let mut redis = services.redis_client().await;
     redis
         .publish::<_, _, ()>(
-            "notify_storage_update",
+            "0_notify_storage_update",
             r#"{"storage":10, "path":"foo/bar", "file_id":5}"#,
         )
         .await
@@ -453,7 +453,7 @@ async fn test_pre_auth() {
 
     let mut redis = services.redis_client().await;
     redis
-        .publish::<_, _, ()>("notify_pre_auth", r#"{"user":"foo", "token": "token"}"#)
+        .publish::<_, _, ()>("0_notify_pre_auth", r#"{"user":"foo", "token": "token"}"#)
         .await
         .unwrap();
 
@@ -463,7 +463,7 @@ async fn test_pre_auth() {
 
     // verify that we are the correct user
     redis
-        .publish::<_, _, ()>("notify_activity", r#"{"user":"foo"}"#)
+        .publish::<_, _, ()>("0_notify_activity", r#"{"user":"foo"}"#)
         .await
         .unwrap();
 
@@ -482,7 +482,7 @@ async fn test_notify_notification() {
 
     let mut redis = services.redis_client().await;
     redis
-        .publish::<_, _, ()>("notify_notification", r#"{"user":"foo"}"#)
+        .publish::<_, _, ()>("0_notify_notification", r#"{"user":"foo"}"#)
         .await
         .unwrap();
 
@@ -502,7 +502,7 @@ async fn test_notify_share() {
 
     let mut redis = services.redis_client().await;
     redis
-        .publish::<_, _, ()>("notify_user_share_created", r#"{"user":"foo"}"#)
+        .publish::<_, _, ()>("0_notify_user_share_created", r#"{"user":"foo"}"#)
         .await
         .unwrap();
 
@@ -523,7 +523,7 @@ async fn test_notify_group() {
     let mut redis = services.redis_client().await;
     redis
         .publish::<_, _, ()>(
-            "notify_group_membership_update",
+            "0_notify_group_membership_update",
             r#"{"user":"foo", "group":"asd"}"#,
         )
         .await
@@ -546,7 +546,7 @@ async fn test_notify_custom() {
     let mut redis = services.redis_client().await;
     redis
         .publish::<_, _, ()>(
-            "notify_custom",
+            "0_notify_custom",
             r#"{"user":"foo", "message":"my_custom_message"}"#,
         )
         .await
@@ -569,7 +569,7 @@ async fn test_notify_custom_body() {
     let mut redis = services.redis_client().await;
     redis
         .publish::<_, _, ()>(
-            "notify_custom",
+            "0_notify_custom",
             r#"{"user":"foo", "message":"my_custom_message", "body": [1,2,3]}"#,
         )
         .await
