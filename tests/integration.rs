@@ -1,19 +1,25 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 use dashmap::DashMap;
 use flexi_logger::{Logger, LoggerHandle};
 use futures::future::select;
 use futures::{pin_mut, FutureExt};
 use futures::{SinkExt, StreamExt};
 use http_auth_basic::Credentials;
+use nextcloud_config_parser::{RedisConfig, RedisConnectionAddr, RedisConnectionInfo};
 use notify_push::config::{Bind, Config};
 use notify_push::message::DEBOUNCE_ENABLE;
+use notify_push::redis::open_single;
 use notify_push::{listen_loop, serve, App};
 use once_cell::sync::Lazy;
 use redis::AsyncCommands;
 use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
 use std::net::SocketAddr;
-use std::sync::atomic::Ordering;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicU16, Ordering};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::oneshot;
 use tokio::task::spawn;
@@ -25,13 +31,12 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use warp::http::StatusCode;
 use warp::{Filter, Reply};
 
-static LAST_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(1024));
+static LAST_PORT: AtomicU16 = AtomicU16::new(1024);
 
 async fn listen_available_port() -> Option<TcpListener> {
-    let mut last_port = LAST_PORT.lock().unwrap();
-    for port in (*last_port + 1)..65535 {
+    for _ in LAST_PORT.load(Ordering::SeqCst)..65535 {
+        let port = LAST_PORT.fetch_add(1, Ordering::SeqCst);
         if let Ok(tcp) = TcpListener::bind(("127.0.0.1", port)).await {
-            *last_port = port;
             return Some(tcp);
         }
     }
@@ -53,6 +58,7 @@ static LOG_HANDLE: Lazy<LoggerHandle> =
 
 impl Services {
     pub async fn new() -> Self {
+        sqlx::any::install_default_drivers();
         DEBOUNCE_ENABLE.store(false, Ordering::SeqCst);
         let redis_tcp = listen_available_port()
             .await
@@ -68,9 +74,13 @@ impl Services {
             .local_addr()
             .expect("Failed to get nextcloud mock socket address");
 
-        let db = AnyPool::connect("sqlite::memory:?cache=shared")
-            .await
-            .expect("Failed to connect sqlite database");
+        // use the port in the db name to prevent collisions
+        let db = AnyPool::connect(&format!(
+            "sqlite:file:memory{}?mode=memory&cache=shared",
+            nextcloud_addr.port()
+        ))
+        .await
+        .expect("Failed to connect sqlite database");
 
         sqlx::query("CREATE TABLE oc_filecache(fileid BIGINT, path TEXT)")
             .execute(&db)
@@ -145,9 +155,17 @@ impl Services {
         Config {
             database: "sqlite::memory:?cache=shared".parse().unwrap(),
             database_prefix: "oc_".to_string(),
-            redis: vec![format!("redis://{}", self.redis.to_string())
-                .parse()
-                .unwrap()],
+            redis: RedisConfig::Single(RedisConnectionInfo {
+                addr: RedisConnectionAddr::Tcp {
+                    host: self.redis.ip().to_string(),
+                    port: self.redis.port(),
+                    tls: false,
+                },
+                db: 0,
+                username: None,
+                password: None,
+                tls_params: None,
+            }),
             nextcloud_url: format!("http://{}/", self.nextcloud),
             metrics_bind: None,
             log_level: "".to_string(),
@@ -156,6 +174,7 @@ impl Services {
             no_ansi: false,
             tls: None,
             max_debounce_time: 15,
+            max_connection_time: 0,
         }
     }
 
@@ -180,7 +199,7 @@ impl Services {
 
         let bind = Bind::Tcp(addr);
         spawn(async move {
-            let serve = serve(app.clone(), bind, serve_rx, None, 15).unwrap();
+            let serve = serve(app.clone(), bind, serve_rx, None, 15, 0).unwrap();
             let listen = listen_loop(app.clone(), listen_rx);
 
             pin_mut!(serve);
@@ -198,9 +217,9 @@ impl Services {
         }
     }
 
-    async fn redis_client(&self) -> redis::aio::Connection {
-        let client = redis::Client::open(self.config().redis.first().unwrap().clone()).unwrap();
-        client.get_async_connection().await.unwrap()
+    async fn redis_client(&self) -> redis::aio::MultiplexedConnection {
+        let client = open_single(&self.config().redis.as_single().unwrap()).unwrap();
+        client.get_multiplexed_async_connection().await.unwrap()
     }
 
     fn add_user(&self, username: &str, password: &str) {
@@ -298,7 +317,7 @@ async fn assert_next_message(
             .unwrap()
             .unwrap()
             .unwrap(),
-        Message::Text(expected.to_string())
+        Message::Text(expected.into())
     );
 }
 
@@ -359,7 +378,7 @@ async fn test_notify_file() {
     redis
         .publish::<_, _, ()>(
             "notify_storage_update",
-            r#"{"storage":10, "path":"foo/bar"}"#,
+            r#"{"storage":10, "path":"foo/bar", "file_id":5}"#,
         )
         .await
         .unwrap();
@@ -382,7 +401,7 @@ async fn test_notify_file_different_storage() {
     redis
         .publish::<_, _, ()>(
             "notify_storage_update",
-            r#"{"storage":11, "path":"foo/bar"}"#,
+            r#"{"storage":11, "path":"foo/bar", "file_id":5}"#,
         )
         .await
         .unwrap();
@@ -414,7 +433,7 @@ async fn test_notify_file_multiple() {
     redis
         .publish::<_, _, ()>(
             "notify_storage_update",
-            r#"{"storage":10, "path":"foo/bar"}"#,
+            r#"{"storage":10, "path":"foo/bar", "file_id":5}"#,
         )
         .await
         .unwrap();

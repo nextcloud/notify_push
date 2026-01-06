@@ -1,8 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 use crate::error::{AuthenticationError, NextCloudError};
 use crate::{Result, UserId};
+use reqwest::header::HeaderName;
 use reqwest::{Response, StatusCode, Url};
 use std::fmt::Write;
 use std::net::IpAddr;
+
+static X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
 
 pub struct Client {
     http: reqwest::Client,
@@ -24,7 +32,7 @@ impl Client {
         password: &str,
         forwarded_for: Vec<IpAddr>,
     ) -> Result<UserId, AuthenticationError> {
-        log::debug!("Verifying credentials for {}", username);
+        log::debug!("Verifying credentials for {username}");
         let response = self.auth_request(username, password, forwarded_for).await?;
 
         match response.status() {
@@ -50,14 +58,14 @@ impl Client {
             .get(self.base_url.join("index.php/apps/notify_push/uid")?)
             .basic_auth(username, Some(password))
             .header(
-                "x-forwarded-for",
+                &X_FORWARDED_FOR,
                 forwarded_for.iter().fold(
                     String::with_capacity(forwarded_for.len() * 16),
                     |mut joined, ip| {
                         if !joined.is_empty() {
                             write!(&mut joined, ", ").ok();
                         }
-                        write!(&mut joined, "{}", ip).ok();
+                        write!(&mut joined, "{ip}").ok();
                         joined
                     },
                 ),
@@ -82,10 +90,9 @@ impl Client {
             if text.contains("admin-trusted-domains") {
                 Err(NextCloudError::NotATrustedDomain(
                     self.base_url.host_str().unwrap_or_default().into(),
-                )
-                .into())
+                ))
             } else {
-                Err(NextCloudError::Client(status).into())
+                Err(NextCloudError::Client(status))
             }
         } else {
             Ok(text
@@ -95,20 +102,19 @@ impl Client {
     }
 
     pub async fn test_set_remote(&self, addr: IpAddr) -> Result<IpAddr, NextCloudError> {
-        Ok(self
-            .http
+        self.http
             .get(
                 self.base_url
                     .join("index.php/apps/notify_push/test/remote")
                     .map_err(NextCloudError::from)?,
             )
-            .header("x-forwarded-for", addr.to_string())
+            .header(&X_FORWARDED_FOR, addr.to_string())
             .send()
             .await?
             .text()
             .await?
             .parse()
-            .map_err(NextCloudError::MalformedRemote)?)
+            .map_err(NextCloudError::MalformedRemote)
     }
 
     /// Ask the app to put it's version number into redis under 'notify_push_app_version'

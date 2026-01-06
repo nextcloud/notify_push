@@ -1,12 +1,18 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 use crate::error::DatabaseError;
 use crate::metrics::METRICS;
 use crate::{Result, UserId};
+use ahash::RandomState;
 use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use log::debug;
 use rand::{thread_rng, Rng};
 use sqlx::any::AnyConnectOptions;
-use sqlx::{Any, AnyPool, FromRow};
+use sqlx::{query_as, Any, AnyPool, FromRow};
 use std::time::Instant;
 use tokio::time::Duration;
 
@@ -39,21 +45,18 @@ impl CachedAccess {
 }
 
 pub struct StorageMapping {
-    cache: DashMap<u32, CachedAccess>,
+    cache: DashMap<u32, CachedAccess, RandomState>,
     connection: AnyPool,
     prefix: String,
 }
 
 impl StorageMapping {
-    pub async fn from_connection(
-        connection: AnyPool,
-        prefix: String,
-    ) -> Result<Self, DatabaseError> {
-        Ok(StorageMapping {
+    pub fn from_connection(connection: AnyPool, prefix: String) -> Self {
+        Self {
             cache: Default::default(),
             connection,
             prefix,
-        })
+        }
     }
 
     pub async fn new(options: AnyConnectOptions, prefix: String) -> Result<Self, DatabaseError> {
@@ -61,7 +64,7 @@ impl StorageMapping {
             .await
             .map_err(DatabaseError::Connect)?;
 
-        Self::from_connection(connection, prefix).await
+        Ok(Self::from_connection(connection, prefix))
     }
 
     async fn get_storage_mapping(
@@ -102,8 +105,8 @@ impl StorageMapping {
         &self,
         storage: u32,
     ) -> Result<Vec<UserStorageAccess>, DatabaseError> {
-        debug!("querying storage mapping for {}", storage);
-        let users = sqlx::query_as::<Any, UserStorageAccess>(&format!(
+        debug!("querying storage mapping for {storage}");
+        let users = query_as::<Any, UserStorageAccess>(&format!(
             "\
                 SELECT user_id, path \
                 FROM {prefix}mounts \
@@ -117,7 +120,7 @@ impl StorageMapping {
         .map_err(DatabaseError::Query)?;
         METRICS.add_mapping_query();
 
-        debug!("got storage mappings for {}: {:?}", storage, users);
+        debug!("got storage mappings for {storage}: {users:?}");
 
         Ok(users)
     }

@@ -1,6 +1,12 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 use crate::metrics::METRICS;
 use crate::{Redis, Result, UserId};
 use parse_display::Display;
+use redis::aio::PubSubSink;
 use redis::Msg;
 use serde::Deserialize;
 use serde_json::Value;
@@ -12,7 +18,7 @@ use tokio_stream::{Stream, StreamExt};
 pub struct StorageUpdate {
     pub storage: u32,
     pub path: String,
-    pub file_id: Option<u64>,
+    pub file_id: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,7 +66,7 @@ pub struct Custom {
     pub user: UserId,
     pub message: String,
     #[serde(default)]
-    pub body: Value,
+    pub body: Box<Value>, // use `Box` to reduce size of `Event` enum from 72 to 48 bytes
 }
 
 #[derive(Debug, Deserialize, Display)]
@@ -148,7 +154,10 @@ impl TryFrom<Msg> for Event {
 
 pub async fn subscribe(
     client: &Redis,
-) -> Result<impl Stream<Item = Result<Event, MessageDecodeError>>> {
+) -> Result<(
+    PubSubSink,
+    impl Stream<Item = Result<Event, MessageDecodeError>>,
+)> {
     let mut pubsub = client.pubsub().await?;
     let channels = [
         "notify_storage_update",
@@ -167,8 +176,12 @@ pub async fn subscribe(
         pubsub.subscribe(*channel).await?;
     }
 
-    Ok(pubsub.into_on_message().map(|event| {
-        METRICS.add_event();
-        Event::try_from(event)
-    }))
+    let (sink, stream) = pubsub.split();
+    Ok((
+        sink,
+        stream.map(|event| {
+            METRICS.add_event();
+            Event::try_from(event)
+        }),
+    ))
 }

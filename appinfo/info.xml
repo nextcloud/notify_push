@@ -1,45 +1,49 @@
 <?xml version="1.0"?>
-<info xmlns:xsi= "http://www.w3.org/2001/XMLSchema-instance"
-	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
-	<id>notify_push</id>
-	<name>Client Push</name>
-	<summary>Push update support for clients</summary>
-	<description><![CDATA[Push update support for desktop app.
+<!--
+  - SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>notify_push</id>
+    <name>Client Push</name>
+    <summary>Push update support for clients</summary>
+    <description><![CDATA[Push update support for desktop app.
 
 Once the app is installed, the push binary needs to be setup. You can either use the setup wizard with `occ notify_push:setup` or see the [README](http://github.com/nextcloud/notify_push) for detailed setup instructions]]></description>
-	<version>0.6.3</version>
-	<licence>agpl</licence>
-	<author>Robin Appelman</author>
-	<namespace>NotifyPush</namespace>
+    <version>1.2.1</version>
+    <licence>agpl</licence>
+    <author>Robin Appelman</author>
+    <namespace>NotifyPush</namespace>
 
-	<types>
-		<filesystem/>
-	</types>
+    <types>
+        <filesystem/>
+    </types>
 
-	<documentation>
-		<admin>https://github.com/nextcloud/notify_push</admin>
-	</documentation>
-	<category>tools</category>
-	<bugs>https://github.com/nextcloud/notify_push/issues</bugs>
+    <documentation>
+        <admin>https://github.com/nextcloud/notify_push</admin>
+    </documentation>
+    <category>tools</category>
+    <bugs>https://github.com/nextcloud/notify_push/issues</bugs>
 
-	<dependencies>
-		<nextcloud min-version="24" max-version="27"/>
-	</dependencies>
+    <dependencies>
+        <nextcloud min-version="27" max-version="32"/>
+    </dependencies>
 
-	<repair-steps>
-		<post-migration>
-			<step>OCA\NotifyPush\Migration\Install</step>
-		</post-migration>
-		<install>
-			<step>OCA\NotifyPush\Migration\Install</step>
-		</install>
-	</repair-steps>
+    <repair-steps>
+        <post-migration>
+            <step>OCA\NotifyPush\Migration\Install</step>
+        </post-migration>
+        <install>
+            <step>OCA\NotifyPush\Migration\Install</step>
+        </install>
+    </repair-steps>
 
-	<commands>
-		<command>OCA\NotifyPush\Command\Setup</command>
-		<command>OCA\NotifyPush\Command\SelfTest</command>
-		<command>OCA\NotifyPush\Command\Log</command>
-		<command>OCA\NotifyPush\Command\Metrics</command>
-		<command>OCA\NotifyPush\Command\Reset</command>
-	</commands>
+    <commands>
+        <command>OCA\NotifyPush\Command\Setup</command>
+        <command>OCA\NotifyPush\Command\SelfTest</command>
+        <command>OCA\NotifyPush\Command\Log</command>
+        <command>OCA\NotifyPush\Command\Metrics</command>
+        <command>OCA\NotifyPush\Command\Reset</command>
+    </commands>
 </info>

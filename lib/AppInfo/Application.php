@@ -2,33 +2,18 @@
 
 declare(strict_types=1);
 /**
- * @copyright Copyright (c) 2020 Robin Appelman <robin@icewind.nl>
- *
- * @license GNU AGPL version 3 or any later version
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 namespace OCA\NotifyPush\AppInfo;
 
-use OC\RedisFactory;
 use OCA\NotifyPush\Capabilities;
 use OCA\NotifyPush\CSPListener;
 use OCA\NotifyPush\Listener;
 use OCA\NotifyPush\Queue\IQueue;
 use OCA\NotifyPush\Queue\NullQueue;
+use OCA\NotifyPush\Queue\PushRedisFactory;
 use OCA\NotifyPush\Queue\RedisQueue;
 use OCP\Activity\IManager;
 use OCP\AppFramework\App;
@@ -56,10 +41,11 @@ class Application extends App implements IBootstrap {
 		$context->registerCapability(Capabilities::class);
 
 		$context->registerService(IQueue::class, function (ContainerInterface $c) {
-			/** @var RedisFactory $redisFactory */
-			$redisFactory = $c->get(RedisFactory::class);
-			if ($redisFactory->isAvailable()) {
-				return new RedisQueue($redisFactory->getInstance());
+			/** @var PushRedisFactory $factory */
+			$factory = $c->get(PushRedisFactory::class);
+			$redis = $factory->getRedis();
+			if ($redis) {
+				return new RedisQueue($redis);
 			} else {
 				return new NullQueue();
 			}
@@ -74,7 +60,7 @@ class Application extends App implements IBootstrap {
 		IEventDispatcher $eventDispatcher,
 		Listener $listener,
 		IManager $activityManager,
-		\OCP\Notification\IManager $notificationManager
+		\OCP\Notification\IManager $notificationManager,
 	): void {
 		$eventDispatcher->addServiceListener(AddContentSecurityPolicyEvent::class, CSPListener::class);
 

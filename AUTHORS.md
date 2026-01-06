@@ -1,0 +1,45 @@
+<!--
+  - SPDX-FileCopyrightText: 2024 Nextcloud GmbH and Nextcloud contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+# Authors
+
+- Andy Scherzinger <info@andy-scherzinger.de>
+- Bert Wesarg <Bert.Wesarg@googlemail.com>
+- Chris Lee <clee@mg8.org>
+- Christian Hartmann <chris-hartmann@gmx.de>
+- Christopher Ng <chrng8@gmail.com>
+- Côme Chilliet <91878298+come-nc@users.noreply.github.com>
+- Daniel Heule <daniel.heule@gmail.com>
+- Eibe <40539455+eibex@users.noreply.github.com>
+- Eric Wolf <robo-eric@gmx.de>
+- Franz Dietrich <dietrich@teilgedanken.de>
+- Gabriel Augendre <gabriel@augendre.info>
+- George Rawlinson <george@rawlinson.net.nz>
+- Git'Fellow <12234510+solracsf@users.noreply.github.com>
+- GuillaumedeVolpiano <xavier.dectot@gmail.com>
+- Jakub Onderka <jakub.onderka@gmail.com>
+- Jasper Knockaert <jasper@knockaert.nl>
+- Joas Schilling <coding@schilljs.com>
+- JocelynDelalande <JocelynDelalande@users.noreply.github.com>
+- John Molakvoæ <skjnldsv@protonmail.com>
+- Josh <josh.t.richards@gmail.com>
+- Julius Härtl <jus@bitgrid.net>
+- kinolaev <kinolaev@gmail.com>
+- Max <max@nextcloud.com>
+- Miles Liu <miles@bung.cc>
+- n-connect <info@nconnect.hu>
+- Oliver Dick <o.dick@hosting.de>
+- omyno <omyno@users.noreply.github.com>
+- Pascal <pilzinsel64@gmx.de>
+- Peter Siemer <affenrakete@users.noreply.github.com>
+- Pilzinsel64 <pilzinsel64@gmx.de>
+- plexxman <alvaro@panibrez.com>
+- Raymond Hackley <raymondhackley@protonmail.com>
+- reos-rcrozier <91322120+reos-rcrozier@users.noreply.github.com>
+- Robin Appelman <robin@icewind.nl>
+- Roeland Jago Douma <rullzer@users.noreply.github.com>
+- Simon L <szaimen@e.mail.de>
+- Sprite <SpriteOvO@gmail.com>
+- Timothy Allen <tim@treehouse.org.za>
+- 博麗霊夢 <86928419+wonderfulShrineMaidenOfParadise@users.noreply.github.com>

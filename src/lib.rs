@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 use crate::config::{Bind, Config, TlsConfig};
 use crate::connection::{handle_user_socket, ActiveConnections, ConnectionOptions};
 pub use crate::error::Error;
@@ -41,6 +46,7 @@ pub mod event;
 pub mod message;
 pub mod metrics;
 pub mod nc;
+mod passthru_hasher;
 pub mod redis;
 pub mod storage_mapping;
 pub mod user;
@@ -95,8 +101,7 @@ impl App {
         let nc_client = nc::Client::new(&config.nextcloud_url, allow_self_signed)?;
         let test_cookie = AtomicU32::new(0);
 
-        let storage_mapping =
-            StorageMapping::from_connection(connection, config.database_prefix).await?;
+        let storage_mapping = StorageMapping::from_connection(connection, config.database_prefix);
         let pre_auth = DashMap::default();
 
         let redis = Redis::new(config.redis)?;
@@ -154,35 +159,29 @@ impl App {
                     Ok(users) => {
                         for user in users {
                             self.connections
-                                .send_to_user(&user, PushMessage::File(file_id.into()))
-                                .await;
+                                .send_to_user(&user, PushMessage::File(file_id.into()));
                         }
                     }
-                    Err(e) => log::error!("{:#}", e),
+                    Err(e) => log::error!("{e:#}"),
                 }
             }
             Event::GroupUpdate(GroupUpdate { user, .. }) => {
                 self.connections
-                    .send_to_user(&user, PushMessage::File(UpdatedFiles::Unknown))
-                    .await;
+                    .send_to_user(&user, PushMessage::File(UpdatedFiles::Unknown));
             }
             Event::ShareCreate(ShareCreate { user }) => {
                 self.connections
-                    .send_to_user(&user, PushMessage::File(UpdatedFiles::Unknown))
-                    .await;
+                    .send_to_user(&user, PushMessage::File(UpdatedFiles::Unknown));
             }
             Event::TestCookie(cookie) => {
                 self.test_cookie.store(cookie, Ordering::SeqCst);
             }
             Event::Activity(Activity { user }) => {
-                self.connections
-                    .send_to_user(&user, PushMessage::Activity)
-                    .await;
+                self.connections.send_to_user(&user, PushMessage::Activity);
             }
             Event::Notification(Notification { user }) => {
                 self.connections
-                    .send_to_user(&user, PushMessage::Notification)
-                    .await;
+                    .send_to_user(&user, PushMessage::Notification);
             }
             Event::PreAuth(PreAuth { user, token }) => {
                 self.pre_auth.insert(token, (Instant::now(), user));
@@ -193,13 +192,12 @@ impl App {
                 body,
             }) => {
                 self.connections
-                    .send_to_user(&user, PushMessage::Custom(message, body))
-                    .await;
+                    .send_to_user(&user, PushMessage::Custom(message, body));
             }
             Event::Config(event::Config::LogSpec(spec)) => {
                 match self.log_handle.lock().await.parse_and_push_temp_spec(&spec) {
-                    Ok(()) => log::info!("Set log level to {}", spec),
-                    Err(e) => log::error!("Failed to set log level: {:?}", e),
+                    Ok(()) => log::info!("Set log level to {spec}"),
+                    Err(e) => log::error!("Failed to set log level: {e:#}"),
                 }
             }
             Event::Config(event::Config::LogRestore) => {
@@ -215,15 +213,15 @@ impl App {
                         )
                         .await
                     {
-                        log::warn!("Failed to set metrics: {}", e);
+                        log::warn!("Failed to set metrics: {e:#}");
                     }
                 }
-                Err(e) => log::warn!("Failed to set metrics: {}", e),
+                Err(e) => log::warn!("Failed to set metrics: {e:#}"),
             },
             Event::Signal(event::Signal::Reset) => {
                 log::info!("Stopping all open connections");
                 if let Err(e) = self.reset_tx.send(()) {
-                    log::warn!("Failed to send reset command to all connections: {}", e);
+                    log::warn!("Failed to send reset command to all connections: {e:#}");
                 }
             }
         }
@@ -240,6 +238,7 @@ pub fn serve(
     cancel: oneshot::Receiver<()>,
     tls: Option<&TlsConfig>,
     max_debounce_time: usize,
+    max_connection_time: usize,
 ) -> Result<impl Future<Output = ()> + Send> {
     let app = warp::any().map(move || app.clone());
 
@@ -261,7 +260,7 @@ pub fn serve(
                     forwarded_for.push(remote.ip());
                 }
                 log::debug!("new websocket connection from {:?}", forwarded_for.first());
-                let opts = ConnectionOptions::new(max_debounce_time);
+                let opts = ConnectionOptions::new(max_debounce_time, max_connection_time);
                 ws.on_upgrade(move |socket| handle_user_socket(socket, app, forwarded_for, opts))
             },
         )
@@ -271,7 +270,7 @@ pub fn serve(
         .and(app.clone())
         .map(|app: Arc<App>| {
             let cookie = app.test_cookie.load(Ordering::SeqCst);
-            log::debug!("current test cookie is {}", cookie);
+            log::debug!("current test cookie is {cookie}");
             cookie.to_string()
         });
 
@@ -280,12 +279,12 @@ pub fn serve(
         .and_then(|app: Arc<App>| async move {
             let response = match app.nc_client.get_test_cookie().await {
                 Ok(cookie) => {
-                    log::debug!("got remote test cookie {}", cookie);
+                    log::debug!("got remote test cookie {cookie}");
                     cookie.to_string()
                 }
                 Err(e) => {
-                    log::warn!("Error while trying to get cookie from Nextcloud {:#}", e);
-                    format!("{:#}", e)
+                    log::warn!("Error while trying to get cookie from Nextcloud {e:#}");
+                    format!("{e:#}")
                 }
             };
 
@@ -301,16 +300,11 @@ pub fn serve(
                 .await
                 .map(|access| {
                     let count = access.count();
-                    log::debug!("storage mapping count for {} = {}", storage_id, count);
+                    log::debug!("storage mapping count for {storage_id} = {count}");
                     count
                 })
-                .map_err(|err| {
-                    log::error!(
-                        "error while getting mapping count for {}: {:#}",
-                        storage_id,
-                        err
-                    );
-                    err
+                .inspect_err(|err| {
+                    log::error!("error while getting mapping count for {storage_id}: {err:#}");
                 })
                 .unwrap_or(0);
             Result::<_, Infallible>::Ok(access.to_string())
@@ -325,7 +319,7 @@ pub fn serve(
                 .await
                 .map(|remote| remote.to_string())
                 .unwrap_or_else(|e| e.to_string());
-            log::debug!("got remote {} when trying to set remote {}", result, remote);
+            log::debug!("got remote {result} when trying to set remote {remote}");
             Result::<_, Infallible>::Ok(result)
         });
 
@@ -342,7 +336,7 @@ pub fn serve(
                     "set"
                 }
                 Err(e) => {
-                    log::warn!("Failed to get redis connection for version set: {:#}", e);
+                    log::warn!("Failed to get redis connection for version set: {e:#}");
                     "error"
                 }
             })
@@ -402,7 +396,7 @@ where
                 server
                     .serve_incoming_with_graceful_shutdown(stream, cancel)
                     .map(move |_| {
-                        fs::remove_file(&socket_path).ok();
+                        fs::remove_file(socket_path).ok();
                     }),
             ))
         }
@@ -413,7 +407,7 @@ pub async fn listen_loop(app: Arc<App>, cancel: oneshot::Receiver<()>) {
     let loop_ = async move {
         loop {
             if let Err(e) = listen(app.clone()).await {
-                log::error!("Failed to setup redis subscription: {:#}", e);
+                log::error!("Failed to setup redis subscription: {e:#}");
             }
             log::warn!("Redis server disconnected, reconnecting in 1s");
             sleep(Duration::from_secs(1)).await;
@@ -424,7 +418,7 @@ pub async fn listen_loop(app: Arc<App>, cancel: oneshot::Receiver<()>) {
 }
 
 pub async fn listen(app: Arc<App>) -> Result<()> {
-    let mut event_stream = event::subscribe(&app.redis).await?;
+    let (mut pubsub_sink, mut event_stream) = event::subscribe(&app.redis).await?;
 
     let handle = move |event: Event| {
         // todo: any way to do this without cloning the arc every event (scoped?)
@@ -434,18 +428,26 @@ pub async fn listen(app: Arc<App>) -> Result<()> {
         }
     };
 
+    let ping_handle = tokio::spawn(async move {
+        loop {
+            sleep(Duration::from_secs(15)).await;
+            let _ = pubsub_sink.ping::<()>().await;
+        }
+    });
+
     while let Some(event) = event_stream.next().await {
         match event {
             Ok(event) => {
                 log::debug!(
                     target: "notify_push::receive",
-                    "Received {}",
-                    event
+                    "Received {event}"
                 );
                 tokio::spawn(handle(event));
             }
-            Err(e) => log::warn!("{:#}", e),
+            Err(e) => log::warn!("{e:#}"),
         }
     }
+
+    ping_handle.abort();
     Ok(())
 }

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 use crate::config::PartialConfig;
 use crate::error::ConfigError;
 use nextcloud_config_parser::{parse, parse_glob};
@@ -10,10 +15,10 @@ pub(super) fn parse_config_file(
     let config = if glob { parse_glob(path) } else { parse(path) }?;
 
     Ok(PartialConfig {
-        database: Some(config.database.into()),
+        database: Some(config.database.url().parse()?),
         database_prefix: Some(config.database_prefix),
         nextcloud_url: Some(config.nextcloud_url),
-        redis: config.redis.into_vec(),
+        redis: Some(config.notify_push_redis.unwrap_or(config.redis)),
         ..PartialConfig::default()
     })
 }

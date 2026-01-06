@@ -1,11 +1,18 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 use crate::error::{AuthenticationError, WebSocketError};
 use crate::message::{PushMessage, SendQueue};
 use crate::metrics::METRICS;
+use crate::passthru_hasher::PassthruHasher;
 use crate::Result;
 use crate::{App, UserId};
-use ahash::RandomState;
+use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
+use rand::{thread_rng, Rng, SeedableRng};
 use std::net::IpAddr;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -16,29 +23,44 @@ use tokio::time::timeout;
 use warp::filters::ws::{Message, WebSocket};
 
 const USER_CONNECTION_LIMIT: usize = 64;
+const PING_INTERVAL: Duration = Duration::from_secs(30);
 
 #[derive(Default)]
-pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<PushMessage>, RandomState>);
+pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<PushMessage>, PassthruHasher>);
 
 impl ActiveConnections {
-    pub async fn add(&self, user: UserId) -> Result<broadcast::Receiver<PushMessage>> {
-        if let Some(sender) = self.0.get(&user) {
-            // stop a single user from trying to eat all the resources
-            if sender.receiver_count() > USER_CONNECTION_LIMIT {
-                Err(AuthenticationError::LimitExceeded.into())
-            } else {
-                Ok(sender.subscribe())
+    pub fn add(&self, user: UserId) -> Result<broadcast::Receiver<PushMessage>> {
+        match self.0.entry(user) {
+            Entry::Occupied(entry) => {
+                let sender = entry.get();
+                if sender.receiver_count() > USER_CONNECTION_LIMIT {
+                    Err(AuthenticationError::LimitExceeded.into())
+                } else {
+                    Ok(sender.subscribe())
+                }
             }
-        } else {
-            let (tx, rx) = broadcast::channel(4);
-            self.0.insert(user, tx);
-            Ok(rx)
+            Entry::Vacant(entry) => {
+                METRICS.add_user();
+                let (tx, rx) = broadcast::channel(4);
+                entry.insert(tx);
+                Ok(rx)
+            }
         }
     }
 
-    pub async fn send_to_user(&self, user: &UserId, msg: PushMessage) {
+    pub fn send_to_user(&self, user: &UserId, msg: PushMessage) {
         if let Some(tx) = self.0.get(user) {
             tx.send(msg).ok();
+        }
+    }
+
+    pub fn remove(&self, user: &UserId) {
+        if let Entry::Occupied(e) = self.0.entry(user.clone()) {
+            if e.get().receiver_count() == 1 {
+                log::debug!("Removing {user} from active connections");
+                METRICS.remove_user();
+                e.remove();
+            }
         }
     }
 }
@@ -47,12 +69,14 @@ impl ActiveConnections {
 pub struct ConnectionOptions {
     pub listen_file_id: AtomicBool,
     pub max_debounce_time: usize,
+    pub max_connection_time: Duration,
 }
 
 impl ConnectionOptions {
-    pub fn new(max_debounce_time: usize) -> Self {
+    pub fn new(max_debounce_time: usize, max_connection_time: usize) -> Self {
         ConnectionOptions {
             max_debounce_time,
+            max_connection_time: Duration::from_secs(max_connection_time as u64),
             ..ConnectionOptions::default()
         }
     }
@@ -72,8 +96,8 @@ pub async fn handle_user_socket(
     {
         Ok(Ok(user_id)) => user_id,
         Ok(Err(e)) => {
-            log::warn!("{}", e);
-            ws.send(Message::text(format!("err: {}", e))).await.ok();
+            log::warn!("{e:#}");
+            ws.send(Message::text(format!("err: {e:#}"))).await.ok();
             return;
         }
         Err(_) => {
@@ -84,10 +108,10 @@ pub async fn handle_user_socket(
         }
     };
 
-    log::info!("new websocket authenticated as {}", user_id);
+    log::info!("new websocket authenticated as {user_id}");
     ws.send(Message::text("authenticated")).await.ok();
 
-    let mut rx = match app.connections.add(user_id.clone()).await {
+    let mut rx = match app.connections.add(user_id.clone()) {
         Ok(rx) => rx,
         Err(e) => {
             ws.send(Message::text(e.to_string())).await.ok();
@@ -107,12 +131,20 @@ pub async fn handle_user_socket(
     let expect_pong = &expect_pong;
 
     let transmit = async {
-        let mut send_queue = SendQueue::default();
+        // Use faster random generator for generating ping messages and time smearthey dont need to be
+        // cryptographically secure.
+        let mut rng =
+            rand::rngs::SmallRng::from_rng(thread_rng()).expect("Failed to initialize rng");
+
+        // for each connection we randomize the max debounce time to remove the chance that many connections
+        // get messages at the same time and cause load peaks
+        let debounce_factor = rng.gen_range(0.5..1.5);
+        let mut send_queue = SendQueue::new(opts.max_debounce_time, debounce_factor);
 
         let mut reset = app.reset_rx();
 
-        let ping_interval = Duration::from_secs(30);
-        let mut last_send = Instant::now() - ping_interval;
+        let connection_start_time = Instant::now();
+        let mut last_send = connection_start_time - PING_INTERVAL;
 
         'tx_loop: loop {
             tokio::select! {
@@ -121,28 +153,34 @@ pub async fn handle_user_socket(
                     match msg {
                         Ok(Ok(msg)) => {
                             if let Some(msg) = send_queue.push(msg, now) {
-                                log::debug!(target: "notify_push::send", "Sending {} to {}", msg, user_id);
-                                METRICS.add_message();
+                                log::debug!(target: "notify_push::send", "Sending {msg} to {user_id}");
+                                METRICS.add_message(msg.message_type());
                                 last_send = now;
                                 user_ws_tx.send(msg.into_message(&opts)).await.ok();
                             }
                         }
                         Err(_timout) => {
-                            for msg in send_queue.drain(now, METRICS.active_connection_count() + 50000, opts.max_debounce_time) {
+                            if opts.max_connection_time != Duration::ZERO && now - connection_start_time > opts.max_connection_time {
+                                user_ws_tx.close().await.ok();
+                                log::debug!("Connection closed by exceeding maximum connection time");
+                                break 'tx_loop;
+                            }
+
+                            for msg in send_queue.drain(now, METRICS.active_connection_count()) {
                                 last_send = now;
-                                METRICS.add_message();
-                                log::debug!(target: "notify_push::send", "Sending debounced {} to {}", msg, user_id);
+                                METRICS.add_message(msg.message_type());
+                                log::debug!(target: "notify_push::send", "Sending debounced {msg} to {user_id}");
                                 user_ws_tx.feed(msg.into_message(&opts)).await.ok();
                             }
 
-                            if now.duration_since(last_send) > ping_interval {
-                                let data = rand::random::<NonZeroUsize>().into();
+                            if now.duration_since(last_send) > PING_INTERVAL {
+                                let data = rng.gen::<NonZeroUsize>().into();
                                 let last_ping = expect_pong.swap(data, Ordering::SeqCst);
                                 if last_ping > 0 {
-                                    log::info!("{} didn't reply to ping, closing", user_id);
+                                    log::info!("{user_id} didn't reply to ping, closing");
                                     break;
                                 }
-                                log::debug!(target: "notify_push::send", "Sending ping to {}", user_id);
+                                log::debug!(target: "notify_push::send", "Sending ping to {user_id}");
                                 last_send = now;
                                 user_ws_tx
                                     .feed(Message::ping(data.to_le_bytes()))
@@ -189,9 +227,9 @@ pub async fn handle_user_socket(
                     match formatted.as_str() {
                         "WebSocket protocol error: Connection reset without closing handshake"
                         | "IO error: Connection reset by peer (os error 104)" => {
-                            log::debug!("websocket error: {}", e)
+                            log::debug!("websocket error: {e:#}")
                         }
-                        _ => log::warn!("websocket error: {}", e),
+                        _ => log::warn!("websocket error: {e:#}"),
                     };
                     break;
                 }
@@ -205,6 +243,7 @@ pub async fn handle_user_socket(
     select(transmit, receive).await;
 
     METRICS.remove_connection();
+    app.connections.remove(&user_id);
 }
 
 async fn read_socket_auth_message(rx: &mut WebSocket) -> Result<Message, WebSocketError> {
@@ -234,10 +273,7 @@ async fn socket_auth(
     app.pre_auth.retain(|_, (time, _)| *time > cutoff);
 
     if let Some((_, (_, user))) = app.pre_auth.remove(password) {
-        log::debug!(
-            "Authenticated socket for {} using pre authenticated token",
-            user
-        );
+        log::debug!("Authenticated socket for {user} using pre authenticated token");
         return Ok(user);
     }
 

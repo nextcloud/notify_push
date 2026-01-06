@@ -1,20 +1,18 @@
-<?xml version="1.0" encoding="utf-8" ?>
-<phpunit bootstrap="bootstrap.php"
-		 timeoutForSmallTests="900"
-		 timeoutForMediumTests="900"
-		 timeoutForLargeTests="900"
-		 convertDeprecationsToExceptions="true"
->
-	<testsuite name='Nextcloud - Notify Push App Tests'>
-		<directory suffix='.php'>.</directory>
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  - SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 bootstrap="bootstrap.php"
+		 verbose="true"
+		 xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/8.5/phpunit.xsd">
+	<testsuite name="unit">
+		<directory suffix="Test.php">./</directory>
 	</testsuite>
-	<filter>
-		<whitelist>
-			<directory suffix=".php">../</directory>
-			<exclude>
-				<directory suffix=".php">../tests
-				</directory>
-			</exclude>
-		</whitelist>
-	</filter>
+	<coverage>
+		<include>
+			<directory suffix=".php">./tests/lib</directory>
+		</include>
+	</coverage>
 </phpunit>

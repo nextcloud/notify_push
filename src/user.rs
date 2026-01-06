@@ -1,18 +1,25 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+use crate::passthru_hasher::PassthruHasher;
 use ahash::RandomState;
 use dashmap::DashMap;
 use log::LevelFilter;
+use once_cell::race::OnceBox;
 use once_cell::sync::Lazy;
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer};
-use sqlx::database::HasValueRef;
 use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Type};
-use std::collections::hash_map::DefaultHasher;
 use std::fmt;
-use std::fmt::Formatter;
-use std::hash::Hasher;
+use std::hash::{BuildHasher, Hasher};
 
-static USER_NAMES: Lazy<DashMap<u64, String, RandomState>> = Lazy::new(DashMap::default);
+static USER_NAMES: Lazy<DashMap<u64, String, PassthruHasher>> = Lazy::new(DashMap::default);
+
+// Use the same hash state for generating user hash for every instance
+static RANDOM_STATE: OnceBox<RandomState> = OnceBox::new();
 
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct UserId {
@@ -21,7 +28,8 @@ pub struct UserId {
 
 impl UserId {
     pub fn new(user_id: &str) -> Self {
-        let mut hash = DefaultHasher::new();
+        let state = RANDOM_STATE.get_or_init(|| Box::new(RandomState::new()));
+        let mut hash = state.build_hasher();
         hash.write(user_id.as_bytes());
         let hash = hash.finish();
 
@@ -42,7 +50,7 @@ impl<'de> Deserialize<'de> for UserId {
     {
         struct UserIdVisitor;
 
-        impl<'a> Visitor<'a> for UserIdVisitor {
+        impl Visitor<'_> for UserIdVisitor {
             type Value = UserId;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -77,7 +85,7 @@ impl<'r, DB: Database> Decode<'r, DB> for UserId
 where
     &'r str: Decode<'r, DB>,
 {
-    fn decode(value: <DB as HasValueRef<'r>>::ValueRef) -> Result<Self, BoxDynError> {
+    fn decode(value: DB::ValueRef<'r>) -> Result<Self, BoxDynError> {
         <&str as Decode<DB>>::decode(value).map(UserId::new)
     }
 }
@@ -110,7 +118,7 @@ impl fmt::Display for UserId {
 }
 
 impl fmt::Debug for UserId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if log::max_level() >= LevelFilter::Info {
             if let Some(user_name) = USER_NAMES.get(&self.hash) {
                 write!(f, "{}(#{})", user_name.value(), self.hash)

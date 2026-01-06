@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+use clap::Parser;
 use flexi_logger::{detailed_format, AdaptiveFormat, Logger, LoggerHandle};
 use miette::{IntoDiagnostic, Result, WrapErr};
 use notify_push::config::{Config, Opt};
@@ -7,7 +13,6 @@ use notify_push::metrics::serve_metrics;
 use notify_push::{listen_loop, serve, App, Error};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use structopt::StructOpt;
 use tokio::select;
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::oneshot;
@@ -15,9 +20,10 @@ use tokio::task::spawn;
 
 fn main() -> Result<()> {
     miette::set_panic_hook();
-    let _ = dotenv::dotenv();
+    sqlx::any::install_default_drivers();
+    let _ = dotenvy::dotenv();
 
-    let opt: Opt = Opt::from_args();
+    let opt: Opt = Opt::parse();
     if opt.version {
         println!("notify_push {}", env!("NOTIFY_PUSH_VERSION"));
         return Ok(());
@@ -26,7 +32,7 @@ fn main() -> Result<()> {
     let config = Config::from_opt(opt)?;
 
     if dump_config {
-        println!("{:#?}", config);
+        println!("{config:#?}");
         return Ok(());
     }
 
@@ -58,13 +64,13 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
     let (metrics_cancel, metrics_cancel_handle) = oneshot::channel();
     let (listen_cancel, listen_cancel_handle) = oneshot::channel();
 
-    log::trace!("Running with config: {:?}", config);
+    log::trace!("Running with config: {config:?}");
 
     if config.allow_self_signed {
         log::info!("Running with certificate validation disabled");
     }
 
-    if dotenv::var("DEBOUNCE_DISABLE").is_ok() {
+    if dotenvy::var("DEBOUNCE_DISABLE").is_ok() {
         DEBOUNCE_ENABLE.store(false, Ordering::Relaxed);
     }
 
@@ -72,28 +78,34 @@ async fn run(config: Config, log_handle: LoggerHandle) -> Result<()> {
     let tls = config.tls.clone();
     let metrics_bind = config.metrics_bind.clone();
     let max_debounce_time = config.max_debounce_time;
+    let max_connection_time = config.max_connection_time;
     let app = Arc::new(App::new(config, log_handle).await?);
     if let Err(e) = app.self_test().await {
-        log::error!("Self test failed: {:#}", e);
+        log::error!("Self test failed: {e:#}");
     }
 
-    log::trace!("Listening on {}", bind);
+    log::trace!("Listening on {bind}");
     let server = spawn(serve(
         app.clone(),
         bind,
         serve_cancel_handle,
         tls.as_ref(),
         max_debounce_time,
+        max_connection_time,
     )?);
 
     if let Some(metrics_bind) = metrics_bind {
-        log::trace!("Metrics listening {}", metrics_bind);
+        log::trace!("Metrics listening {metrics_bind}");
         spawn(serve_metrics(
             metrics_bind,
             metrics_cancel_handle,
             tls.as_ref(),
         )?);
     }
+
+    // tell SystemD that sockets have been bound to their addresses
+    #[cfg(feature = "systemd")]
+    sd_notify::notify(true, &[sd_notify::NotifyState::Ready]).map_err(Error::SystemD)?;
 
     spawn(listen_loop(app, listen_cancel_handle));
 

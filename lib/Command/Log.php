@@ -2,23 +2,8 @@
 
 declare(strict_types=1);
 /**
- * @copyright Copyright (c) 2021 Robin Appelman <robin@icewind.nl>
- *
- * @license GNU AGPL version 3 or any later version
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
+ * SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 namespace OCA\NotifyPush\Command;
@@ -34,7 +19,7 @@ class Log extends Command {
 	private $queue;
 
 	public function __construct(
-		IQueue $queue
+		IQueue $queue,
 	) {
 		parent::__construct();
 		$this->queue = $queue;
@@ -43,26 +28,26 @@ class Log extends Command {
 	/**
 	 * @return void
 	 */
-	protected function configure() {
+	protected function configure(): void {
 		$this
 			->setName('notify_push:log')
 			->setDescription('Temporarily set the log level of the push server')
-			->addOption("restore", "r", InputOption::VALUE_NONE, "restore the log level to the previous value")
-			->addArgument("level", InputArgument::OPTIONAL, "the new log level to set");
+			->addOption('restore', 'r', InputOption::VALUE_NONE, 'restore the log level to the previous value')
+			->addArgument('level', InputArgument::OPTIONAL, 'the new log level to set');
 		parent::configure();
 	}
 
-	protected function execute(InputInterface $input, OutputInterface $output) {
-		$level = $input->getArgument("level");
-		if ($input->getOption("restore")) {
-			$output->writeln("restoring log level");
-			$this->queue->push("notify_config", "log_restore");
+	protected function execute(InputInterface $input, OutputInterface $output): int {
+		$level = $input->getArgument('level');
+		if ($input->getOption('restore')) {
+			$output->writeln('restoring log level');
+			$this->queue->push('notify_config', 'log_restore');
 		} elseif ($level) {
 			// by default dont touch the log level of the libraries
-			if (!strpos($level, "=") and $level !== "trace") {
+			if (!strpos($level, '=') and $level !== 'trace') {
 				$level = "notify_push=$level";
 			}
-			$this->queue->push("notify_config", ["log_spec" => $level]);
+			$this->queue->push('notify_config', ['log_spec' => $level]);
 		}
 		return 0;
 	}

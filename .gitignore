@@ -1,6 +1,12 @@
+# SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
 target
 .env
 bin
 build
-vendor
+composer.phar
+/vendor/
+/vendor-bin/*/vendor
 *.cache
+.direnv
+result

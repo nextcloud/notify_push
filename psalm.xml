@@ -1,10 +1,14 @@
 <?xml version="1.0"?>
+<!--
+  - SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
 <psalm
 	errorLevel="5"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xmlns="https://getpsalm.org/schema/config"
-	xsi:schemaLocation="https://getpsalm.org/schema/config"
-	phpVersion="7.3"
+	xsi:schemaLocation="https://getpsalm.org/schema/config https://getpsalm.org/schema/config"
+	phpVersion="8.0"
 >
 	<projectFiles>
 		<directory name="lib"/>
@@ -17,5 +21,14 @@
 	</extraFiles>
 	<stubs>
 		<file name="tests/stub.phpstub" preloadClasses="true"/>
+		<file name="tests/stubs/symfony_component_console_command_command.php" />
+		<file name="tests/stubs/symfony_component_console_helper_table.php" />
+		<file name="tests/stubs/symfony_component_console_input_inputargument.php" />
+		<file name="tests/stubs/symfony_component_console_input_inputinterface.php" />
+		<file name="tests/stubs/symfony_component_console_input_inputoption.php" />
+		<file name="tests/stubs/symfony_component_console_output_outputinterface.php" />
+		<file name="tests/stubs/symfony_component_console_question_confirmationquestion.php" />
+		<file name="tests/stubs/symfony_component_console_question_confirmationquestion.php" />
+		<file name="tests/stubs/symfony_component_console_question_question.php" />
 	</stubs>
 </psalm>

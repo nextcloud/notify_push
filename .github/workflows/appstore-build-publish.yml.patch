@@ -1,0 +1,25 @@
+diff --git a/.github/workflows/appstore-build-publish.yml b/.github/workflows/appstore-build-publish.yml
+index 316ba14..3cb9983 100644
+--- a/.github/workflows/appstore-build-publish.yml
++++ b/.github/workflows/appstore-build-publish.yml
+@@ -23,6 +23,12 @@ jobs:
+     if: ${{ github.repository_owner == 'nextcloud-releases' }}
+
+     steps:
++      - uses: cachix/install-nix-action@fc6e360bedc9ee72d75e701397f0bb30dce77568 # v31.5.2
++      - uses: cachix/cachix-action@0fc020193b5a1fa3ac4575aa3a7d3aa6a35435ad # v16
++        with:
++          name: notify-push
++          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
++
+       - name: Check actor permission
+         uses: skjnldsv/check-actor-permission@69e92a3c4711150929bca9fcf34448c5bf5526e7 # v3.0
+         with:
+@@ -39,6 +45,7 @@ jobs:
+         with:
+           persist-credentials: false
+           path: ${{ env.APP_NAME }}
++          fetch-depth: 0
+
+       - name: Get app version number
+         id: app-version

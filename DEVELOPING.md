@@ -1,3 +1,8 @@
+<!--
+  - SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # Developing
 
 As developer of a Nextcloud app or client you can use the `notify_push` app to receive real time notifications from the
@@ -10,7 +15,7 @@ you can use the [`@nextcloud/notify_push`](https://www.npmjs.com/package/@nextcl
 Which will handle all the details for authenticating and connecting to the push server.
 
 ```js
-import { listen } from '@nextcloud/notify_push'
+import {listen} from '@nextcloud/notify_push'
 
 let has_push = listen('notify_file', () => {
     console.log("A file has been changed")
@@ -23,7 +28,8 @@ if (!hash_push) {
 
 ## Clients
 
-Desktop and other clients that don't run in the Nextcloud web interface can use the following steps to receive notifications.
+Desktop and other clients that don't run in the Nextcloud web interface can use the following steps to receive
+notifications.
 
 - Get the push server url from the `notify_push` capability by sending an authenticated request
   to `https://cloud.example.com/ocs/v2.php/cloud/capabilities`
@@ -36,10 +42,13 @@ Desktop and other clients that don't run in the Nextcloud web interface can use 
     - "notify_activity" when a new activity item for a user is created (note, due to workings of the activity app, file
       related activity doesn't trigger this notification)
     - "notify_notification" when a notification is created, processed or dismissed for a user
-- Starting with version 0.4 you can opt into receiving the changed file ids for file update notifications by sending `listen notify_file_id` over the websocket.  
-  Once enabled, the server will send "notify_file_id" followed by a json encoded array of file ids if the push server knows
+- Starting with version 0.4 you can opt into receiving the changed file ids for file update notifications by sending
+  `listen notify_file_id` over the websocket.  
+  Once enabled, the server will send "notify_file_id" followed by a json encoded array of file ids if the push server
+  knows
   the ids of the changed files.
-  In cases where there push server doesn't know which files have changed, it will send the regular "notify_file" message. 
+  In cases where there push server doesn't know which files have changed, it will send the regular "notify_file"
+  message.
 
 ### Example
 
@@ -83,7 +92,8 @@ discover_endpoint(nextcloud_url, username, password).then((endpoint) => {
 
 ## Pre-authenticated tokens
 
-In situations where you don't have the user credentials but you can send authenticated requests to nextcloud(such as when you have authenticated cookies)
+In situations where you don't have the user credentials but you can send authenticated requests to nextcloud(such as
+when you have authenticated cookies)
 you can use "pre-authenticated tokens" instead of the username and password.
 
 - Get the `pre_auth` endpoint from the ocs capabilities request
@@ -106,10 +116,11 @@ $queue->push('notify_custom', [
 ]);
 ```
 
-Which will be pushed to client as `'my_message_type {"foo": "bar"}'` and can be used with the `@nextcloud/notify_push` client using
+Which will be pushed to client as `'my_message_type {"foo": "bar"}'` and can be used with the `@nextcloud/notify_push`
+client using
 
 ```js
-import { listen } from '@nextcloud/notify_push'
+import {listen} from '@nextcloud/notify_push'
 
 listen('my_message_type', (message_type, optional_body) => {
 
@@ -118,7 +129,7 @@ listen('my_message_type', (message_type, optional_body) => {
 
 ## Building
 
-The server binary is built using rust and cargo, and requires a minimum of rust `1.60`.
+The server binary is built using rust and cargo, and requires a minimum of rust `1.85`.
 
 - Install `rust` through your package manager or [rustup](https://rustup.rs/)
 - Run `cargo build`
@@ -130,10 +141,11 @@ should be compiled in release mode for optimal performance and targeting musl li
 cargo build --release --target=x86_64-unknown-linux-musl
 ```
 
-Cross compiling for other platform is done easiest using [`cross`](https://github.com/rust-embedded/cross), for example:
+### Cross compiling
 
-```bash
-cross build --release --target=aarch64-unknown-linux-musl
-```
+Cross compiling to other platforms can be done using two ways:
 
-If you're running into an issue building the `termion` dependency on a non-linux OS, try building with `--no-default-features`.
+- using [`nix`](https://nixos.org/download.html) and `nix build .#aarch64-unknown-linux-musl` (recommended, binaries can
+  be found in `./result/bin`)
+- using [`cross`](https://github.com/rust-embedded/cross) and
+  `cross build --release --target=aarch64-unknown-linux-musl`
