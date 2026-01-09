@@ -16,27 +16,16 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IAppConfig;
-use OCP\IConfig;
 use OCP\IRequest;
 
 class TestController extends Controller {
-	private $config;
-	private $appConfig;
-	private $queue;
-	private $appManager;
-
 	public function __construct(
 		IRequest $request,
-		IConfig $config,
-		IAppConfig $appConfig,
-		IQueue $queue,
-		IAppManager $appManager,
+		private IAppConfig $appConfig,
+		private IQueue $queue,
+		private IAppManager $appManager,
 	) {
 		parent::__construct('notify_push', $request);
-		$this->config = $config;
-		$this->appConfig = $appConfig;
-		$this->queue = $queue;
-		$this->appManager = $appManager;
 	}
 
 	/**
@@ -47,12 +36,8 @@ class TestController extends Controller {
 	public function cookie(): DataResponse {
 		// starting with 32, the app config does some internal caching
 		// that interferes with the quick set+get from this test.
-		// unfortunately the api to clear the cache is 29+ only, and we still support 27
-		if (method_exists($this->appConfig, 'clearCache')) {
-			/** @psalm-suppress UndefinedInterfaceMethod */
-			$this->appConfig->clearCache();
-		}
-		return new DataResponse((int)$this->config->getAppValue('notify_push', 'cookie', '0'));
+		$this->appConfig->clearCache();
+		return new DataResponse($this->appConfig->getValueInt('notify_push', 'cookie'));
 	}
 
 	/**
