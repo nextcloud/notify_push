@@ -33,6 +33,7 @@ nextcloud-config-parser = "0.14.1"
 url = "2.5.4"
 clap = { version = "4.5.43", features = ["derive"] }
 sd-notify = { version = "0.4.5", optional = true }
+md5 = "0.8.0"
 
 [dev-dependencies]
 mini-redis = "0.4.1"

@@ -82,7 +82,7 @@ impl Services {
         .await
         .expect("Failed to connect sqlite database");
 
-        sqlx::query("CREATE TABLE oc_filecache(fileid BIGINT, path TEXT)")
+        sqlx::query("CREATE TABLE oc_filecache(fileid BIGINT, path_hash TEXT)")
             .execute(&db)
             .await
             .unwrap();
@@ -237,9 +237,9 @@ impl Services {
     }
 
     async fn add_filecache_item(&self, fileid: u32, path: &str) {
-        sqlx::query("INSERT INTO oc_filecache(fileid, path) VALUES(?, ?)")
+        sqlx::query("INSERT INTO oc_filecache(fileid, path_hash) VALUES(?, ?)")
             .bind(fileid as i64)
-            .bind(path)
+            .bind(format!("{:x}", md5::compute(path)))
             .execute(&self.db)
             .await
             .unwrap();

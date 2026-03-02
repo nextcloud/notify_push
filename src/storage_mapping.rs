@@ -2,7 +2,6 @@
  * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
 use crate::error::DatabaseError;
 use crate::metrics::METRICS;
 use crate::{Result, UserId};
@@ -10,9 +9,11 @@ use ahash::RandomState;
 use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use log::debug;
+use md5;
 use rand::{thread_rng, Rng};
 use sqlx::any::AnyConnectOptions;
 use sqlx::{query_as, Any, AnyPool, FromRow};
+use std::collections::HashMap;
 use std::time::Instant;
 use tokio::time::Duration;
 
@@ -20,8 +21,8 @@ use tokio::time::Duration;
 pub struct UserStorageAccess {
     #[sqlx(rename = "user_id")]
     user: UserId,
-    #[sqlx(rename = "path")]
-    root: String,
+    #[sqlx(rename = "path_hash")]
+    root_hash: String,
 }
 
 struct CachedAccess {
@@ -86,12 +87,25 @@ impl StorageMapping {
         storage: u32,
         path: &str,
     ) -> Result<impl Iterator<Item = UserId>, DatabaseError> {
+        let mut parents: HashMap<String, ()> = HashMap::new();
+        parents.insert(format!("{:x}", md5::compute("")), ());
+
+        let mut current_path = "".to_string();
+        for name in path.split("/") {
+            if current_path.is_empty() {
+                current_path = name.to_string();
+            } else {
+                current_path = format!("{}/{}", current_path.clone(), name);
+            }
+            parents.insert(format!("{:x}", md5::compute(&current_path)), ());
+        }
+
         let cached = self.get_storage_mapping(storage).await?;
         Ok(cached
             .access
             .iter()
             .filter_map(move |access| {
-                if path.starts_with(&access.root) {
+                if parents.contains_key(&access.root_hash) {
                     Some(access.user.clone())
                 } else {
                     None
@@ -108,7 +122,7 @@ impl StorageMapping {
         debug!("querying storage mapping for {storage}");
         let users = query_as::<Any, UserStorageAccess>(&format!(
             "\
-                SELECT user_id, path \
+                SELECT user_id, path_hash \
                 FROM {prefix}mounts \
                 INNER JOIN {prefix}filecache ON root_id = fileid \
                 WHERE storage_id = {storage}",
