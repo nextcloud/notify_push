@@ -226,6 +226,7 @@ pub async fn handle_user_socket(
                     // hack while warp only has opaque error types
                     match formatted.as_str() {
                         "WebSocket protocol error: Connection reset without closing handshake"
+                        | "Broken pipe (os error 32)"
                         | "IO error: Connection reset by peer (os error 104)" => {
                             log::debug!("websocket error: {e:#}")
                         }
