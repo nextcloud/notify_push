@@ -263,11 +263,13 @@ async fn socket_auth(
     let username_msg = read_socket_auth_message(rx).await?;
     let username = username_msg
         .to_str()
-        .map_err(|_| AuthenticationError::InvalidMessage)?;
+        .map_err(|_| AuthenticationError::InvalidMessage)?
+        .trim();
     let password_msg = read_socket_auth_message(rx).await?;
     let password = password_msg
         .to_str()
-        .map_err(|_| AuthenticationError::InvalidMessage)?;
+        .map_err(|_| AuthenticationError::InvalidMessage)?
+        .trim();
 
     // cleanup all pre_auth tokens older than 15s
     let cutoff = Instant::now() - Duration::from_secs(15);
