@@ -226,6 +226,7 @@ pub async fn handle_user_socket(
                     // hack while warp only has opaque error types
                     match formatted.as_str() {
                         "WebSocket protocol error: Connection reset without closing handshake"
+                        | "Broken pipe (os error 32)"
                         | "IO error: Connection reset by peer (os error 104)" => {
                             log::debug!("websocket error: {e:#}")
                         }
@@ -262,11 +263,13 @@ async fn socket_auth(
     let username_msg = read_socket_auth_message(rx).await?;
     let username = username_msg
         .to_str()
-        .map_err(|_| AuthenticationError::InvalidMessage)?;
+        .map_err(|_| AuthenticationError::InvalidMessage)?
+        .trim();
     let password_msg = read_socket_auth_message(rx).await?;
     let password = password_msg
         .to_str()
-        .map_err(|_| AuthenticationError::InvalidMessage)?;
+        .map_err(|_| AuthenticationError::InvalidMessage)?
+        .trim();
 
     // cleanup all pre_auth tokens older than 15s
     let cutoff = Instant::now() - Duration::from_secs(15);

@@ -20,7 +20,7 @@ use sqlx::any::AnyConnectOptions;
 use std::convert::{TryFrom, TryInto};
 use std::env::var;
 use std::fmt::{Debug, Display, Formatter};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -183,9 +183,7 @@ impl TryFrom<PartialConfig> for Config {
         let bind = match config.socket {
             Some(socket) => Bind::Unix(socket, socket_permissions),
             None => {
-                let ip = config
-                    .bind
-                    .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+                let ip = config.bind.unwrap_or(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
                 let port = config.port.unwrap_or(7867);
                 Bind::Tcp((ip, port).into())
             }
@@ -194,9 +192,7 @@ impl TryFrom<PartialConfig> for Config {
         let metrics_bind = match (config.metrics_socket, config.metrics_port) {
             (Some(socket), _) => Some(Bind::Unix(socket, socket_permissions)),
             (None, Some(port)) => {
-                let ip = config
-                    .bind
-                    .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+                let ip = config.bind.unwrap_or(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
                 Some(Bind::Tcp((ip, port).into()))
             }
             _ => None,
