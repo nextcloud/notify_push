@@ -15,24 +15,17 @@ use OCP\App\IAppManager;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\AppFramework\Http\DataResponse;
-use OCP\IConfig;
+use OCP\IAppConfig;
 use OCP\IRequest;
 
 class TestController extends Controller {
-	private $config;
-	private $queue;
-	private $appManager;
-
 	public function __construct(
 		IRequest $request,
-		IConfig $config,
-		IQueue $queue,
-		IAppManager $appManager,
+		private IAppConfig $appConfig,
+		private IQueue $queue,
+		private IAppManager $appManager,
 	) {
 		parent::__construct('notify_push', $request);
-		$this->config = $config;
-		$this->queue = $queue;
-		$this->appManager = $appManager;
 	}
 
 	/**
@@ -41,7 +34,10 @@ class TestController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function cookie(): DataResponse {
-		return new DataResponse((int)$this->config->getAppValue('notify_push', 'cookie', '0'));
+		// starting with 32, the app config does some internal caching
+		// that interferes with the quick set+get from this test.
+		$this->appConfig->clearCache();
+		return new DataResponse($this->appConfig->getValueInt('notify_push', 'cookie'));
 	}
 
 	/**

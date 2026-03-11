@@ -13,6 +13,7 @@ use OCA\NotifyPush\Queue\IQueue;
 use OCA\NotifyPush\Queue\RedisQueue;
 use OCP\App\IAppManager;
 use OCP\Http\Client\IClientService;
+use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -28,6 +29,7 @@ class SelfTest {
 	public function __construct(
 		IClientService $clientService,
 		private IConfig $config,
+		private IAppConfig $appConfig,
 		private IQueue $queue,
 		private IDBConnection $connection,
 		private IAppManager $appManager,
@@ -55,7 +57,7 @@ class SelfTest {
 		}
 
 		$this->queue->push('notify_test_cookie', $this->cookie);
-		$this->config->setAppValue('notify_push', 'cookie', (string)$this->cookie);
+		$this->appConfig->setValueInt('notify_push', 'cookie', $this->cookie);
 
 		try {
 			$retrievedCookie = (int)$this->client->get($server . '/test/cookie', ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
