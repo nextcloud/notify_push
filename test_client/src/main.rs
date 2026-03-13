@@ -80,18 +80,19 @@ fn main() -> Result<()> {
 
 fn get_endpoint(nc_url: &str, user: &str, password: &str) -> Result<String> {
     let raw = ureq::get(&format!("{nc_url}/ocs/v2.php/cloud/capabilities"))
-        .set(
+        .header(
             "Authorization",
             &format!(
                 "Basic {}",
                 base64::engine::general_purpose::STANDARD.encode(format!("{user}:{password}"))
             ),
         )
-        .set("Accept", "application/json")
-        .set("OCS-APIREQUEST", "true")
+        .header("Accept", "application/json")
+        .header("OCS-APIREQUEST", "true")
         .call()
         .into_diagnostic()?
-        .into_string()
+        .into_body()
+        .read_to_string()
         .into_diagnostic()?;
     trace!("Capabilities response: {raw}");
     let json: Value = serde_json::from_str(&raw)

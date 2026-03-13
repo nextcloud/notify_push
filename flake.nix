@@ -114,7 +114,7 @@
       };
 
       devShells = {
-	    default = cross-naersk'.mkShell targets {
+	    default = cross-naersk'.mkShell ["x86_64-unknown-linux-gnu"] {
           nativeBuildInputs = with pkgs; [
             (rust-bin.stable.latest.default.override {targets = targets ++ [hostTarget];})
             krankerl
@@ -126,7 +126,7 @@
             phpPackages.composer
           ];
         };
-	    msrv = cross-naersk'.mkShell targets {
+	    msrv = cross-naersk'.mkShell ["x86_64-unknown-linux-gnu"] {
           nativeBuildInputs = with pkgs; [
             msrvToolchain
           ];
