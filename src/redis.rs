@@ -11,8 +11,8 @@ use redis::aio::{MultiplexedConnection, PubSub};
 use redis::cluster::ClusterClient;
 use redis::cluster_async::ClusterConnection;
 use redis::{
-    AsyncCommands, Client, ClientTlsConfig, ConnectionAddr, ConnectionInfo, RedisConnectionInfo,
-    RedisError, TlsCertificates,
+    AsyncCommands, Client, ClientTlsConfig, ConnectionAddr, ConnectionInfo, IntoConnectionInfo,
+    RedisConnectionInfo, RedisError, TlsCertificates,
 };
 use std::fs::read;
 
@@ -56,12 +56,13 @@ impl Redis {
 pub fn open_single(
     info: &nextcloud_config_parser::RedisConnectionInfo,
 ) -> Result<Client, RedisError> {
-    let redis = RedisConnectionInfo {
-        db: info.db,
-        username: info.username.clone(),
-        password: info.password.clone(),
-        protocol: Default::default(),
-    };
+    let mut redis = RedisConnectionInfo::default().set_db(info.db);
+    if let Some(username) = info.username.as_deref() {
+        redis = redis.set_username(username);
+    }
+    if let Some(password) = info.password.as_deref() {
+        redis = redis.set_password(password);
+    }
     let connection_info = build_connection_info(info.addr.clone(), redis, info.tls_params.as_ref());
     Ok(match info.tls_params.as_ref() {
         None => Client::open(connection_info)?,
@@ -69,12 +70,13 @@ pub fn open_single(
             // the redis library doesn't let us set both `danger_accept_invalid_hostnames` and certificates without this mess:
             // `Client::build_with_tls` doesn't use the `danger_accept_invalid_hostnames` from the passed in info
             // so we first use it to get build the certificates then take the connection info from it so we can configure it further
-            let mut connection_info =
+            let connection_info =
                 Client::build_with_tls(connection_info, build_tls_certificates(tls_params)?)?
                     .get_connection_info()
                     .clone();
             connection_info
-                .addr
+                .addr()
+                .clone()
                 .set_danger_accept_invalid_hostnames(tls_params.accept_invalid_hostname);
             Client::open(connection_info)?
         }
@@ -86,7 +88,7 @@ fn build_connection_info(
     redis: RedisConnectionInfo,
     tls: Option<&RedisTlsParams>,
 ) -> ConnectionInfo {
-    match (addr, tls) {
+    let addr = match (addr, tls) {
         (
             RedisConnectionAddr::Tcp {
                 host,
@@ -94,10 +96,7 @@ fn build_connection_info(
                 tls: false,
             },
             _,
-        ) => ConnectionInfo {
-            addr: ConnectionAddr::Tcp(host, port),
-            redis,
-        },
+        ) => ConnectionAddr::Tcp(host, port),
         (
             RedisConnectionAddr::Tcp {
                 host,
@@ -105,29 +104,27 @@ fn build_connection_info(
                 tls: true,
             },
             tls_params,
-        ) => ConnectionInfo {
-            addr: ConnectionAddr::TcpTls {
-                host,
-                port,
-                insecure: tls_params.map(|tls| tls.insecure).unwrap_or_default(),
-                tls_params: None,
-            },
-            redis,
+        ) => ConnectionAddr::TcpTls {
+            host,
+            port,
+            insecure: tls_params.map(|tls| tls.insecure).unwrap_or_default(),
+            tls_params: None,
         },
-        (RedisConnectionAddr::Unix { path }, _) => ConnectionInfo {
-            addr: ConnectionAddr::Unix(path),
-            redis,
-        },
-    }
+        (RedisConnectionAddr::Unix { path }, _) => ConnectionAddr::Unix(path),
+    };
+    addr.into_connection_info()
+        .unwrap()
+        .set_redis_settings(redis)
 }
 
 fn open_cluster(info: &RedisClusterConnectionInfo) -> Result<ClusterClient, RedisError> {
-    let redis = RedisConnectionInfo {
-        db: info.db,
-        username: info.username.clone(),
-        password: info.password.clone(),
-        protocol: Default::default(),
-    };
+    let mut redis = RedisConnectionInfo::default().set_db(info.db);
+    if let Some(username) = info.username.as_deref() {
+        redis = redis.set_username(username);
+    }
+    if let Some(password) = info.password.as_deref() {
+        redis = redis.set_password(password);
+    }
     let mut builder =
         ClusterClient::builder(info.addr.iter().map(|addr| {
             build_connection_info(addr.clone(), redis.clone(), info.tls_params.as_ref())

@@ -297,7 +297,7 @@ impl PartialConfig {
         let max_connection_time = parse_var("MAX_CONNECTION_TIME")?;
 
         let redis = redis.map(|redis| {
-            let addr = map_redis_addr(redis.addr);
+            let addr = map_redis_addr(redis.addr().clone());
 
             let accept_invalid_hostname = redis_tls_dont_validate_hostname
                 .filter(|b| *b != 0)
@@ -315,9 +315,9 @@ impl PartialConfig {
 
             RedisConfig::Single(RedisConnectionInfo {
                 addr,
-                db: redis.redis.db,
-                username: redis.redis.username,
-                password: redis.redis.password,
+                db: redis.redis_settings().db(),
+                username: redis.redis_settings().username().map(String::from),
+                password: redis.redis_settings().password().map(String::from),
                 tls_params,
             })
         });
@@ -357,7 +357,7 @@ impl PartialConfig {
             0 => None,
             1 => {
                 let redis = opt.redis_url.into_iter().next().unwrap();
-                let addr = map_redis_addr(redis.addr);
+                let addr = map_redis_addr(redis.addr().clone());
 
                 let redis_tls = matches!(addr, RedisConnectionAddr::Tcp { tls: true, .. });
 
@@ -371,9 +371,9 @@ impl PartialConfig {
 
                 Some(RedisConfig::Single(RedisConnectionInfo {
                     addr,
-                    db: redis.redis.db,
-                    username: redis.redis.username,
-                    password: redis.redis.password,
+                    db: redis.redis_settings().db(),
+                    username: redis.redis_settings().username().map(String::from),
+                    password: redis.redis_settings().password().map(String::from),
                     tls_params,
                 }))
             }
@@ -381,7 +381,7 @@ impl PartialConfig {
                 let addr: Vec<_> = opt
                     .redis_url
                     .iter()
-                    .map(|redis| map_redis_addr(redis.addr.clone()))
+                    .map(|redis| map_redis_addr(redis.addr().clone()))
                     .collect();
 
                 let redis_tls = matches!(
@@ -397,12 +397,13 @@ impl PartialConfig {
                     insecure: opt.redis_tls_insecure,
                 });
 
-                let redis = opt.redis_url.into_iter().next().unwrap().redis;
+                let redis = opt.redis_url.into_iter().next().unwrap();
+                let redis = redis.redis_settings();
                 Some(RedisConfig::Cluster(RedisClusterConnectionInfo {
                     addr,
-                    db: redis.db,
-                    username: redis.username,
-                    password: redis.password,
+                    db: redis.db(),
+                    username: redis.username().map(String::from),
+                    password: redis.password().map(String::from),
                     tls_params,
                 }))
             }
@@ -483,5 +484,6 @@ fn map_redis_addr(addr: ConnectionAddr) -> RedisConnectionAddr {
             tls: true,
         },
         ConnectionAddr::Unix(path) => RedisConnectionAddr::Unix { path },
+        _ => unreachable!("unknown redis address"),
     }
 }
