@@ -9,10 +9,19 @@ declare(strict_types=1);
 namespace OCA\NotifyPush\Queue;
 
 class NullQueue implements IQueue {
-	/**
-	 * @return void
-	 */
-	public function push(string $channel, $message) {
+	#[\Override]
+	public function push(string $channel, $message): void {
 		// noop
 	}
+
+	#[\Override]
+	public function set(string $key, $value): void {
+		// noop
+	}
+
+	#[\Override]
+	public function get(string $key) {
+		return null;
+	}
+
 }

@@ -12,10 +12,12 @@ namespace OCA\NotifyPush;
 use OCA\NotifyPush\Queue\IQueue;
 use OCA\NotifyPush\Queue\RedisQueue;
 use OCP\App\IAppManager;
+use OCP\Http\Client\IClient;
 use OCP\Http\Client\IClientService;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IDBConnection;
+use OCP\Security\ISecureRandom;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpFoundation\IpUtils;
 
@@ -23,8 +25,9 @@ class SelfTest {
 	public const ERROR_OTHER = 1;
 	public const ERROR_TRUSTED_PROXY = 2;
 
-	private $client;
-	private $cookie;
+	private IClient $client;
+	private int $cookie;
+	private string $token;
 
 	public function __construct(
 		IClientService $clientService,
@@ -33,9 +36,15 @@ class SelfTest {
 		private IQueue $queue,
 		private IDBConnection $connection,
 		private IAppManager $appManager,
+		private ISecureRandom $random,
 	) {
 		$this->client = $clientService->newClient();
 		$this->cookie = rand(1, (int)pow(2, 30));
+		$this->token = $this->random->generate(32);
+	}
+
+	private function getHttpOpts(): array {
+		return ['nextcloud' => ['allow_local_address' => true], 'verify' => false, 'headers' => ['token' => $this->token]];
 	}
 
 	public function test(string $server, OutputInterface $output, bool $ignoreProxyError = false): int {
@@ -56,11 +65,12 @@ class SelfTest {
 			$output->writeln('<comment>🗴 push server URL is set to localhost, the push server will not be reachable from other machines</comment>');
 		}
 
+		$this->queue->getConnection()->set('test-token', $this->token);
 		$this->queue->push('notify_test_cookie', $this->cookie);
 		$this->appConfig->setValueInt('notify_push', 'cookie', $this->cookie);
 
 		try {
-			$retrievedCookie = (int)$this->client->get($server . '/test/cookie', ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
+			$retrievedCookie = (int)$this->client->get($server . '/test/cookie', $this->getHttpOpts())->getBody();
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
@@ -80,7 +90,7 @@ class SelfTest {
 		// If no admin user was created during the installation, there are no oc_filecache and oc_mounts entries yet, so this check has to be skipped.
 		if ($storageId !== null) {
 			try {
-				$retrievedCount = (int)$this->client->get($server . '/test/mapping/' . $storageId, ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
+				$retrievedCount = (int)$this->client->get($server . '/test/mapping/' . $storageId, $this->getHttpOpts())->getBody();
 			} catch (\Exception $e) {
 				$msg = $e->getMessage();
 				$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
@@ -97,7 +107,7 @@ class SelfTest {
 
 		// test if the push server can reach nextcloud by having it request the cookie
 		try {
-			$response = $this->client->get($server . '/test/reverse_cookie', ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
+			$response = $this->client->get($server . '/test/reverse_cookie', $this->getHttpOpts())->getBody();
 			$retrievedCookie = (int)$response;
 
 			if ($this->cookie === $retrievedCookie) {
@@ -117,7 +127,7 @@ class SelfTest {
 
 		// test that the push server is a trusted proxy
 		try {
-			$resolvedRemote = $this->client->get($server . '/test/remote/1.2.3.4', ['nextcloud' => ['allow_local_address' => true], 'verify' => false])->getBody();
+			$resolvedRemote = $this->client->get($server . '/test/remote/1.2.3.4', $this->getHttpOpts())->getBody();
 		} catch (\Exception $e) {
 			$msg = $e->getMessage();
 			$output->writeln("<error>🗴 can't connect to push server: $msg</error>");
@@ -185,7 +195,7 @@ class SelfTest {
 		// test that the binary is up to date
 		try {
 			$this->queue->getConnection()->del('notify_push_version');
-			$response = $this->client->post($server . '/test/version', ['nextcloud' => ['allow_local_address' => true], 'verify' => false]);
+			$response = $this->client->post($server . '/test/version', $this->getHttpOpts());
 			if ($response === 'error') {
 				$output->writeln('<error>🗴 failed to get binary version, check the push server output for more information</error>');
 				return self::ERROR_OTHER;
