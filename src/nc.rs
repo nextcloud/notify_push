@@ -6,7 +6,7 @@
 use crate::error::{AuthenticationError, NextCloudError};
 use crate::{Result, UserId};
 use reqwest::header::HeaderName;
-use reqwest::{Response, StatusCode, Url};
+use reqwest::{Certificate, Response, StatusCode, Url};
 use std::fmt::Write;
 use std::net::IpAddr;
 
@@ -21,7 +21,12 @@ impl Client {
     pub fn new(base_url: &str, allow_self_signed: bool) -> Result<Self, NextCloudError> {
         let base_url = Url::parse(base_url)?;
         let http = reqwest::Client::builder()
-            .danger_accept_invalid_certs(allow_self_signed)
+            .tls_certs_merge(
+                webpki_root_certs::TLS_SERVER_ROOT_CERTS
+                    .iter()
+                    .map(|root| Certificate::from_der(root).unwrap()),
+            )
+            .tls_danger_accept_invalid_certs(allow_self_signed)
             .build()?;
         Ok(Client { http, base_url })
     }
