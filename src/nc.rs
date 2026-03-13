@@ -75,13 +75,14 @@ impl Client {
             .map_err(NextCloudError::NextcloudConnect)
     }
 
-    pub async fn get_test_cookie(&self) -> Result<u32, NextCloudError> {
+    pub async fn get_test_cookie(&self, token: &str) -> Result<u32, NextCloudError> {
         let response = self
             .http
             .get(
                 self.base_url
                     .join("index.php/apps/notify_push/test/cookie")?,
             )
+            .header(HeaderName::from_static("token"), token.to_string())
             .send()
             .await?;
         let status = response.status();
@@ -101,7 +102,11 @@ impl Client {
         }
     }
 
-    pub async fn test_set_remote(&self, addr: IpAddr) -> Result<IpAddr, NextCloudError> {
+    pub async fn test_set_remote(
+        &self,
+        addr: IpAddr,
+        token: &str,
+    ) -> Result<IpAddr, NextCloudError> {
         self.http
             .get(
                 self.base_url
@@ -109,6 +114,7 @@ impl Client {
                     .map_err(NextCloudError::from)?,
             )
             .header(&X_FORWARDED_FOR, addr.to_string())
+            .header(HeaderName::from_static("token"), token.to_string())
             .send()
             .await?
             .text()

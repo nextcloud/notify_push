@@ -10,9 +10,17 @@ namespace OCA\NotifyPush\Queue;
 
 interface IQueue {
 	/**
-	 * @param string $channel
 	 * @param mixed $message
-	 * @return void
 	 */
-	public function push(string $channel, $message);
+	public function push(string $channel, $message): void;
+
+	/**
+	 * @param mixed $value
+	 */
+	public function set(string $key, $value): void;
+
+	/**
+	 * @return mixed
+	 */
+	public function get(string $key);
 }

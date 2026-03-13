@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2022 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
- 
+
 use flexi_logger::FlexiLoggerError;
 use miette::Diagnostic;
 use redis::RedisError;
@@ -10,6 +10,7 @@ use reqwest::StatusCode;
 use std::net::AddrParseError;
 use std::num::ParseIntError;
 use thiserror::Error;
+use warp::reject::Reject;
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum Error {
@@ -35,6 +36,8 @@ pub enum Error {
     #[error("Failed to notify SystemD: {0}")]
     SystemD(#[from] std::io::Error),
 }
+
+impl Reject for Error {}
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum NextCloudError {
@@ -68,6 +71,8 @@ pub enum DatabaseError {
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum SelfTestError {
+    #[error("Invalid token")]
+    Token,
     #[error("Failed to test database access: {0}")]
     Database(#[from] DatabaseError),
     #[error("Failed to test redis access: {0}")]

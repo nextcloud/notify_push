@@ -2,7 +2,6 @@
  * SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
 use crate::config::{Bind, Config, TlsConfig};
 use crate::connection::{handle_user_socket, ActiveConnections, ConnectionOptions};
 pub use crate::error::Error;
@@ -36,7 +35,8 @@ use tokio::sync::{broadcast, oneshot};
 use tokio::time::sleep;
 use tokio_stream::wrappers::UnixListenerStream;
 use warp::filters::addr::remote;
-use warp::{Filter, Reply};
+use warp::reject::custom;
+use warp::{Filter, Rejection, Reply};
 use warp_real_ip::get_forwarded_for;
 
 pub mod config;
@@ -268,6 +268,7 @@ pub fn serve(
 
     let cookie_test = warp::path!("test" / "cookie")
         .and(app.clone())
+        .and(test_token(app.clone()))
         .map(|app: Arc<App>| {
             let cookie = app.test_cookie.load(Ordering::SeqCst);
             log::debug!("current test cookie is {cookie}");
@@ -276,8 +277,10 @@ pub fn serve(
 
     let reverse_cookie_test = warp::path!("test" / "reverse_cookie")
         .and(app.clone())
-        .and_then(|app: Arc<App>| async move {
-            let response = match app.nc_client.get_test_cookie().await {
+        .and(test_token(app.clone()))
+        .and(warp::header("token"))
+        .and_then(|app: Arc<App>, token: String| async move {
+            let response = match app.nc_client.get_test_cookie(&token).await {
                 Ok(cookie) => {
                     log::debug!("got remote test cookie {cookie}");
                     cookie.to_string()
@@ -293,6 +296,7 @@ pub fn serve(
 
     let mapping_test = warp::path!("test" / "mapping" / u32)
         .and(app.clone())
+        .and(test_token(app.clone()))
         .and_then(|storage_id: u32, app: Arc<App>| async move {
             let access = app
                 .storage_mapping
@@ -312,10 +316,12 @@ pub fn serve(
 
     let remote_test = warp::path!("test" / "remote" / IpAddr)
         .and(app.clone())
-        .and_then(|remote: IpAddr, app: Arc<App>| async move {
+        .and(test_token(app.clone()))
+        .and(warp::header("token"))
+        .and_then(|remote: IpAddr, app: Arc<App>, token: String| async move {
             let result = app
                 .nc_client
-                .test_set_remote(remote)
+                .test_set_remote(remote, &token)
                 .await
                 .map(|remote| remote.to_string())
                 .unwrap_or_else(|e| e.to_string());
@@ -325,7 +331,8 @@ pub fn serve(
 
     let version = warp::path!("test" / "version")
         .and(warp::post())
-        .and(app)
+        .and(app.clone())
+        .and(test_token(app))
         .and_then(|app: Arc<App>| async move {
             Result::<_, Infallible>::Ok(match app.redis.connect().await {
                 Ok(mut client) => {
@@ -450,4 +457,24 @@ pub async fn listen(app: Arc<App>) -> Result<()> {
 
     ping_handle.abort();
     Ok(())
+}
+
+fn test_token(
+    app: impl Filter<Extract = (Arc<App>,), Error = Infallible> + Clone,
+) -> impl Filter<Extract = (), Error = Rejection> + Clone {
+    app.and(warp::header("token"))
+        .and_then(|app: Arc<App>, token: String| async move {
+            validate_token(&app, &token).await.map_err(custom)
+        })
+        .untuple_one()
+}
+
+async fn validate_token(app: &App, token: &str) -> Result<()> {
+    let mut redis = app.redis.connect().await?;
+    let expected = redis.get("test-token").await?;
+    if !token.is_empty() && token == expected {
+        Ok(())
+    } else {
+        Err(SelfTestError::Token.into())
+    }
 }

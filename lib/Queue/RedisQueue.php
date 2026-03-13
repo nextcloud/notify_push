@@ -18,7 +18,8 @@ class RedisQueue implements IQueue {
 		$this->redis = $redis;
 	}
 
-	public function push(string $channel, $message) {
+	#[\Override]
+	public function push(string $channel, $message): void {
 		$this->redis->publish($channel, json_encode($message));
 	}
 
@@ -27,5 +28,15 @@ class RedisQueue implements IQueue {
 	 */
 	public function getConnection() {
 		return $this->redis;
+	}
+
+	#[\Override]
+	public function set(string $key, $value): void {
+		$this->redis->set($key, $value);
+	}
+
+	#[\Override]
+	public function get(string $key) {
+		return $this->redis->get($key);
 	}
 }
