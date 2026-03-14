@@ -27,7 +27,7 @@
       };
       lib = pkgs.lib;
 
-      hostTarget = pkgs.hostPlatform.config;
+      hostTarget = pkgs.stdenv.hostPlatform.config;
       targets = [
         "x86_64-unknown-linux-musl"
         "i686-unknown-linux-musl"

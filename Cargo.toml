@@ -29,7 +29,7 @@ rand = { version = "0.8.5", features = ["small_rng"] }
 ahash = "0.8.12"
 flexi_logger = { version = "0.31.8", features = ["colors"] }
 tokio-stream = { version = "0.1.17", features = ["net"] }
-nextcloud-config-parser = "0.15.1"
+nextcloud-config-parser = "0.15.2"
 url = "2.5.4"
 clap = { version = "4.5.43", features = ["derive"] }
 sd-notify = { version = "0.5.0", optional = true }
