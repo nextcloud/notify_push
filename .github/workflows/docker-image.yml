@@ -45,6 +45,12 @@ jobs:
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v4
 
+            - name: Lower case docker image name
+              id: image
+              uses: ASzc/change-string-case-action@v8
+              with:
+                  string: ${{ github.repository }}
+
             - name: Sanitize upstream tag
               if: inputs.upstream_tag != ''
               id: tag
@@ -69,7 +75,7 @@ jobs:
                   context: .
                   platforms: ${{ matrix.platform }}
                   labels: ${{ steps.meta.outputs.labels }}
-                  outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
+                  outputs: type=image,name=ghcr.io/${{ steps.image.outputs.lowercase }},push-by-digest=true,name-canonical=true,push=true
                   cache-from: type=gha,scope=${{ matrix.platform }}
                   cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
 
@@ -114,6 +120,12 @@ jobs:
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v4
 
+            - name: Lower case docker image name
+              id: image
+              uses: ASzc/change-string-case-action@v8
+              with:
+                  string: ${{ github.repository }}
+
             - name: Sanitize upstream tag
               if: inputs.upstream_tag != ''
               id: tag
@@ -146,7 +158,7 @@ jobs:
                     --annotation='index:org.opencontainers.image.created=${{ steps.timestamp.outputs.timestamp }}' \
                     --annotation='index:org.opencontainers.image.url=${{ github.event.repository.url }}' \
                     --annotation='index:org.opencontainers.image.source=${{ github.event.repository.url }}' \
-                    $(printf 'ghcr.io/${{ github.repository }}@sha256:%s ' *)
+                    $(printf 'ghcr.io/${{ steps.image.outputs.lowercase }}@sha256:%s ' *)
 
             - name: Create and push manifest (without annotations)
               if: steps.manifest.outcome == 'failure'
@@ -154,8 +166,8 @@ jobs:
               run: |
                   docker buildx imagetools create \
                     $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-                    $(printf 'ghcr.io/${{ github.repository }}@sha256:%s ' *)
+                    $(printf 'ghcr.io/${{ steps.image.outputs.lowercase }}@sha256:%s ' *)
 
             - name: Inspect manifest
               run: |
-                  docker buildx imagetools inspect 'ghcr.io/${{ github.repository }}:${{ steps.meta.outputs.version }}'
+                  docker buildx imagetools inspect 'ghcr.io/${{ steps.image.outputs.lowercase }}:${{ steps.meta.outputs.version }}'
