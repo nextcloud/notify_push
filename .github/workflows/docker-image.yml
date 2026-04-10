@@ -6,9 +6,9 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Version tag to use for the Docker image"
-        required: true
+      upstream_tag:
+        description: "Upstream tag of nextcloud/notify_push to build"
+        required: false
 
 jobs:
   build-and-push:
@@ -21,6 +21,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.upstream_tag && 'nextcloud/notify_push' || github.repository }}
+          ref: ${{ inputs.upstream_tag || github.ref_name }}
 
       - name: Log in to GitHub Packages
         uses: docker/login-action@v4
@@ -48,11 +51,16 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ghcr.io/${{ steps.docker_image.outputs.lowercase }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Build and push version tag
+        if: github.ref_type == 'tag' || inputs.upstream_tag != ''
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/${{ steps.docker_image.outputs.lowercase }}:${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          tags: ghcr.io/${{ steps.docker_image.outputs.lowercase }}:${{ inputs.upstream_tag || github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
