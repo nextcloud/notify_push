@@ -8,4 +8,21 @@ updates:
       interval: weekly
       day: tuesday
       time: "02:00"
+      timezone: Europe/Berlin
+    cooldown:
+      default-days: 10
     open-pull-requests-limit: 10
+
+  - package-ecosystem: composer
+    directories:
+      - "/vendor-bin/cs-fixer"
+      - "/vendor-bin/phpunit"
+      - "/vendor-bin/psalm"
+    versioning-strategy: "increase"
+    schedule:
+      interval: weekly
+      day: saturday
+      time: "03:00"
+      timezone: Europe/Berlin
+    cooldown:
+      default-days: 10
