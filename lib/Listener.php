@@ -22,6 +22,7 @@ use OCP\Notification\IApp;
 use OCP\Notification\IDismissableNotifier;
 use OCP\Notification\INotification;
 use OCP\Notification\INotifier;
+use OCP\Notification\UnknownNotificationException;
 use OCP\Share\Events\ShareCreatedEvent;
 use OCP\Share\IShare;
 
@@ -102,7 +103,7 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 	}
 
 	public function prepare(INotification $notification, string $languageCode): INotification {
-		throw new \InvalidArgumentException();
+		throw new UnknownNotificationException();
 	}
 
 	public function dismissNotification(INotification $notification): void {
