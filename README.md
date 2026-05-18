@@ -78,6 +78,14 @@ Type = notify
 User = www-data
 Restart = always
 RestartSec = 60
+ProtectSystem=full
+PrivateDevices=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_UNIX
+RestrictNamespaces=true
 
 [Install]
 WantedBy = multi-user.target
