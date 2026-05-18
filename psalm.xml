@@ -8,7 +8,7 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xmlns="https://getpsalm.org/schema/config"
 	xsi:schemaLocation="https://getpsalm.org/schema/config https://getpsalm.org/schema/config"
-	phpVersion="8.0"
+	phpVersion="8.1"
 >
 	<projectFiles>
 		<directory name="lib"/>
