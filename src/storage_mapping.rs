@@ -13,7 +13,8 @@ use log::debug;
 use rand::{thread_rng, Rng};
 use sqlx::any::AnyConnectOptions;
 use sqlx::{query_as, Any, AnyPool, FromRow};
-use std::{sync::RwLock, time::Instant};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 use tokio::time::Duration;
 
 #[derive(Debug, Clone, FromRow)]
@@ -27,7 +28,7 @@ pub struct UserStorageAccess {
 struct CachedAccess {
     access: Vec<UserStorageAccess>,
     valid_till: Instant,
-    updating: RwLock<bool>,
+    updating: AtomicBool,
 }
 
 impl CachedAccess {
@@ -37,18 +38,16 @@ impl CachedAccess {
             access,
             valid_till: Instant::now()
                 + Duration::from_millis(rng.gen_range((4 * 60 * 1000)..(5 * 60 * 1000))),
-            updating: RwLock::new(false),
+            updating: AtomicBool::new(false),
         }
     }
 
     pub fn is_valid(&self) -> bool {
-        self.valid_till > Instant::now() || self.updating.try_read().is_ok_and(|value| *value)
+        self.valid_till > Instant::now() || self.updating.load(Ordering::SeqCst)
     }
 
     pub fn prepare_update(&self, value: bool) {
-        if let Ok(mut updating) = self.updating.try_write() {
-            *updating = value
-        }
+        self.updating.store(value, Ordering::SeqCst);
     }
 }
 
