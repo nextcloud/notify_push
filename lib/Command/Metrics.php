@@ -51,6 +51,13 @@ class Metrics extends Base {
 					$output->writeln('<error>Invalid metrics received from push server</error>');
 					return 1;
 				}
+
+				// Output in the requested format if different from plain
+				if ($input->getOption('output') !== self::OUTPUT_FORMAT_PLAIN) {
+					$this->writeArrayInOutputFormat($input, $output, $metrics);
+					return 0;
+				}
+
 				$output->writeln('Active connection count: ' . $metrics['active_connection_count']);
 				$output->writeln('Active user count: ' . $metrics['active_user_count']);
 				$output->writeln('Total connection count: ' . $metrics['total_connection_count']);
