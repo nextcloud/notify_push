@@ -8,13 +8,13 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\Command;
 
+use OC\Core\Command\Base;
 use OCA\NotifyPush\Queue\IQueue;
 use OCA\NotifyPush\Queue\RedisQueue;
-use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class Metrics extends Command {
+class Metrics extends Base {
 	private $queue;
 
 	public function __construct(
