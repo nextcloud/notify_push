@@ -8,14 +8,14 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\Command;
 
+use OC\Core\Command\Base;
 use OCA\NotifyPush\Queue\IQueue;
-use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class Log extends Command {
+class Log extends Base {
 	private $queue;
 
 	public function __construct(
