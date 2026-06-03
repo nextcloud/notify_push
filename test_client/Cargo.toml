@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots", "url"] }
 serde_json = "1.0.142"
-ureq = "3.2.0"
+ureq = "3.3.0"
 flexi_logger = { version = "0.31.8", features = ["colors"] }
 log = "0.4.27"
 base64 = "0.22.1"
