@@ -21,6 +21,7 @@
 	</extraFiles>
 	<stubs>
 		<file name="tests/stub.phpstub" preloadClasses="true"/>
+		<file name="tests/stubs/oc_core_command_base.php" />
 		<file name="tests/stubs/symfony_component_console_command_command.php" />
 		<file name="tests/stubs/symfony_component_console_helper_table.php" />
 		<file name="tests/stubs/symfony_component_console_input_inputargument.php" />
