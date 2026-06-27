@@ -26,4 +26,4 @@ FROM scratch
 COPY --from=build /notify_push /
 EXPOSE 7867
 
-CMD ["/notify_push"]
+ENTRYPOINT ["/notify_push"]
