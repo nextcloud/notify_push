@@ -56,7 +56,7 @@ class SetupWizard {
 		$path = $this->getBinaryPath();
 		@chmod($path, 0755);
 		$output = [];
-		exec("$path --version", $output);
+		exec(escapeshellarg($path) . ' --version', $output);
 		return count($output) === 1 && strpos($output[0], 'notify_push') === 0;
 	}
 
@@ -113,7 +113,7 @@ class SetupWizard {
 			2 => ['pipe', 'w'],
 		];
 		$pipes = [];
-		$proc = proc_open("exec $path $config", $descriptorSpec, $pipes, null, [
+		$proc = proc_open('exec ' . escapeshellarg($path) . ' ' . escapeshellarg($config), $descriptorSpec, $pipes, null, [
 			'PORT' => 7867,
 			'ALLOW_SELF_SIGNED' => $selfSigned ? 'true' : 'false',
 			'LOG' => 'notify_push=info',
