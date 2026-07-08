@@ -83,6 +83,9 @@ pub struct Opt {
     /// Disable validating of certificates when connecting to the nextcloud instance
     #[clap(long)]
     pub allow_self_signed: bool,
+    /// The user agent to use when connecting to the nextcloud instance
+    #[clap(long)]
+    pub user_agent: Option<String>,
     /// The path to the nextcloud config file
     #[clap(name = "CONFIG_FILE")]
     pub config_file: Option<PathBuf>,
@@ -125,6 +128,7 @@ pub struct Config {
     pub log_level: String,
     pub bind: Bind,
     pub allow_self_signed: bool,
+    pub user_agent: Option<String>,
     pub no_ansi: bool,
     pub tls: Option<TlsConfig>,
     pub max_debounce_time: usize,
@@ -225,6 +229,7 @@ impl TryFrom<PartialConfig> for Config {
             log_level: config.log_level.unwrap_or_else(|| String::from("warn")),
             bind,
             allow_self_signed: config.allow_self_signed.unwrap_or(false),
+            user_agent: config.user_agent,
             no_ansi: config.no_ansi.unwrap_or(false),
             tls: config.tls,
             max_debounce_time: config.max_debounce_time.unwrap_or(15),
@@ -262,6 +267,7 @@ struct PartialConfig {
     pub socket: Option<PathBuf>,
     pub socket_permissions: Option<String>,
     pub allow_self_signed: Option<bool>,
+    pub user_agent: Option<String>,
     pub no_ansi: Option<bool>,
     pub tls: Option<TlsConfig>,
     pub max_debounce_time: Option<usize>,
@@ -288,6 +294,7 @@ impl PartialConfig {
         let socket = var("SOCKET_PATH").map(PathBuf::from).ok();
         let socket_permissions = var("SOCKET_PERMISSIONS").ok();
         let allow_self_signed = var("ALLOW_SELF_SIGNED").map(|val| val == "true").ok();
+        let user_agent = var("USER_AGENT").ok();
         let no_ansi = var("NO_ANSI").map(|val| val == "true").ok();
 
         let tls_cert = parse_var("TLS_CERT")?;
@@ -340,6 +347,7 @@ impl PartialConfig {
             socket,
             socket_permissions,
             allow_self_signed,
+            user_agent,
             no_ansi,
             tls,
             max_debounce_time,
@@ -431,6 +439,7 @@ impl PartialConfig {
             } else {
                 None
             },
+            user_agent: opt.user_agent,
             no_ansi: if opt.no_ansi { Some(true) } else { None },
             tls,
             max_debounce_time: opt.max_debounce_time,
@@ -456,6 +465,7 @@ impl PartialConfig {
             socket: self.socket.or(fallback.socket),
             socket_permissions: self.socket_permissions.or(fallback.socket_permissions),
             allow_self_signed: self.allow_self_signed.or(fallback.allow_self_signed),
+            user_agent: self.user_agent.or(fallback.user_agent),
             no_ansi: self.no_ansi.or(fallback.no_ansi),
             tls: self.tls.or(fallback.tls),
             max_debounce_time: self.max_debounce_time.or(fallback.max_debounce_time),

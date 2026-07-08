@@ -163,6 +163,7 @@ variables:
 - `DATABASE_PREFIX` database prefix configured in Nextcloud, e.g. `oc_`
 - `REDIS_URL` connection url for redis, e.g. `redis://redis_host`
 - `NEXTCLOUD_URL` url for the nextcloud instance, e.g. `https://cloud.example.com`
+- `USER_AGENT` user agent to send when connecting to the nextcloud instance, no `User-Agent` header is sent if unset
 
 Or you can specify the options as command line arguments, see `notify_push --help` for information about the command
 line arguments.

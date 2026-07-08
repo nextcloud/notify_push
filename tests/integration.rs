@@ -171,6 +171,7 @@ impl Services {
             log_level: "".to_string(),
             bind: Bind::Tcp(self.nextcloud),
             allow_self_signed: false,
+            user_agent: None,
             no_ansi: false,
             tls: None,
             max_debounce_time: 15,
