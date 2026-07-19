@@ -20,7 +20,7 @@ use sqlx::any::AnyConnectOptions;
 use std::convert::{TryFrom, TryInto};
 use std::env::var;
 use std::fmt::{Debug, Display, Formatter};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -83,6 +83,9 @@ pub struct Opt {
     /// Disable validating of certificates when connecting to the nextcloud instance
     #[clap(long)]
     pub allow_self_signed: bool,
+    /// The user agent to use when connecting to the nextcloud instance
+    #[clap(long)]
+    pub user_agent: Option<String>,
     /// The path to the nextcloud config file
     #[clap(name = "CONFIG_FILE")]
     pub config_file: Option<PathBuf>,
@@ -125,6 +128,7 @@ pub struct Config {
     pub log_level: String,
     pub bind: Bind,
     pub allow_self_signed: bool,
+    pub user_agent: Option<String>,
     pub no_ansi: bool,
     pub tls: Option<TlsConfig>,
     pub max_debounce_time: usize,
@@ -165,6 +169,15 @@ impl Display for Bind {
     }
 }
 
+fn default_addr() -> IpAddr {
+    let v6 = IpAddr::V6(Ipv6Addr::UNSPECIFIED);
+    if TcpListener::bind((v6, 0)).is_ok() {
+        v6
+    } else {
+        IpAddr::V4(Ipv4Addr::UNSPECIFIED)
+    }
+}
+
 impl TryFrom<PartialConfig> for Config {
     type Error = Error;
 
@@ -183,9 +196,7 @@ impl TryFrom<PartialConfig> for Config {
         let bind = match config.socket {
             Some(socket) => Bind::Unix(socket, socket_permissions),
             None => {
-                let ip = config
-                    .bind
-                    .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+                let ip = config.bind.unwrap_or_else(default_addr);
                 let port = config.port.unwrap_or(7867);
                 Bind::Tcp((ip, port).into())
             }
@@ -194,9 +205,7 @@ impl TryFrom<PartialConfig> for Config {
         let metrics_bind = match (config.metrics_socket, config.metrics_port) {
             (Some(socket), _) => Some(Bind::Unix(socket, socket_permissions)),
             (None, Some(port)) => {
-                let ip = config
-                    .bind
-                    .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+                let ip = config.bind.unwrap_or_else(default_addr);
                 Some(Bind::Tcp((ip, port).into()))
             }
             _ => None,
@@ -220,6 +229,7 @@ impl TryFrom<PartialConfig> for Config {
             log_level: config.log_level.unwrap_or_else(|| String::from("warn")),
             bind,
             allow_self_signed: config.allow_self_signed.unwrap_or(false),
+            user_agent: config.user_agent,
             no_ansi: config.no_ansi.unwrap_or(false),
             tls: config.tls,
             max_debounce_time: config.max_debounce_time.unwrap_or(15),
@@ -257,6 +267,7 @@ struct PartialConfig {
     pub socket: Option<PathBuf>,
     pub socket_permissions: Option<String>,
     pub allow_self_signed: Option<bool>,
+    pub user_agent: Option<String>,
     pub no_ansi: Option<bool>,
     pub tls: Option<TlsConfig>,
     pub max_debounce_time: Option<usize>,
@@ -283,6 +294,7 @@ impl PartialConfig {
         let socket = var("SOCKET_PATH").map(PathBuf::from).ok();
         let socket_permissions = var("SOCKET_PERMISSIONS").ok();
         let allow_self_signed = var("ALLOW_SELF_SIGNED").map(|val| val == "true").ok();
+        let user_agent = var("USER_AGENT").ok();
         let no_ansi = var("NO_ANSI").map(|val| val == "true").ok();
 
         let tls_cert = parse_var("TLS_CERT")?;
@@ -297,7 +309,7 @@ impl PartialConfig {
         let max_connection_time = parse_var("MAX_CONNECTION_TIME")?;
 
         let redis = redis.map(|redis| {
-            let addr = map_redis_addr(redis.addr);
+            let addr = map_redis_addr(redis.addr().clone());
 
             let accept_invalid_hostname = redis_tls_dont_validate_hostname
                 .filter(|b| *b != 0)
@@ -315,9 +327,9 @@ impl PartialConfig {
 
             RedisConfig::Single(RedisConnectionInfo {
                 addr,
-                db: redis.redis.db,
-                username: redis.redis.username,
-                password: redis.redis.password,
+                db: redis.redis_settings().db(),
+                username: redis.redis_settings().username().map(String::from),
+                password: redis.redis_settings().password().map(String::from),
                 tls_params,
             })
         });
@@ -335,6 +347,7 @@ impl PartialConfig {
             socket,
             socket_permissions,
             allow_self_signed,
+            user_agent,
             no_ansi,
             tls,
             max_debounce_time,
@@ -357,7 +370,7 @@ impl PartialConfig {
             0 => None,
             1 => {
                 let redis = opt.redis_url.into_iter().next().unwrap();
-                let addr = map_redis_addr(redis.addr);
+                let addr = map_redis_addr(redis.addr().clone());
 
                 let redis_tls = matches!(addr, RedisConnectionAddr::Tcp { tls: true, .. });
 
@@ -371,9 +384,9 @@ impl PartialConfig {
 
                 Some(RedisConfig::Single(RedisConnectionInfo {
                     addr,
-                    db: redis.redis.db,
-                    username: redis.redis.username,
-                    password: redis.redis.password,
+                    db: redis.redis_settings().db(),
+                    username: redis.redis_settings().username().map(String::from),
+                    password: redis.redis_settings().password().map(String::from),
                     tls_params,
                 }))
             }
@@ -381,7 +394,7 @@ impl PartialConfig {
                 let addr: Vec<_> = opt
                     .redis_url
                     .iter()
-                    .map(|redis| map_redis_addr(redis.addr.clone()))
+                    .map(|redis| map_redis_addr(redis.addr().clone()))
                     .collect();
 
                 let redis_tls = matches!(
@@ -397,12 +410,13 @@ impl PartialConfig {
                     insecure: opt.redis_tls_insecure,
                 });
 
-                let redis = opt.redis_url.into_iter().next().unwrap().redis;
+                let redis = opt.redis_url.into_iter().next().unwrap();
+                let redis = redis.redis_settings();
                 Some(RedisConfig::Cluster(RedisClusterConnectionInfo {
                     addr,
-                    db: redis.db,
-                    username: redis.username,
-                    password: redis.password,
+                    db: redis.db(),
+                    username: redis.username().map(String::from),
+                    password: redis.password().map(String::from),
                     tls_params,
                 }))
             }
@@ -425,6 +439,7 @@ impl PartialConfig {
             } else {
                 None
             },
+            user_agent: opt.user_agent,
             no_ansi: if opt.no_ansi { Some(true) } else { None },
             tls,
             max_debounce_time: opt.max_debounce_time,
@@ -450,6 +465,7 @@ impl PartialConfig {
             socket: self.socket.or(fallback.socket),
             socket_permissions: self.socket_permissions.or(fallback.socket_permissions),
             allow_self_signed: self.allow_self_signed.or(fallback.allow_self_signed),
+            user_agent: self.user_agent.or(fallback.user_agent),
             no_ansi: self.no_ansi.or(fallback.no_ansi),
             tls: self.tls.or(fallback.tls),
             max_debounce_time: self.max_debounce_time.or(fallback.max_debounce_time),
@@ -483,5 +499,6 @@ fn map_redis_addr(addr: ConnectionAddr) -> RedisConnectionAddr {
             tls: true,
         },
         ConnectionAddr::Unix(path) => RedisConnectionAddr::Unix { path },
+        _ => unreachable!("unknown redis address"),
     }
 }

@@ -79,6 +79,39 @@ User = www-data
 Restart = always
 RestartSec = 60
 
+# Optional security hardening
+CapabilityBoundingSet=
+DevicePolicy=closed
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateIPC=yes
+PrivateMounts=yes
+PrivateTmp=yes
+PrivateUsers=yes
+ProcSubset=pid
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=read-only
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=strict
+RemoveIPC=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SecureBits=noroot-locked
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallFilter=~@resources
+UMask=0077
+
 [Install]
 WantedBy = multi-user.target
 ```
@@ -130,6 +163,7 @@ variables:
 - `DATABASE_PREFIX` database prefix configured in Nextcloud, e.g. `oc_`
 - `REDIS_URL` connection url for redis, e.g. `redis://redis_host`
 - `NEXTCLOUD_URL` url for the nextcloud instance, e.g. `https://cloud.example.com`
+- `USER_AGENT` user agent to send when connecting to the nextcloud instance, no `User-Agent` header is sent if unset
 
 Or you can specify the options as command line arguments, see `notify_push --help` for information about the command
 line arguments.

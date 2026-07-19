@@ -10,11 +10,12 @@ namespace OCA\NotifyPush\Controller;
 
 use OC\AppFramework\Http\Request;
 use OCA\NotifyPush\Queue\IQueue;
-use OCA\NotifyPush\Queue\RedisQueue;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\AppFramework\Http\DataResponse;
+use OCP\AppFramework\Http\Response;
 use OCP\IAppConfig;
 use OCP\IRequest;
 
@@ -33,10 +34,17 @@ class TestController extends Controller {
 	 * @PublicPage
 	 * @NoCSRFRequired
 	 */
-	public function cookie(): DataResponse {
+	public function cookie(): Response {
 		// starting with 32, the app config does some internal caching
 		// that interferes with the quick set+get from this test.
 		$this->appConfig->clearCache();
+
+		$expected = $this->queue->get('test-token');
+		$token = $this->request->getHeader('token');
+		if ($expected !== $token) {
+			return new Response(Http::STATUS_FORBIDDEN);
+		}
+
 		return new DataResponse($this->appConfig->getValueInt('notify_push', 'cookie'));
 	}
 
@@ -45,12 +53,16 @@ class TestController extends Controller {
 	 * @PublicPage
 	 * @NoCSRFRequired
 	 */
-	public function remote(): DataDisplayResponse {
-		if ($this->queue instanceof RedisQueue) {
-			if ($this->request instanceof Request) {
-				$this->queue->getConnection()->set('notify_push_forwarded_header', $this->request->getHeader('x-forwarded-for'));
-				$this->queue->getConnection()->set('notify_push_remote', $this->request->server['REMOTE_ADDR']);
-			}
+	public function remote(): Response {
+		$expected = $this->queue->get('test-token');
+		$token = $this->request->getHeader('token');
+		if ($expected !== $token) {
+			return new Response(Http::STATUS_FORBIDDEN);
+		}
+
+		if ($this->request instanceof Request) {
+			$this->queue->set('notify_push_forwarded_header', $this->request->getHeader('x-forwarded-for'));
+			$this->queue->set('notify_push_remote', $this->request->server['REMOTE_ADDR']);
 		}
 		return new DataDisplayResponse($this->request->getRemoteAddress());
 	}
@@ -65,8 +77,6 @@ class TestController extends Controller {
 	 * @return void
 	 */
 	public function version(): void {
-		if ($this->queue instanceof RedisQueue) {
-			$this->queue->getConnection()->set('notify_push_app_version', $this->appManager->getAppVersion('notify_push'));
-		}
+		$this->queue->set('notify_push_app_version', $this->appManager->getAppVersion('notify_push'));
 	}
 }

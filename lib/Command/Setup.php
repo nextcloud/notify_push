@@ -8,14 +8,14 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\Command;
 
+use OC\Core\Command\Base;
 use OCA\NotifyPush\SetupWizard;
 use OCP\IConfig;
-use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class Setup extends Command {
+class Setup extends Base {
 	private $test;
 	private $config;
 	private $setupWizard;

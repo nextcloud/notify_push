@@ -6,7 +6,7 @@
 use crate::error::{AuthenticationError, NextCloudError};
 use crate::{Result, UserId};
 use reqwest::header::HeaderName;
-use reqwest::{Response, StatusCode, Url};
+use reqwest::{Certificate, Response, StatusCode, Url};
 use std::fmt::Write;
 use std::net::IpAddr;
 
@@ -18,11 +18,23 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(base_url: &str, allow_self_signed: bool) -> Result<Self, NextCloudError> {
+    pub fn new(
+        base_url: &str,
+        allow_self_signed: bool,
+        user_agent: Option<&str>,
+    ) -> Result<Self, NextCloudError> {
         let base_url = Url::parse(base_url)?;
-        let http = reqwest::Client::builder()
-            .danger_accept_invalid_certs(allow_self_signed)
-            .build()?;
+        let mut builder = reqwest::Client::builder()
+            .tls_certs_merge(
+                webpki_root_certs::TLS_SERVER_ROOT_CERTS
+                    .iter()
+                    .map(|root| Certificate::from_der(root).unwrap()),
+            )
+            .tls_danger_accept_invalid_certs(allow_self_signed);
+        if let Some(user_agent) = user_agent {
+            builder = builder.user_agent(user_agent);
+        }
+        let http = builder.build()?;
         Ok(Client { http, base_url })
     }
 
@@ -75,13 +87,14 @@ impl Client {
             .map_err(NextCloudError::NextcloudConnect)
     }
 
-    pub async fn get_test_cookie(&self) -> Result<u32, NextCloudError> {
+    pub async fn get_test_cookie(&self, token: &str) -> Result<u32, NextCloudError> {
         let response = self
             .http
             .get(
                 self.base_url
                     .join("index.php/apps/notify_push/test/cookie")?,
             )
+            .header(HeaderName::from_static("token"), token.to_string())
             .send()
             .await?;
         let status = response.status();
@@ -101,7 +114,11 @@ impl Client {
         }
     }
 
-    pub async fn test_set_remote(&self, addr: IpAddr) -> Result<IpAddr, NextCloudError> {
+    pub async fn test_set_remote(
+        &self,
+        addr: IpAddr,
+        token: &str,
+    ) -> Result<IpAddr, NextCloudError> {
         self.http
             .get(
                 self.base_url
@@ -109,6 +126,7 @@ impl Client {
                     .map_err(NextCloudError::from)?,
             )
             .header(&X_FORWARDED_FOR, addr.to_string())
+            .header(HeaderName::from_static("token"), token.to_string())
             .send()
             .await?
             .text()
