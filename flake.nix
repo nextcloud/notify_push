@@ -6,7 +6,6 @@
     naersk.inputs.nixpkgs.follows = "nixpkgs";
     rust-overlay.url = "github:oxalica/rust-overlay";
     rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
-    rust-overlay.inputs.flake-utils.follows = "utils";
     cross-naersk.url = "github:icewind1991/cross-naersk";
     cross-naersk.inputs.nixpkgs.follows = "nixpkgs";
     cross-naersk.inputs.naersk.follows = "naersk";
@@ -157,7 +156,7 @@
             ];
           };
           msrv = cross-naersk'.mkShell [ "x86_64-unknown-linux-gnu" ] {
-            nativeBuildInputs = with pkgs; [
+            nativeBuildInputs = [
               msrvToolchain
             ];
           };
