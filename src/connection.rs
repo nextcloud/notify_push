@@ -12,10 +12,11 @@ use crate::{App, UserId};
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
-use rand::{thread_rng, Rng, SeedableRng};
+use rand::rngs::SmallRng;
+use rand::RngExt;
 use std::net::IpAddr;
-use std::num::NonZeroUsize;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::num::NonZeroU32;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
@@ -127,18 +128,17 @@ pub async fn handle_user_socket(
     // when a pong is returned, we check it against the expected value and reset this to 0
     // If we get the wrong pong back, or the expected value hasn't been cleared
     // when we send the next ping, we close the connection
-    let expect_pong = AtomicUsize::default();
+    let expect_pong = AtomicU32::default();
     let expect_pong = &expect_pong;
 
     let transmit = async {
         // Use faster random generator for generating ping messages and time smearthey dont need to be
         // cryptographically secure.
-        let mut rng =
-            rand::rngs::SmallRng::from_rng(thread_rng()).expect("Failed to initialize rng");
+        let mut rng: SmallRng = rand::make_rng();
 
         // for each connection we randomize the max debounce time to remove the chance that many connections
         // get messages at the same time and cause load peaks
-        let debounce_factor = rng.gen_range(0.5..1.5);
+        let debounce_factor = rng.random_range(0.5..1.5);
         let mut send_queue = SendQueue::new(opts.max_debounce_time, debounce_factor);
 
         let mut reset = app.reset_rx();
@@ -174,7 +174,7 @@ pub async fn handle_user_socket(
                             }
 
                             if now.duration_since(last_send) > PING_INTERVAL {
-                                let data = rng.gen::<NonZeroUsize>().into();
+                                let data = rng.random::<NonZeroU32>().into();
                                 let last_ping = expect_pong.swap(data, Ordering::SeqCst);
                                 if last_ping > 0 {
                                     log::info!("{user_id} didn't reply to ping, closing");

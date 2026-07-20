@@ -7,11 +7,11 @@ authors = ["Robin Appelman <robin@icewind.nl>"]
 edition = "2018"
 
 [dependencies]
-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots", "url"] }
-serde_json = "1.0.142"
-ureq = "3.2.0"
-flexi_logger = { version = "0.31.8", features = ["colors"] }
-log = "0.4.27"
+tungstenite = { version = "0.30.0", features = ["rustls-tls-webpki-roots", "url"] }
+serde_json = "1.0.150"
+ureq = "3.3.0"
+flexi_logger = { version = "0.31.9", features = ["colors"] }
+log = "0.4.33"
 base64 = "0.22.1"
 miette = { version = "7.6.0", features = ["fancy"] }
-url = "2.5.4"
+url = "2.5.8"

@@ -10,9 +10,9 @@ use ahash::RandomState;
 use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use log::debug;
-use rand::{thread_rng, Rng};
+use rand::{rng, RngExt};
 use sqlx::any::AnyConnectOptions;
-use sqlx::{query_as, Any, AnyPool, FromRow};
+use sqlx::{Any, AnyPool, FromRow, QueryBuilder};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 use tokio::time::Duration;
@@ -33,11 +33,11 @@ struct CachedAccess {
 
 impl CachedAccess {
     pub fn new(access: Vec<UserStorageAccess>) -> Self {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         Self {
             access,
             valid_till: Instant::now()
-                + Duration::from_millis(rng.gen_range((4 * 60 * 1000)..(5 * 60 * 1000))),
+                + Duration::from_millis(rng.random_range((4 * 60 * 1000)..(5 * 60 * 1000))),
             updating: AtomicBool::new(false),
         }
     }
@@ -126,18 +126,21 @@ impl StorageMapping {
         storage: u32,
     ) -> Result<Vec<UserStorageAccess>, DatabaseError> {
         debug!("querying storage mapping for {storage}");
-        let users = query_as::<Any, UserStorageAccess>(&format!(
-            "\
-                SELECT user_id, path \
-                FROM {prefix}mounts \
-                INNER JOIN {prefix}filecache ON root_id = fileid \
-                WHERE storage_id = {storage}",
-            prefix = self.prefix,
-            storage = storage
-        ))
-        .fetch_all(&self.connection)
-        .await
-        .map_err(DatabaseError::Query)?;
+        let mut builder: QueryBuilder<Any> = QueryBuilder::new("SELECT user_id, path ");
+        // SQL safety: `self.prefix` is admin provided and thus trusted
+        builder.push(format_args!(
+            "FROM {prefix}mounts INNER JOIN {prefix}filecache ON root_id = fileid ",
+            prefix = self.prefix
+        ));
+        builder.push("WHERE storage_id = ");
+        // https://github.com/transact-rs/sqlx/issues/3000 prevents us from using `push_bind`
+        // SQL safety: `storage` is an integer and thus safe from sql injections
+        builder.push(format_args!("{}", storage));
+        let users = builder
+            .build_query_as::<UserStorageAccess>()
+            .fetch_all(&self.connection)
+            .await
+            .map_err(DatabaseError::Query)?;
         METRICS.add_mapping_query();
 
         debug!("got storage mappings for {storage}: {users:?}");
