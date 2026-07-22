@@ -20,7 +20,7 @@ class RedisQueue implements IQueue {
 
 	#[\Override]
 	public function push(string $channel, $message): void {
-		$this->redis->publish($channel, json_encode($message));
+		$this->redis->publish($this->redis->getDbNum() . '_' . $channel, json_encode($message));
 	}
 
 	/**
