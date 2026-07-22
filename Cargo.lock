@@ -446,6 +446,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "comma-separated"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ac26892eaac40bd0a28b3a1ea93da165ef30f8ffbc3ac6fea430daf7091de58"
+
+[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1006,8 +1012,23 @@ checksum = "06683b93020a07e3dbcf5f8c0f6d40080d725bea7936fc01ad345c01b97dc270"
 dependencies = [
  "base64 0.21.7",
  "bytes",
- "headers-core",
+ "headers-core 0.2.0",
  "http 0.2.12",
+ "httpdate",
+ "mime",
+ "sha1 0.10.7",
+]
+
+[[package]]
+name = "headers"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3314d5adb5d94bcdf56771f2e50dbbc80bb4bdf88967526706205ac9eff24eb"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "headers-core 0.3.0",
+ "http 1.4.2",
  "httpdate",
  "mime",
  "sha1 0.10.7",
@@ -1020,6 +1041,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7f66481bfee273957b1f20485a4ff3362987f85b2c236580d81b4eb7a326429"
 dependencies = [
  "http 0.2.12",
+]
+
+[[package]]
+name = "headers-core"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54b4a22553d4242c49fddb9ba998a99962b5cc6f22cb5a3482bec22522403ce4"
+dependencies = [
+ "http 1.4.2",
 ]
 
 [[package]]
@@ -1382,6 +1412,12 @@ name = "ipnet"
 version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d98f6fed1fde3f8c21bc40a1abb88dd75e67924f9cffc3ef95607bad8017f8e2"
+
+[[package]]
+name = "ipnetwork"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf370abdafd54d13e54a620e8c3e1145f28e46cc9d704bc6d94414559df41763"
 
 [[package]]
 name = "is_ci"
@@ -1754,7 +1790,7 @@ dependencies = [
  "tokio-stream",
  "tokio-tungstenite 0.30.0",
  "url",
- "warp",
+ "warp 0.3.7",
  "warp-real-ip",
  "webpki-root-certs",
 ]
@@ -3683,7 +3719,7 @@ dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
- "headers",
+ "headers 0.3.9",
  "http 0.2.12",
  "hyper 0.14.32",
  "log",
@@ -3706,13 +3742,42 @@ dependencies = [
 ]
 
 [[package]]
-name = "warp-real-ip"
-version = "0.2.0"
+name = "warp"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22f23ff9f07b19eab4161057a2378cede84d618d3553cb01fe2111bee684003b"
+checksum = "c0a808122a8a77eecdabaefd88ddb1913c4be5ea1465399f63ba64c7aa705fea"
 dependencies = [
+ "bytes",
+ "futures-util",
+ "headers 0.4.1",
+ "http 1.4.2",
+ "http-body 1.0.1",
+ "http-body-util",
+ "log",
+ "mime",
+ "mime_guess",
+ "percent-encoding",
+ "pin-project",
+ "scoped-tls",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "tokio",
+ "tokio-util",
+ "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "warp-real-ip"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2b2afe25fc2e89d95c329022ceee6cdee9dda99627c97f5b0e028111bf6fdfc"
+dependencies = [
+ "comma-separated",
+ "ipnetwork",
  "rfc7239",
- "warp",
+ "warp 0.4.3",
 ]
 
 [[package]]
