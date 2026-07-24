@@ -34,6 +34,8 @@ url = "2.5.8"
 clap = { version = "4.6.1", features = ["derive"] }
 sd-notify = { version = "0.5.0", optional = true }
 webpki-root-certs = "1.0.8"
+# https://github.com/transact-rs/sqlx/pull/4303 should be safe to remove after the next sqlx release
+whoami = { version = "2.0.2", features = ["std"], default-features = false }
 
 [dev-dependencies]
 mini-redis = "0.4.1"
