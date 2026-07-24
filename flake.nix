@@ -11,19 +11,20 @@
     cross-naersk.inputs.naersk.follows = "naersk";
   };
 
-  outputs =
-    {
-      self,
-      nixpkgs,
-      utils,
-      naersk,
-      rust-overlay,
-      cross-naersk,
-    }:
+  outputs = inputs @ {
+    self,
+    nixpkgs,
+    utils,
+    naersk,
+    rust-overlay,
+    cross-naersk,
+  }:
     utils.lib.eachDefaultSystem (
-      system:
-      let
-        overlays = [ (import rust-overlay) ];
+      system: let
+        overlays = [
+          (import rust-overlay)
+          (import ./nix/overlay.nix)
+        ];
         pkgs = import nixpkgs {
           inherit system overlays;
         };
@@ -68,15 +69,16 @@
           pname = "notify_push";
           inherit src;
         };
-        testClientOpts = nearskOpt // {
-          cargoBuildOptions =
-            x:
-            x
-            ++ [
-              "-p"
-              "test_client"
-            ];
-        };
+        testClientOpts =
+          nearskOpt
+          // {
+            cargoBuildOptions = x:
+              x
+              ++ [
+                "-p"
+                "test_client"
+              ];
+          };
         buildServer = target: (cross-naersk'.buildPackage target) nearskOpt;
         buildTestClient = target: (cross-naersk'.buildPackage target) testClientOpts;
         hostNaersk = cross-naersk'.hostNaersk;
@@ -89,39 +91,37 @@
 
         msrv = (fromTOML (readFile ./Cargo.toml)).package.rust-version;
         msrvToolchain = pkgs.rust-bin.stable."${msrv}".default;
-        naerskMsrv =
-          let
-            toolchain = msrvToolchain;
-          in
+        naerskMsrv = let
+          toolchain = msrvToolchain;
+        in
           pkgs.callPackage naersk {
             cargo = toolchain;
             rustc = toolchain;
           };
 
         testClientArtifactForTarget = target: "test_client${execSufficForTarget target}";
-
-      in
-      rec {
+      in {
         # `nix build`
         packages =
           # cross compile notify_push for all targets
           (genAttrs targets buildServer)
           //
-            # cross compile build test_client for all test_client-targets
-            (listToAttrs (
-              map (target: nameValuePair "test_client-${target}" (buildTestClient target)) clientTargets
-            ))
+          # cross compile build test_client for all test_client-targets
+          (listToAttrs (
+            map (target: nameValuePair "test_client-${target}" (buildTestClient target)) clientTargets
+          ))
           //
-            # check,test,clippy for notify_push
-            (genAttrs checks (mode: hostNaersk.buildPackage (nearskOpt // { inherit mode; })))
+          # check,test,clippy for notify_push
+          (genAttrs checks (mode: hostNaersk.buildPackage (nearskOpt // {inherit mode;})))
           //
-            # check,test,clippy for test_client
-            (listToAttrs (
-              map (
-                mode:
-                nameValuePair "test_client-${mode}" (hostNaersk.buildPackage (testClientOpts // { inherit mode; }))
-              ) checks
-            ))
+          # check,test,clippy for test_client
+          (listToAttrs (
+            map (
+              mode:
+                nameValuePair "test_client-${mode}" (hostNaersk.buildPackage (testClientOpts // {inherit mode;}))
+            )
+            checks
+          ))
           // rec {
             notify_push = hostNaersk.buildPackage nearskOpt;
             test_client = hostNaersk.buildPackage testClientOpts;
@@ -132,20 +132,31 @@
               }
             );
             default = notify_push;
+            nixPkgs = pkgs.nextcloud-notify_push;
           };
 
         inherit targets clientTargets;
         testClientMatrix = {
-          include = map (target: {
-            inherit target;
-            extension = execSufficForTarget target;
-          }) clientTargets;
+          include =
+            map (target: {
+              inherit target;
+              extension = execSufficForTarget target;
+            })
+            clientTargets;
+        };
+
+        checks = {
+          nixosTest = pkgs.nextcloud-notify_push.tests.with-postgresql-and-redis34.extendNixOS {
+            module = {
+              services.nextcloud.notify_push.package = hostNaersk.buildPackage nearskOpt;
+            };
+          };
         };
 
         devShells = {
-          default = cross-naersk'.mkShell [ "x86_64-unknown-linux-gnu" ] {
+          default = cross-naersk'.mkShell ["x86_64-unknown-linux-gnu"] {
             nativeBuildInputs = with pkgs; [
-              (rust-bin.stable.latest.default.override { targets = targets ++ [ hostTarget ]; })
+              (rust-bin.stable.latest.default.override {targets = targets ++ [hostTarget];})
               krankerl
               cargo-edit
               cargo-outdated
@@ -155,7 +166,7 @@
               phpPackages.composer
             ];
           };
-          msrv = cross-naersk'.mkShell [ "x86_64-unknown-linux-gnu" ] {
+          msrv = cross-naersk'.mkShell ["x86_64-unknown-linux-gnu"] {
             nativeBuildInputs = [
               msrvToolchain
             ];
