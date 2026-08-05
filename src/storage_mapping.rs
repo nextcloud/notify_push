@@ -78,24 +78,28 @@ impl StorageMapping {
         &self,
         storage: u32,
     ) -> Result<Ref<'_, u32, CachedAccess>, DatabaseError> {
+        // Note: the `Ref` handed out by `DashMap::get` is a read guard on the map shard, and
+        // taking the write lock for `insert` blocks the calling *thread*, not just the task.
+        // Holding the guard across the `.await` below therefore parks any runtime worker that
+        // tries to insert into the same shard while this query is in flight; if that starves
+        // the runtime, nothing polls the reactor, the query never completes and the guard is
+        // never released. Keep every guard in this function strictly await-free.
         if let Some(cached) = self.cache.get(&storage) {
             if cached.is_valid() {
                 return Ok(cached);
             }
 
             cached.prepare_update(true);
-            let users = self
-                .load_storage_mapping(storage)
-                .await
-                .inspect_err(|_| cached.prepare_update(false))?;
-
-            drop(cached);
-            let cached = CachedAccess::new(users);
-            self.cache.insert(storage, cached);
-            return Ok(self.cache.get(&storage).unwrap());
         }
 
-        let users = self.load_storage_mapping(storage).await?;
+        let users = self
+            .load_storage_mapping(storage)
+            .await
+            .inspect_err(|_| {
+                if let Some(cached) = self.cache.get(&storage) {
+                    cached.prepare_update(false);
+                }
+            })?;
 
         self.cache.insert(storage, CachedAccess::new(users));
         Ok(self.cache.get(&storage).unwrap())
