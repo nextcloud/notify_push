@@ -42,7 +42,7 @@ class Setup extends Base {
 		parent::configure();
 	}
 
-	protected function execute(InputInterface $input, OutputInterface $output) {
+	protected function execute(InputInterface $input, OutputInterface $output): int {
 		$server = $input->getArgument('server');
 		if ($server) {
 			$result = $this->test->test($server, $output);

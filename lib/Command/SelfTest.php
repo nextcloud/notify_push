@@ -37,7 +37,7 @@ class SelfTest extends Base {
 		parent::configure();
 	}
 
-	protected function execute(InputInterface $input, OutputInterface $output) {
+	protected function execute(InputInterface $input, OutputInterface $output): int {
 		$server = $this->config->getAppValue('notify_push', 'base_endpoint', '');
 		if (!$server) {
 			$output->writeln('<error>🗴 no push server configured</error>');
