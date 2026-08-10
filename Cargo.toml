@@ -51,7 +51,7 @@ tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread", "signal"]
 tokio-stream = { version = "0.1.18", features = ["net"] }
 url = "2.5.8"
 warp = { version = "0.3.7", features = ["tls"] }
-warp-real-ip = "0.2.0"
+warp-real-ip = "0.3.0"
 webpki-root-certs = "1.0.8"
 # https://github.com/transact-rs/sqlx/pull/4303 should be safe to remove after the next sqlx release
 whoami = { version = "2.0.2", default-features = false, features = ["std"] }
