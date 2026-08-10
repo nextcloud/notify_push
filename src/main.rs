@@ -19,6 +19,9 @@ use tokio::sync::oneshot;
 use tokio::task::spawn;
 
 fn main() -> Result<()> {
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("Failed to setup TLS crypto provider");
     miette::set_panic_hook();
     sqlx::any::install_default_drivers();
     let _ = dotenvy::dotenv();

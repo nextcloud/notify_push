@@ -2,58 +2,75 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 [package]
 name = "notify_push"
-version = "0.1.0" # this version number is unused, the version number for the binary will be extracted from the appinfo/info.xml during build
+version = "0.1.0"  # this version number is unused, the version number for the binary will be extracted from the appinfo/info.xml during build
 authors = ["Robin Appelman <robin@icewind.nl>"]
 edition = "2021"
 rust-version = "1.94.0"
 
+[workspace]
+
 [dependencies]
-redis = { version = "1.3.0", default-features = false, features = ["tokio-comp", "aio", "cluster", "cluster-async", "tls-rustls", "tokio-rustls-comp", "tls-rustls-webpki-roots", "tls-rustls-insecure"] }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.150"
-thiserror = "2.0.18"
-warp = { version = "0.3.7", features = ["tls"] }
-tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread", "signal"] }
+ahash = "0.8.12"
+clap = { version = "4.6.1", features = ["derive"] }
+dashmap = "6.2.1"
+dotenvy = "0.15.7"
+flexi_logger = { version = "0.31.9", features = ["colors"] }
 futures = "0.3.32"
 log = "0.4.33"
-sqlx = { version = "0.9.0", features = ["runtime-tokio", "tls-rustls-aws-lc-rs", "any", "mysql", "sqlite", "postgres"] }
-dotenvy = "0.15.7"
-dashmap = "6.2.1"
-once_cell = "1.21.4"
 miette = { version = "7.6.0", features = ["fancy"] }
-smallvec = { version = "1.15.2", features = ["serde"] }
-reqwest = { version = "0.13.4", features = ["json"] }
-warp-real-ip = "0.2.0"
+nextcloud-config-parser = "0.15.3"
+once_cell = "1.21.4"
 parse-display = "0.11.0"
 rand = { version = "0.10.2", features = ["thread_rng"] }
-ahash = "0.8.12"
-flexi_logger = { version = "0.31.9", features = ["colors"] }
-tokio-stream = { version = "0.1.18", features = ["net"] }
-nextcloud-config-parser = "0.15.3"
-url = "2.5.8"
-clap = { version = "4.6.1", features = ["derive"] }
+redis = { version = "1.3.0", default-features = false, features = [
+  "aio",
+  "cluster",
+  "cluster-async",
+  "tls-rustls",
+  "tls-rustls-insecure",
+  "tls-rustls-webpki-roots",
+  "tokio-comp",
+  "tokio-rustls-comp"
+] }
+reqwest = { version = "0.13.4", features = ["json"] }
+rustls = { version = "0.23.43", default-features = false }
 sd-notify = { version = "0.5.0", optional = true }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+smallvec = { version = "1.15.2", features = ["serde"] }
+sqlx = { version = "0.9.0", features = [
+  "any",
+  "mysql",
+  "postgres",
+  "runtime-tokio",
+  "sqlite",
+  "tls-rustls-aws-lc-rs"
+] }
+thiserror = "2.0.18"
+tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread", "signal"] }
+tokio-stream = { version = "0.1.18", features = ["net"] }
+url = "2.5.8"
+warp = { version = "0.3.7", features = ["tls"] }
+warp-real-ip = "0.2.0"
 webpki-root-certs = "1.0.8"
 # https://github.com/transact-rs/sqlx/pull/4303 should be safe to remove after the next sqlx release
-whoami = { version = "2.0.2", features = ["std"], default-features = false }
+whoami = { version = "2.0.2", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-mini-redis = "0.4.1"
-tokio-tungstenite = "0.30.0"
 http-auth-basic = "0.3.7"
+mini-redis = "0.4.1"
 test_client = { path = "test_client" }
+tokio-tungstenite = "0.30.0"
 
 [build-dependencies]
 nextcloud_appinfo = "0.6.0"
+
+[features]
+default = ["systemd"]
+systemd = ["dep:sd-notify"]
 
 [profile.dev.package.backtrace]
 opt-level = 3
 
 [profile.release]
 lto = true
-
-[workspace]
-
-[features]
-default = ["systemd"]
-systemd = ["dep:sd-notify"]
