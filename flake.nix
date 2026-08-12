@@ -148,7 +148,30 @@
         checks = {
           nixosTest = pkgs.nextcloud-notify_push.tests.with-postgresql-and-redis34.extendNixOS {
             module = {
-              services.nextcloud.notify_push.package = hostNaersk.buildPackage nearskOpt;
+              services.nextcloud = {
+                notify_push.package = hostNaersk.buildPackage nearskOpt;
+                extraApps.notify_push = lib.mkForce (pkgs.stdenvNoCC.mkDerivation {
+                  pname = "notify_push";
+                  version = "develop";
+                  src = lib.sources.sourceByRegex (lib.cleanSource ./.) [
+                    "(appinfo|lib|img)(/.*)?"
+                  ];
+
+                  phases = [
+                    "unpackPhase"
+                    "installPhase"
+                  ];
+
+                  installPhase = "cp -R ./ $out";
+
+                  meta = {
+                    license = "agpl3Plus";
+                    homepage = "https://github.com/nextcloud/notify_push";
+                    url = "https://github.com/nextcloud-releases/notify_push";
+                    description = "Push update support for desktop app";
+                  };
+                });
+              };
             };
           };
         };
