@@ -472,6 +472,100 @@ async fn test_pre_auth() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_anonymous_session() {
+    let services = Services::new().await;
+
+    let server_handle = services.spawn_server().await;
+
+    sleep(Duration::from_millis(500)).await;
+
+    let mut redis = services.redis_client().await;
+    redis
+        .publish::<_, _, ()>(
+            "notify_pre_auth",
+            r#"{"session":"myapp:session1", "token": "token"}"#,
+        )
+        .await
+        .unwrap();
+
+    sleep(Duration::from_millis(100)).await;
+
+    let mut client = server_handle.connect_auth("", "token").await;
+
+    redis
+        .publish::<_, _, ()>(
+            "notify_custom",
+            r#"{"session":"myapp:session1", "message":"my_custom_message", "body": {"foo": "bar"}}"#,
+        )
+        .await
+        .unwrap();
+
+    assert_next_message(&mut client, r#"my_custom_message {"foo":"bar"}"#).await;
+
+    // messages for a different session don't get delivered
+    redis
+        .publish::<_, _, ()>(
+            "notify_custom",
+            r#"{"session":"myapp:session2", "message":"my_custom_message"}"#,
+        )
+        .await
+        .unwrap();
+
+    assert_no_message(&mut client).await;
+}
+
+/// An anonymous session must never share the identity of a user with the same id
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_anonymous_session_isolated_from_user() {
+    let services = Services::new().await;
+    services.add_user("foo", "bar");
+
+    let server_handle = services.spawn_server().await;
+
+    sleep(Duration::from_millis(500)).await;
+
+    let mut redis = services.redis_client().await;
+    redis
+        .publish::<_, _, ()>("notify_pre_auth", r#"{"session":"foo", "token": "token"}"#)
+        .await
+        .unwrap();
+
+    sleep(Duration::from_millis(100)).await;
+
+    let mut anonymous_client = server_handle.connect_auth("", "token").await;
+    let mut user_client = server_handle.connect_auth("foo", "bar").await;
+
+    // events for the user don't leak into the session with the same id
+    redis
+        .publish::<_, _, ()>("notify_activity", r#"{"user":"foo"}"#)
+        .await
+        .unwrap();
+    redis
+        .publish::<_, _, ()>(
+            "notify_custom",
+            r#"{"user":"foo", "message":"for_the_user"}"#,
+        )
+        .await
+        .unwrap();
+
+    assert_next_message(&mut user_client, "notify_activity").await;
+    assert_next_message(&mut user_client, "for_the_user").await;
+    assert_no_message(&mut anonymous_client).await;
+
+    // and the other way around
+    redis
+        .publish::<_, _, ()>(
+            "notify_custom",
+            r#"{"session":"foo", "message":"for_the_session"}"#,
+        )
+        .await
+        .unwrap();
+
+    assert_next_message(&mut anonymous_client, "for_the_session").await;
+    assert_no_message(&mut user_client).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_notify_notification() {
     let services = Services::new().await;
     services.add_user("foo", "bar");
