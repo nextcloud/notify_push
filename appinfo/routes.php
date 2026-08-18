@@ -32,5 +32,10 @@ return [
 			'name' => 'Auth#getUid',
 			'url' => '/uid',
 		],
+		[
+			'name' => 'AnonymousAuth#preAuth',
+			'url' => '/anon_pre_auth',
+			'verb' => 'POST',
+		],
 	],
 ];

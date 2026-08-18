@@ -108,7 +108,7 @@ You can send custom events from a nextcloud app using the methods provided by `O
 
 ```php
 // in a real app, you'll want to setup DI to get an instance of `IQueue`
-$queue = \OC::$server->get(OCA\NotifyPush\IQueue::class);
+$queue = \OCP\Server::get(OCA\NotifyPush\Queue\IQueue::class);
 $queue->push('notify_custom', [
 	'user' => "uid",
 	'message' => "my_message_type",
@@ -126,6 +126,105 @@ listen('my_message_type', (message_type, optional_body) => {
 
 })
 ```
+
+## Anonymous sessions
+
+Sometimes you want to push messages to a client that doesn't have a user session, such as a visitor of a public share
+or a device that is still going through some kind of pairing flow.
+
+For these cases your app can create an "anonymous session". Creating a session gives you two values:
+
+- an **id**, which your app keeps server side and uses to address the session
+- a **token**, which you hand to the client and which the client uses to connect to the push server
+
+Anonymous sessions live in a separate namespace from users, an anonymous session can never receive the messages of a
+user (or of another session) and only receives the messages your app explicitly sends to it. In particular it does
+*not* receive any of the built in `notify_file`, `notify_activity` or `notify_notification` messages.
+
+### Creating a session
+
+```php
+// in a real app, you'll want to setup DI to get an instance of `IAnonymousSessionManager`
+$sessionManager = \OCP\Server::get(OCA\NotifyPush\IAnonymousSessionManager::class);
+
+$session = $sessionManager->createSession('myapp');
+
+$session->getId();         // "myapp:xIhK1i..." keep this, you need it to send messages
+$session->getToken();      // "eyJpZCI6..." hand this to the client
+$session->getExpiration(); // unix timestamp after which the client can no longer connect
+```
+
+Sessions are not stored server side, the id and expiration date are encoded in the token itself and signed with an
+instance wide key. This means the client can keep reconnecting with the same token until it expires, but also that an
+individual session can not be revoked before it expires. Because of that the lifetime is kept short: the `ttl` (second
+argument of `createSession`) is one hour by default and can not be more than 24 hours.
+
+If a client needs to keep listening for longer than that, issue it a new token for the same session instead of
+creating a new session, so the id your app stored stays valid:
+
+```php
+$session = $sessionManager->renewToken($sessionId);
+```
+
+The previous token is not invalidated by this, it keeps working until it expires on its own.
+
+### Sending messages to a session
+
+```php
+$sessionManager->send($sessionId, 'my_message_type', ['foo' => 'bar']);
+```
+
+Which is delivered to the client exactly like a custom event for a user, as `'my_message_type {"foo":"bar"}'`.
+
+Messages sent while no client is connected with the session are dropped, there is no buffering.
+
+Session ids are prefixed with the id of the app that created them to keep apps from accidentally addressing each
+others sessions. Note that this is a convention and not a security boundary, every app on the server can push to the
+message queue directly and therefore to any session. Don't send data over a session of another app, and don't rely on
+other apps not being able to send to yours.
+
+### Connecting from the client
+
+The client only needs the token, everything else is discovered from the capabilities. Note that the
+`ocs/v2.php/cloud/capabilities` request can be made without authentication.
+
+- Get the `websocket` and `anon_pre_auth` endpoints from the ocs capabilities request
+- `POST` the token to the `anon_pre_auth` endpoint as `token`, a short lived pre-authentication token is returned
+- Open the websocket
+- Send an empty string as username over the websocket
+- Send the pre-authentication token as password
+- On disconnect, request a new pre-authentication token and connect again
+
+```javascript
+async function connect(nextcloud_url, session_token) {
+    let capabilities = await fetch(`${nextcloud_url}/ocs/v2.php/cloud/capabilities`, {
+        headers: {'Accept': 'application/json', 'OCS-APIREQUEST': 'true'},
+    })
+        .then(response => response.json())
+        .then(json => json.ocs.data.capabilities.notify_push);
+
+    let body = new FormData();
+    body.set('token', session_token);
+    let response = await fetch(capabilities.endpoints.anon_pre_auth, {method: 'POST', body});
+    if (!response.ok) {
+        throw new Error('session token is no longer valid');
+    }
+    let pre_auth_token = await response.text();
+
+    let ws = new WebSocket(capabilities.endpoints.websocket);
+    ws.onopen = () => {
+        ws.send("");
+        ws.send(pre_auth_token);
+    };
+    ws.onmessage = (msg) => {
+        console.log(msg.data);
+    };
+    return ws;
+}
+```
+
+The pre-authentication token is single use and only valid for 15 seconds, so it has to be requested again for every
+(re)connect. The session token itself stays valid until it expires.
 
 ## Building
 

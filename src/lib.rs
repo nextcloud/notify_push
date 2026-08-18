@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use crate::config::{Bind, Config, TlsConfig};
-use crate::connection::{handle_user_socket, ActiveConnections, ConnectionOptions};
+use crate::connection::{
+    handle_user_socket, ActiveConnections, ConnectionOptions, PRE_AUTH_VALIDITY,
+};
 pub use crate::error::Error;
 use crate::error::{SelfTestError, SocketError};
 use crate::event::{
@@ -52,6 +54,9 @@ pub mod storage_mapping;
 pub mod user;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
+
+/// Number of outstanding pre-auth tokens after which expired tokens get cleaned up
+const PRE_AUTH_CLEANUP_THRESHOLD: usize = 1024;
 
 pub struct App {
     connections: ActiveConnections,
@@ -191,16 +196,22 @@ impl App {
                 self.connections
                     .send_to_user(&user, PushMessage::Notification);
             }
-            Event::PreAuth(PreAuth { user, token }) => {
-                self.pre_auth.insert(token, (Instant::now(), user));
+            Event::PreAuth(PreAuth { target, token }) => {
+                // tokens are normally cleaned up when a socket authenticates, requested tokens
+                // that are never used would linger, so clean up once the map starts growing
+                if self.pre_auth.len() > PRE_AUTH_CLEANUP_THRESHOLD {
+                    let cutoff = Instant::now() - PRE_AUTH_VALIDITY;
+                    self.pre_auth.retain(|_, (time, _)| *time > cutoff);
+                }
+                self.pre_auth.insert(token, (Instant::now(), target.id()));
             }
             Event::Custom(Custom {
-                user,
+                target,
                 message,
                 body,
             }) => {
                 self.connections
-                    .send_to_user(&user, PushMessage::Custom(message, body));
+                    .send_to_user(&target.id(), PushMessage::Custom(message, body));
             }
             Event::Config(event::Config::LogSpec(spec)) => {
                 match self.log_handle.lock().await.parse_and_push_temp_spec(&spec) {

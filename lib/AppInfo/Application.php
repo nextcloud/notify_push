@@ -8,8 +8,10 @@ declare(strict_types=1);
 
 namespace OCA\NotifyPush\AppInfo;
 
+use OCA\NotifyPush\AnonymousSessionManager;
 use OCA\NotifyPush\Capabilities;
 use OCA\NotifyPush\CSPListener;
+use OCA\NotifyPush\IAnonymousSessionManager;
 use OCA\NotifyPush\Listener;
 use OCA\NotifyPush\Queue\IQueue;
 use OCA\NotifyPush\Queue\NullQueue;
@@ -39,6 +41,8 @@ class Application extends App implements IBootstrap {
 
 	public function register(IRegistrationContext $context): void {
 		$context->registerCapability(Capabilities::class);
+
+		$context->registerServiceAlias(IAnonymousSessionManager::class, AnonymousSessionManager::class);
 
 		$context->registerService(IQueue::class, function (ContainerInterface $c) {
 			/** @var PushRedisFactory $factory */
