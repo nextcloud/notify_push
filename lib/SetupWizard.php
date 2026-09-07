@@ -147,27 +147,17 @@ class SetupWizard {
 	}
 
 	public static function toHttps(string $url): string {
-		// the scheme is case insensitive, the rest of the url is not
-		$scheme = strtolower($url);
-		if (str_starts_with($scheme, 'https://')) {
-			return $url;
-		}
-		if (str_starts_with($scheme, 'http://')) {
-			return 'https://' . substr($url, strlen('http://'));
-		}
-		if (str_starts_with($url, '//')) {
-			return 'https:' . $url;
-		}
-		return 'https://' . $url;
+		// replaces the scheme if there is one, adds it if there is not
+		return (string)preg_replace('#^(https?://|//)?#i', 'https://', $url, 1);
 	}
 
 	private function getBaseUrl(): string {
 		$base = $this->config->getSystemValueString('overwrite.cli.url', '');
-		if ($base === '' || str_starts_with($base, 'https://')) {
+		$httpsBase = self::toHttps($base);
+		if ($base === '' || $httpsBase === $base) {
 			return $base;
 		}
 
-		$httpsBase = self::toHttps($base);
 		if (!isset($this->httpsCache[$httpsBase])) {
 			try {
 				$this->client->get($httpsBase, ['nextcloud' => ['allow_local_address' => true], 'verify' => false]);

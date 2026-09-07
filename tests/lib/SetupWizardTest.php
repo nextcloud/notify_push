@@ -22,7 +22,7 @@ class SetupWizardTest extends TestCase {
 			['cloud.example.com', 'https://cloud.example.com'],
 			// the scheme is case insensitive
 			['HTTP://push.example.com', 'https://push.example.com'],
-			['HTTPS://push.example.com', 'HTTPS://push.example.com'],
+			['HTTPS://push.example.com', 'https://push.example.com'],
 			// protocol relative already carries its own separator
 			['//push.example.com', 'https://push.example.com'],
 		];
