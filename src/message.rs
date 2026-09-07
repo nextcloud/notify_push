@@ -125,6 +125,9 @@ pub static DEBOUNCE_ENABLE: AtomicBool = AtomicBool::new(true);
 
 #[derive(Clone, Debug)]
 struct SendQueueItem {
+    /// when the currently held message was first queued
+    queued: Instant,
+    /// when the currently held message was last updated
     received: Instant,
     sent: Instant,
     message: Option<PushMessage>,
@@ -133,6 +136,7 @@ struct SendQueueItem {
 impl Default for SendQueueItem {
     fn default() -> Self {
         SendQueueItem {
+            queued: Instant::now() - Duration::from_secs(120),
             received: Instant::now() - Duration::from_secs(120),
             sent: Instant::now() - Duration::from_secs(120),
             message: None,
@@ -177,6 +181,7 @@ impl SendQueue {
             None => return Some(message),
         };
 
+        let first = item.message.is_none();
         match &mut item.message {
             Some(queued) => {
                 queued.merge(&message);
@@ -185,6 +190,9 @@ impl SendQueue {
                 *opt = Some(message);
             }
         };
+        if first {
+            item.queued = time;
+        }
         item.received = time;
 
         None
@@ -203,13 +211,17 @@ impl SendQueue {
                 max_debounce_time,
                 debounce_factor,
             );
-            if now.duration_since(item.sent) > debounce_time {
-                if now.duration_since(item.received) > Duration::from_millis(100) {
-                    item.sent = now;
-                    item.message.take()
-                } else {
-                    None
-                }
+            if now.duration_since(item.sent) <= debounce_time {
+                return None;
+            }
+            // hold a burst back briefly so related updates end up in a single message,
+            // but never longer than the debounce time itself: under a continuous stream
+            // of updates the message would otherwise never be sent at all
+            let burst_settled = now.duration_since(item.received) > Duration::from_millis(100);
+            let waited_full_debounce = now.duration_since(item.queued) > debounce_time;
+            if burst_settled || waited_full_debounce {
+                item.sent = now;
+                item.message.take()
             } else {
                 None
             }
@@ -346,5 +358,32 @@ fn test_send_queue_1() {
         queue
             .drain(base_time + Duration::from_secs(5), 1)
             .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_send_queue_sustained_updates() {
+    // a user whose storages are being written to continuously (a bulk upload, a busy
+    // groupfolder) receives an event more often than the drain interval.
+    // the queue must still hand out a message within the debounce window.
+    let base_time = Instant::now();
+    let mut queue = SendQueue::new(15, 1.0);
+
+    let mut sent = Vec::new();
+    // 30 seconds of updates arriving every 50ms, drained on the 500ms tick
+    for step in 0..600 {
+        let now = base_time + Duration::from_millis(step * 50);
+        queue.push(
+            PushMessage::File(UpdatedFiles::Known(vec![step].into())),
+            now,
+        );
+        if step % 10 == 0 {
+            sent.extend(queue.drain(now, 1));
+        }
+    }
+
+    assert!(
+        !sent.is_empty(),
+        "no message was sent during 30s of sustained updates"
     );
 }
