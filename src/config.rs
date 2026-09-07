@@ -17,12 +17,15 @@ use nextcloud_config_parser::{
 };
 use redis::{ConnectionAddr, ConnectionInfo};
 use sqlx::any::AnyConnectOptions;
+use sqlx::ConnectOptions;
 use std::convert::{TryFrom, TryInto};
 use std::env::var;
 use std::fmt::{Debug, Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+
+const REDACTED: &str = "<redacted>";
 
 fn styles() -> Styles {
     Styles::styled()
@@ -118,7 +121,6 @@ pub struct Opt {
     pub max_connection_time: Option<usize>,
 }
 
-#[derive(Debug)]
 pub struct Config {
     pub database: AnyConnectOptions,
     pub database_prefix: String,
@@ -133,6 +135,65 @@ pub struct Config {
     pub tls: Option<TlsConfig>,
     pub max_debounce_time: usize,
     pub max_connection_time: usize,
+}
+
+/// Formats a database url without its password
+struct RedactedDatabase<'a>(&'a AnyConnectOptions);
+
+impl Debug for RedactedDatabase<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut url = self.0.to_url_lossy();
+        if url.password().is_some() {
+            url.set_password(Some(REDACTED)).ok();
+        }
+        Display::fmt(&url, f)
+    }
+}
+
+/// Formats a redis config without its password
+struct RedactedRedis<'a>(&'a RedisConfig);
+
+impl Debug for RedactedRedis<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            RedisConfig::Single(single) => f
+                .debug_struct("Single")
+                .field("addr", &single.addr)
+                .field("db", &single.db)
+                .field("username", &single.username)
+                .field("password", &single.password.as_ref().map(|_| REDACTED))
+                .field("tls_params", &single.tls_params)
+                .finish(),
+            RedisConfig::Cluster(cluster) => f
+                .debug_struct("Cluster")
+                .field("addr", &cluster.addr)
+                .field("db", &cluster.db)
+                .field("username", &cluster.username)
+                .field("password", &cluster.password.as_ref().map(|_| REDACTED))
+                .field("tls_params", &cluster.tls_params)
+                .finish(),
+        }
+    }
+}
+
+impl Debug for Config {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Config")
+            .field("database", &RedactedDatabase(&self.database))
+            .field("database_prefix", &self.database_prefix)
+            .field("redis", &RedactedRedis(&self.redis))
+            .field("nextcloud_url", &self.nextcloud_url)
+            .field("metrics_bind", &self.metrics_bind)
+            .field("log_level", &self.log_level)
+            .field("bind", &self.bind)
+            .field("allow_self_signed", &self.allow_self_signed)
+            .field("user_agent", &self.user_agent)
+            .field("no_ansi", &self.no_ansi)
+            .field("tls", &self.tls)
+            .field("max_debounce_time", &self.max_debounce_time)
+            .field("max_connection_time", &self.max_connection_time)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -500,5 +561,67 @@ fn map_redis_addr(addr: ConnectionAddr) -> RedisConnectionAddr {
         },
         ConnectionAddr::Unix(path) => RedisConnectionAddr::Unix { path },
         _ => unreachable!("unknown redis address"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_config(database: &str, redis_password: Option<&str>) -> Config {
+        sqlx::any::install_default_drivers();
+        Config {
+            database: database.parse().unwrap(),
+            database_prefix: "oc_".into(),
+            redis: RedisConfig::Single(RedisConnectionInfo {
+                addr: RedisConnectionAddr::Tcp {
+                    host: "127.0.0.1".into(),
+                    port: 6379,
+                    tls: false,
+                },
+                db: 0,
+                username: Some("redis_user".into()),
+                password: redis_password.map(String::from),
+                tls_params: None,
+            }),
+            nextcloud_url: "https://cloud.example.com/".into(),
+            metrics_bind: None,
+            log_level: "warn".into(),
+            bind: Bind::Tcp(([127, 0, 0, 1], 7867).into()),
+            allow_self_signed: false,
+            user_agent: None,
+            no_ansi: false,
+            tls: None,
+            max_debounce_time: 15,
+            max_connection_time: 0,
+        }
+    }
+
+    #[test]
+    fn test_config_debug_does_not_leak_passwords() {
+        // `--dump-config` and `log::trace!` both format the whole config
+        let config = test_config(
+            "postgres://nextcloud:db-hunter2@localhost/nextcloud",
+            Some("redis-hunter2"),
+        );
+        for formatted in [format!("{config:?}"), format!("{config:#?}")] {
+            assert!(
+                !formatted.contains("db-hunter2"),
+                "database password leaked into config debug output: {formatted}"
+            );
+            assert!(
+                !formatted.contains("redis-hunter2"),
+                "redis password leaked into config debug output: {formatted}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_config_debug_keeps_non_secret_details() {
+        let config = test_config("postgres://nextcloud@localhost/nextcloud", None);
+        let formatted = format!("{config:#?}");
+        assert!(formatted.contains("localhost"), "{formatted}");
+        assert!(formatted.contains("cloud.example.com"), "{formatted}");
+        assert!(formatted.contains("redis_user"), "{formatted}");
     }
 }
