@@ -18,14 +18,58 @@ use nextcloud_config_parser::{
 use redis::{ConnectionAddr, ConnectionInfo};
 use sqlx::any::AnyConnectOptions;
 use sqlx::ConnectOptions;
-use std::convert::{TryFrom, TryInto};
+use std::convert::{Infallible, TryFrom, TryInto};
 use std::env::var;
 use std::fmt::{Debug, Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use url::Url;
 
-const REDACTED: &str = "<redacted>";
+const REDACTED: &str = "REDACTED";
+
+/// A connection url given on the command line.
+///
+/// Parsing is deliberately deferred. Clap puts the raw argument into its own
+/// "invalid value ..." message, so a url that fails to parse at the clap layer
+/// prints its password to stderr before any of our own error handling runs.
+#[derive(Clone)]
+pub struct ConnectionUrl(String);
+
+impl FromStr for ConnectionUrl {
+    type Err = Infallible;
+
+    fn from_str(url: &str) -> Result<Self, Self::Err> {
+        Ok(ConnectionUrl(url.into()))
+    }
+}
+
+impl ConnectionUrl {
+    fn database(&self, option: &'static str) -> Result<AnyConnectOptions, ConfigError> {
+        AnyConnectOptions::from_str(&self.0)
+            .map_err(|e| ConfigError::UrlOption(option, Box::new(e)))
+    }
+
+    fn redis(&self, option: &'static str) -> Result<ConnectionInfo, ConfigError> {
+        ConnectionInfo::from_str(&self.0).map_err(|e| ConfigError::UrlOption(option, Box::new(e)))
+    }
+}
+
+impl Debug for ConnectionUrl {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match Url::parse(&self.0) {
+            Ok(mut url) if url.password().is_some() => {
+                if url.set_password(Some(REDACTED)).is_err() {
+                    return f.write_str(REDACTED);
+                }
+                Display::fmt(&url, f)
+            }
+            Ok(url) => Display::fmt(&url, f),
+            // a url we cannot parse can still hold a password
+            Err(_) => f.write_str(REDACTED),
+        }
+    }
+}
 
 fn styles() -> Styles {
     Styles::styled()
@@ -40,10 +84,10 @@ fn styles() -> Styles {
 pub struct Opt {
     /// The database connect url
     #[clap(long)]
-    pub database_url: Option<AnyConnectOptions>,
+    pub database_url: Option<ConnectionUrl>,
     /// The redis connect url
     #[clap(long)]
-    pub redis_url: Vec<ConnectionInfo>,
+    pub redis_url: Vec<ConnectionUrl>,
     /// The client certificate to use when connecting to redis over TLS
     #[clap(long)]
     pub redis_tls_cert: Option<PathBuf>,
@@ -143,8 +187,9 @@ struct RedactedDatabase<'a>(&'a AnyConnectOptions);
 impl Debug for RedactedDatabase<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut url = self.0.to_url_lossy();
-        if url.password().is_some() {
-            url.set_password(Some(REDACTED)).ok();
+        if url.password().is_some() && url.set_password(Some(REDACTED)).is_err() {
+            // never fall through to printing the url we failed to redact
+            return f.write_str(REDACTED);
         }
         Display::fmt(&url, f)
     }
@@ -308,13 +353,13 @@ impl Config {
             .transpose()?
             .unwrap_or_default();
         let from_env = PartialConfig::from_env()?;
-        let from_opt = PartialConfig::from_opt(opt);
+        let from_opt = PartialConfig::from_opt(opt)?;
 
         from_opt.merge(from_env).merge(from_config).try_into()
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct PartialConfig {
     pub database: Option<AnyConnectOptions>,
     pub database_prefix: Option<String>,
@@ -333,6 +378,30 @@ struct PartialConfig {
     pub tls: Option<TlsConfig>,
     pub max_debounce_time: Option<usize>,
     pub max_connection_time: Option<usize>,
+}
+
+impl Debug for PartialConfig {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PartialConfig")
+            .field("database", &self.database.as_ref().map(RedactedDatabase))
+            .field("database_prefix", &self.database_prefix)
+            .field("redis", &self.redis.as_ref().map(RedactedRedis))
+            .field("nextcloud_url", &self.nextcloud_url)
+            .field("port", &self.port)
+            .field("metrics_port", &self.metrics_port)
+            .field("metrics_socket", &self.metrics_socket)
+            .field("log_level", &self.log_level)
+            .field("bind", &self.bind)
+            .field("socket", &self.socket)
+            .field("socket_permissions", &self.socket_permissions)
+            .field("allow_self_signed", &self.allow_self_signed)
+            .field("user_agent", &self.user_agent)
+            .field("no_ansi", &self.no_ansi)
+            .field("tls", &self.tls)
+            .field("max_debounce_time", &self.max_debounce_time)
+            .field("max_connection_time", &self.max_connection_time)
+            .finish()
+    }
 }
 
 impl PartialConfig {
@@ -420,17 +489,23 @@ impl PartialConfig {
         Ok(parse_config_file(file, glob)?)
     }
 
-    fn from_opt(opt: Opt) -> Self {
+    fn from_opt(opt: Opt) -> Result<Self> {
         let tls = if let (Some(cert), Some(key)) = (opt.tls_cert, opt.tls_key) {
             Some(TlsConfig { cert, key })
         } else {
             None
         };
 
-        let redis = match opt.redis_url.len() {
+        let redis_url = opt
+            .redis_url
+            .iter()
+            .map(|url| url.redis("redis-url"))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let redis = match redis_url.len() {
             0 => None,
             1 => {
-                let redis = opt.redis_url.into_iter().next().unwrap();
+                let redis = redis_url.into_iter().next().unwrap();
                 let addr = map_redis_addr(redis.addr().clone());
 
                 let redis_tls = matches!(addr, RedisConnectionAddr::Tcp { tls: true, .. });
@@ -452,8 +527,7 @@ impl PartialConfig {
                 }))
             }
             _ => {
-                let addr: Vec<_> = opt
-                    .redis_url
+                let addr: Vec<_> = redis_url
                     .iter()
                     .map(|redis| map_redis_addr(redis.addr().clone()))
                     .collect();
@@ -471,7 +545,7 @@ impl PartialConfig {
                     insecure: opt.redis_tls_insecure,
                 });
 
-                let redis = opt.redis_url.into_iter().next().unwrap();
+                let redis = redis_url.into_iter().next().unwrap();
                 let redis = redis.redis_settings();
                 Some(RedisConfig::Cluster(RedisClusterConnectionInfo {
                     addr,
@@ -483,8 +557,12 @@ impl PartialConfig {
             }
         };
 
-        PartialConfig {
-            database: opt.database_url,
+        Ok(PartialConfig {
+            database: opt
+                .database_url
+                .as_ref()
+                .map(|url| url.database("database-url"))
+                .transpose()?,
             database_prefix: opt.database_prefix,
             redis,
             nextcloud_url: opt.nextcloud_url,
@@ -505,7 +583,7 @@ impl PartialConfig {
             tls,
             max_debounce_time: opt.max_debounce_time,
             max_connection_time: opt.max_connection_time,
-        }
+        })
     }
 
     fn merge(self, fallback: Self) -> Self {
@@ -595,6 +673,68 @@ mod tests {
             max_debounce_time: 15,
             max_connection_time: 0,
         }
+    }
+
+    /// Renders an error together with its whole source chain
+    fn full_error(err: &dyn std::error::Error) -> String {
+        let mut rendered = err.to_string();
+        let mut source = err.source();
+        while let Some(inner) = source {
+            rendered.push_str(" / ");
+            rendered.push_str(&inner.to_string());
+            source = inner.source();
+        }
+        rendered
+    }
+
+    #[test]
+    fn test_malformed_urls_are_rejected_without_echoing_them() {
+        // clap puts the raw argument into its own "invalid value ..." message, so a
+        // url has to survive the clap layer and be rejected where we control the text
+        let opt = Opt::try_parse_from([
+            "notify_push",
+            "--database-url",
+            "postgres://ncuser:db-hunter2@host:not_a_port/nextcloud",
+            "--redis-url",
+            "redis://redisuser:redis-hunter2@host:not_a_port/0",
+        ])
+        .expect("clap has to accept the raw value and leave validation to us");
+
+        let err = Config::from_opt(opt).expect_err("a malformed url still has to be rejected");
+        let rendered = full_error(&err);
+        assert!(!rendered.contains("db-hunter2"), "{rendered}");
+        assert!(!rendered.contains("redis-hunter2"), "{rendered}");
+    }
+
+    #[test]
+    fn test_connection_url_debug_is_redacted() {
+        let url = ConnectionUrl::from_str("postgres://ncuser:db-hunter2@localhost/nextcloud")
+            .expect("parsing a connection url never fails");
+        let rendered = format!("{url:?}");
+        assert!(!rendered.contains("db-hunter2"), "{rendered}");
+        assert!(rendered.contains("localhost"), "{rendered}");
+
+        // something we cannot parse could hold a password anywhere, say nothing about it
+        let broken = ConnectionUrl::from_str("not a url at all: hunter2").unwrap();
+        assert!(!format!("{broken:?}").contains("hunter2"));
+    }
+
+    #[test]
+    fn test_partial_config_debug_does_not_leak_passwords() {
+        sqlx::any::install_default_drivers();
+        let opt = Opt::try_parse_from([
+            "notify_push",
+            "--database-url",
+            "postgres://ncuser:db-hunter2@localhost/nextcloud",
+            "--redis-url",
+            "redis://someuser:redis-hunter2@localhost",
+        ])
+        .unwrap();
+        let partial = PartialConfig::from_opt(opt).unwrap();
+        let rendered = format!("{partial:#?}");
+        assert!(!rendered.contains("db-hunter2"), "{rendered}");
+        assert!(!rendered.contains("redis-hunter2"), "{rendered}");
+        assert!(rendered.contains("someuser"), "{rendered}");
     }
 
     #[test]
