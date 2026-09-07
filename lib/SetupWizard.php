@@ -147,11 +147,16 @@ class SetupWizard {
 	}
 
 	public static function toHttps(string $url): string {
-		if (str_starts_with($url, 'https://')) {
+		// the scheme is case insensitive, the rest of the url is not
+		$scheme = strtolower($url);
+		if (str_starts_with($scheme, 'https://')) {
 			return $url;
 		}
-		if (str_starts_with($url, 'http://')) {
+		if (str_starts_with($scheme, 'http://')) {
 			return 'https://' . substr($url, strlen('http://'));
+		}
+		if (str_starts_with($url, '//')) {
+			return 'https:' . $url;
 		}
 		return 'https://' . $url;
 	}
