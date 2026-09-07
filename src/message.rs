@@ -123,11 +123,13 @@ pub enum MessageType {
 
 pub static DEBOUNCE_ENABLE: AtomicBool = AtomicBool::new(true);
 
+/// How long a slot stays quiet before its message is considered settled
+const BURST_WINDOW: Duration = Duration::from_millis(100);
+
 #[derive(Clone, Debug)]
 struct SendQueueItem {
-    /// when the currently held message was first queued
+    /// when the held message was first queued, as opposed to last updated
     queued: Instant,
-    /// when the currently held message was last updated
     received: Instant,
     sent: Instant,
     message: Option<PushMessage>,
@@ -181,17 +183,12 @@ impl SendQueue {
             None => return Some(message),
         };
 
-        let first = item.message.is_none();
         match &mut item.message {
-            Some(queued) => {
-                queued.merge(&message);
+            Some(queued) => queued.merge(&message),
+            None => {
+                item.message = Some(message);
+                item.queued = time;
             }
-            opt => {
-                *opt = Some(message);
-            }
-        };
-        if first {
-            item.queued = time;
         }
         item.received = time;
 
@@ -214,17 +211,15 @@ impl SendQueue {
             if now.duration_since(item.sent) <= debounce_time {
                 return None;
             }
-            // hold a burst back briefly so related updates end up in a single message,
-            // but never longer than the debounce time itself: under a continuous stream
-            // of updates the message would otherwise never be sent at all
-            let burst_settled = now.duration_since(item.received) > Duration::from_millis(100);
-            let waited_full_debounce = now.duration_since(item.queued) > debounce_time;
-            if burst_settled || waited_full_debounce {
-                item.sent = now;
-                item.message.take()
-            } else {
-                None
+            // let a burst settle so related updates go out as one message, but never
+            // hold on past the debounce window or a continuous stream of updates would
+            // keep pushing the deadline out and nothing would ever be sent
+            let settled = now.duration_since(item.received) > BURST_WINDOW;
+            if !settled && now.duration_since(item.queued) <= debounce_time {
+                return None;
             }
+            item.sent = now;
+            item.message.take()
         })
     }
 }
