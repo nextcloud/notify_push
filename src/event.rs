@@ -11,8 +11,38 @@ use redis::Msg;
 use serde::Deserialize;
 use serde_json::Value;
 use std::convert::TryFrom;
+use std::fmt;
 use thiserror::Error;
 use tokio_stream::{Stream, StreamExt};
+
+/// The recipient of a message, either a logged in user or an anonymous session
+///
+/// Serialized as a single field, either `{"user": "uid"}` or `{"session": "session id"}`
+#[derive(Debug, Deserialize)]
+pub enum Target {
+    #[serde(rename = "user")]
+    User(String),
+    #[serde(rename = "session")]
+    AnonymousSession(String),
+}
+
+impl Target {
+    pub fn id(&self) -> UserId {
+        match self {
+            Target::User(user) => UserId::new(user),
+            Target::AnonymousSession(session) => UserId::anonymous(session),
+        }
+    }
+}
+
+impl fmt::Display for Target {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Target::User(user) => write!(f, "user {user}"),
+            Target::AnonymousSession(session) => write!(f, "anonymous session {session}"),
+        }
+    }
+}
 
 #[derive(Debug, Deserialize)]
 pub struct StorageUpdate {
@@ -44,7 +74,8 @@ pub struct Notification {
 
 #[derive(Debug, Deserialize)]
 pub struct PreAuth {
-    pub user: UserId,
+    #[serde(flatten)]
+    pub target: Target,
     pub token: String,
 }
 
@@ -63,10 +94,11 @@ pub enum Query {
 
 #[derive(Debug, Deserialize)]
 pub struct Custom {
-    pub user: UserId,
+    #[serde(flatten)]
+    pub target: Target,
     pub message: String,
     #[serde(default)]
-    pub body: Box<Value>, // use `Box` to reduce size of `Event` enum from 72 to 48 bytes
+    pub body: Box<Value>, // use `Box` to keep the size of the `Event` enum down
 }
 
 #[derive(Debug, Deserialize, Display)]
@@ -89,9 +121,9 @@ pub enum Event {
     Activity(Activity),
     #[display("notification notification for user {0.user}")]
     Notification(Notification),
-    #[display("pre_auth user {0.user}")]
+    #[display("pre_auth {0.target}")]
     PreAuth(PreAuth),
-    #[display("custom notification {0.message} for user {0.user}")]
+    #[display("custom notification {0.message} for {0.target}")]
     Custom(Custom),
     #[display("config update")]
     Config(Config),
@@ -150,6 +182,28 @@ impl TryFrom<Msg> for Event {
             _ => Err(MessageDecodeError::UnsupportedEventType),
         }
     }
+}
+
+#[test]
+fn test_decode_custom_target() {
+    let user: Custom = serde_json::from_str(r#"{"user":"foo","message":"msg"}"#).unwrap();
+    assert_eq!(user.target.id(), UserId::new("foo"));
+
+    let session: Custom =
+        serde_json::from_str(r#"{"session":"myapp:foo","message":"msg","body":null}"#).unwrap();
+    assert_eq!(session.target.id(), UserId::anonymous("myapp:foo"));
+    assert_eq!(*session.body, Value::Null);
+
+    let with_body: Custom =
+        serde_json::from_str(r#"{"session":"myapp:foo","message":"msg","body":{"a":1}}"#).unwrap();
+    assert_eq!(*with_body.body, serde_json::json!({"a": 1}));
+
+    let pre_auth: PreAuth =
+        serde_json::from_str(r#"{"session":"myapp:foo","token":"tok"}"#).unwrap();
+    assert_eq!(pre_auth.target.id(), UserId::anonymous("myapp:foo"));
+    assert_eq!(pre_auth.token, "tok");
+
+    assert!(serde_json::from_str::<Custom>(r#"{"message":"msg"}"#).is_err());
 }
 
 pub async fn subscribe(

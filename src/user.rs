@@ -21,6 +21,17 @@ static USER_NAMES: Lazy<DashMap<u64, String, PassthruHasher>> = Lazy::new(DashMa
 // Use the same hash state for generating user hash for every instance
 static RANDOM_STATE: OnceBox<RandomState> = OnceBox::new();
 
+/// The kind of identity a connection is registered under
+///
+/// The kind is hashed together with the id itself, ensuring that an anonymous session
+/// can never end up with the same identity as a user, no matter what characters
+/// the user backend allows in user ids.
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum IdKind {
+    User = 0,
+    AnonymousSession = 1,
+}
+
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct UserId {
     hash: u64,
@@ -28,15 +39,26 @@ pub struct UserId {
 
 impl UserId {
     pub fn new(user_id: &str) -> Self {
+        UserId::with_kind(IdKind::User, user_id)
+    }
+
+    /// Identity of an anonymous session, lives in a separate namespace from user ids
+    pub fn anonymous(session_id: &str) -> Self {
+        UserId::with_kind(IdKind::AnonymousSession, session_id)
+    }
+
+    fn with_kind(kind: IdKind, id: &str) -> Self {
         let state = RANDOM_STATE.get_or_init(|| Box::new(RandomState::new()));
         let mut hash = state.build_hasher();
-        hash.write(user_id.as_bytes());
+        hash.write_u8(kind as u8);
+        hash.write(id.as_bytes());
         let hash = hash.finish();
 
         if log::max_level() >= LevelFilter::Info {
-            USER_NAMES
-                .entry(hash)
-                .or_insert_with(|| user_id.to_string());
+            USER_NAMES.entry(hash).or_insert_with(|| match kind {
+                IdKind::User => id.to_string(),
+                IdKind::AnonymousSession => format!("anonymous session {id}"),
+            });
         }
 
         UserId { hash }
@@ -129,4 +151,12 @@ impl fmt::Debug for UserId {
             write!(f, "user #{} (Set log level to INFO or higher)", self.hash)
         }
     }
+}
+
+#[test]
+fn test_anonymous_session_doesnt_collide_with_user() {
+    assert_ne!(UserId::new("admin"), UserId::anonymous("admin"));
+    assert_eq!(UserId::new("admin"), UserId::new("admin"));
+    assert_eq!(UserId::anonymous("admin"), UserId::anonymous("admin"));
+    assert_ne!(UserId::anonymous("foo"), UserId::anonymous("bar"));
 }

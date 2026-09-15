@@ -25,6 +25,8 @@ use warp::filters::ws::{Message, WebSocket};
 
 const USER_CONNECTION_LIMIT: usize = 64;
 const PING_INTERVAL: Duration = Duration::from_secs(30);
+/// How long a pre-auth token can be used to authenticate a socket after it has been requested
+pub const PRE_AUTH_VALIDITY: Duration = Duration::from_secs(15);
 
 #[derive(Default)]
 pub struct ActiveConnections(DashMap<UserId, broadcast::Sender<PushMessage>, PassthruHasher>);
@@ -271,8 +273,8 @@ async fn socket_auth(
         .map_err(|_| AuthenticationError::InvalidMessage)?
         .trim();
 
-    // cleanup all pre_auth tokens older than 15s
-    let cutoff = Instant::now() - Duration::from_secs(15);
+    // cleanup all expired pre_auth tokens
+    let cutoff = Instant::now() - PRE_AUTH_VALIDITY;
     app.pre_auth.retain(|_, (time, _)| *time > cutoff);
 
     if let Some((_, (_, user))) = app.pre_auth.remove(password) {
