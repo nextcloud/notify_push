@@ -11,6 +11,12 @@ namespace OCA\NotifyPush\Tests;
 use OCA\NotifyPush\Listener;
 use OCA\NotifyPush\Queue\IQueue;
 use OCP\Files\Cache\CacheEntryInsertedEvent;
+use OCP\Files\Cache\CacheEntryUpdatedEvent;
+use OCP\Files\Cache\ICache;
+use OCP\Files\Events\Node\NodeDeletedEvent;
+use OCP\Files\File;
+use OCP\Files\IHomeStorage;
+use OCP\Files\NotFoundException;
 use OCP\Files\Storage\IStorage;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
@@ -54,6 +60,50 @@ class ListenerTest extends TestCase {
 				['storage' => 1, 'path' => 'foobar'],
 			],
 		], $events);
+	}
+
+	private function getHomeStorage(): IStorage {
+		$cache = $this->createMock(ICache::class);
+		$cache->method('getNumericStorageId')->willReturn(1);
+		$storage = $this->createMock(IStorage::class);
+		$storage->method('getCache')->willReturn($cache);
+		$storage->method('instanceOfStorage')->willReturnCallback(static fn (string $class): bool => $class === IHomeStorage::class);
+		return $storage;
+	}
+
+	public function testFileMovedToTheTrashBin() {
+		$events = [];
+		$listener = new Listener($this->getQueue($events));
+		$storage = $this->getHomeStorage();
+
+		// The cache entry moves to the trash bin, users don't see that path
+		$listener->cacheListener(new CacheEntryUpdatedEvent($storage, 'files_trashbin/files/report.md.d1760000000', 12, 1));
+		$this->assertEquals([], $events);
+
+		$node = $this->createMock(File::class);
+		$node->method('getStorage')->willReturn($storage);
+		$node->method('getInternalPath')->willReturn('files/Documents/report.md');
+		$node->method('getId')->willReturn(12);
+		$listener->nodeDeletedListener(new NodeDeletedEvent($node));
+
+		$this->assertEquals([
+			'notify_storage_update' => [
+				['storage' => 1, 'path' => 'files/Documents/report.md', 'file_id' => 12],
+			],
+		], $events);
+	}
+
+	public function testDeletedNodeWithoutInfo() {
+		$events = [];
+		$listener = new Listener($this->getQueue($events));
+
+		$node = $this->createMock(File::class);
+		$node->method('getStorage')->willReturn($this->getHomeStorage());
+		$node->method('getInternalPath')->willReturn('files/report.md');
+		$node->method('getId')->willThrowException(new NotFoundException());
+		$listener->nodeDeletedListener(new NodeDeletedEvent($node));
+
+		$this->assertEquals([], $events);
 	}
 
 	public function testGroupEvents() {

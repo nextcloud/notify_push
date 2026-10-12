@@ -14,7 +14,9 @@ use OCP\Activity\IConsumer;
 use OCP\Activity\IEvent;
 use OCP\EventDispatcher\Event;
 use OCP\Files\Cache\ICacheEvent;
+use OCP\Files\Events\Node\NodeDeletedEvent;
 use OCP\Files\IHomeStorage;
+use OCP\Files\NotFoundException;
 use OCP\Files\Storage\IStorage;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
@@ -35,22 +37,36 @@ class Listener implements IConsumer, IApp, INotifier, IDismissableNotifier {
 
 	public function cacheListener(Event $event): void {
 		if ($event instanceof ICacheEvent) {
-			$path = $event->getPath();
+			$this->pushStorageUpdate($event->getStorage(), $event->getStorageId(), $event->getPath(), $event->getFileId());
+		}
+	}
 
-			$storage = $event->getStorage();
-			while ($storage->instanceOfStorage(Jail::class)) {
-				/** @var Jail $storage */
-				$path = $storage->getUnjailedPath($path);
-				$storage = $storage->getUnjailedStorage();
-			}
+	/**
+	 * Moving a file to the trash bin only updates its cache entry to the path in the trash bin,
+	 * which users don't see. Notify the path it was deleted from as well.
+	 */
+	public function nodeDeletedListener(NodeDeletedEvent $event): void {
+		$node = $event->getNode();
+		try {
+			$storage = $node->getStorage();
+			$this->pushStorageUpdate($storage, $storage->getCache()->getNumericStorageId(), $node->getInternalPath(), $node->getId());
+		} catch (NotFoundException) {
+		}
+	}
 
-			if ($this->shouldNotifyPath($event->getStorage(), $path)) {
-				$this->queue->push('notify_storage_update', [
-					'storage' => $event->getStorageId(),
-					'path' => $path,
-					'file_id' => $event->getFileId(),
-				]);
-			}
+	private function pushStorageUpdate(IStorage $storage, int $storageId, string $path, int $fileId): void {
+		while ($storage->instanceOfStorage(Jail::class)) {
+			/** @var Jail $storage */
+			$path = $storage->getUnjailedPath($path);
+			$storage = $storage->getUnjailedStorage();
+		}
+
+		if ($this->shouldNotifyPath($storage, $path)) {
+			$this->queue->push('notify_storage_update', [
+				'storage' => $storageId,
+				'path' => $path,
+				'file_id' => $fileId,
+			]);
 		}
 	}
 

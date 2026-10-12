@@ -26,6 +26,7 @@ use OCP\EventDispatcher\IEventDispatcher;
 use OCP\Files\Cache\CacheEntryInsertedEvent;
 use OCP\Files\Cache\CacheEntryRemovedEvent;
 use OCP\Files\Cache\CacheEntryUpdatedEvent;
+use OCP\Files\Events\Node\NodeDeletedEvent;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
 use OCP\Security\CSP\AddContentSecurityPolicyEvent;
@@ -71,6 +72,7 @@ class Application extends App implements IBootstrap {
 		$eventDispatcher->addListener(CacheEntryInsertedEvent::class, [$listener, 'cacheListener']);
 		$eventDispatcher->addListener(CacheEntryUpdatedEvent::class, [$listener, 'cacheListener']);
 		$eventDispatcher->addListener(CacheEntryRemovedEvent::class, [$listener, 'cacheListener']);
+		$eventDispatcher->addListener(NodeDeletedEvent::class, [$listener, 'nodeDeletedListener']);
 
 		$eventDispatcher->addListener(UserAddedEvent::class, [$listener, 'groupListener']);
 		$eventDispatcher->addListener(UserRemovedEvent::class, [$listener, 'groupListener']);
