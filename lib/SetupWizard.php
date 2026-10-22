@@ -146,23 +146,27 @@ class SetupWizard {
 		return $this->isBinaryRunningAt('http://localhost:7867');
 	}
 
+	public static function toHttps(string $url): string {
+		// replaces the scheme if there is one, adds it if there is not
+		return (string)preg_replace('#^(https?://|//)?#i', 'https://', $url, 1);
+	}
+
 	private function getBaseUrl(): string {
 		$base = $this->config->getSystemValueString('overwrite.cli.url', '');
-		if (strpos($base, 'https://') !== 0) {
-			$httpsBase = 'https://' . ltrim($base, 'http://');
-			if (isset($this->httpsCache[$httpsBase])) {
-				return ($this->httpsCache[$httpsBase]) ? $httpsBase : $base;
-			}
+		$httpsBase = self::toHttps($base);
+		if ($base === '' || $httpsBase === $base) {
+			return $base;
+		}
+
+		if (!isset($this->httpsCache[$httpsBase])) {
 			try {
-				$this->client->get($base, ['nextcloud' => ['allow_local_address' => true], 'verify' => false]);
+				$this->client->get($httpsBase, ['nextcloud' => ['allow_local_address' => true], 'verify' => false]);
 				$this->httpsCache[$httpsBase] = true;
-				return $base;
 			} catch (\Exception $e) {
 				$this->httpsCache[$httpsBase] = false;
-				return $base;
 			}
 		}
-		return $base;
+		return $this->httpsCache[$httpsBase] ? $httpsBase : $base;
 	}
 
 	public function isSelfSigned(): bool {
