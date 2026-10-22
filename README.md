@@ -47,8 +47,8 @@ The setup required consists of three steps
 
 > __For Nextcloud Snap users:__ \
 > The snap team made a wiki page how to install Client Push in Nextcloud snap.
->
-See [their Wiki page](https://github.com/nextcloud-snap/nextcloud-snap/wiki/Configure-HPB-client-push-for-Nextcloud-snap)!
+> 
+> See [their Wiki page](https://github.com/nextcloud-snap/nextcloud-snap/wiki/Configure-HPB-client-push-for-Nextcloud-snap)!
 
 ### Push server
 
