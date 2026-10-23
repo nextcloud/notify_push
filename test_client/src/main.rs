@@ -10,6 +10,10 @@ use miette::{IntoDiagnostic, Report, Result, WrapErr};
 use serde_json::Value;
 use std::env::var;
 use tungstenite::{connect, Message};
+use ureq::{
+    config::Config,
+    tls::{RootCerts, TlsConfig, TlsProvider},
+};
 use url::Url;
 
 fn main() -> Result<()> {
@@ -19,6 +23,10 @@ fn main() -> Result<()> {
         .adaptive_format_for_stderr(AdaptiveFormat::Detailed)
         .start()
         .into_diagnostic()?;
+
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("Failed to setup TLS crypto provider");
 
     let mut args = std::env::args();
 
@@ -79,7 +87,19 @@ fn main() -> Result<()> {
 }
 
 fn get_endpoint(nc_url: &str, user: &str, password: &str) -> Result<String> {
-    let raw = ureq::get(&format!("{nc_url}/ocs/v2.php/cloud/capabilities"))
+    let config = Config::builder()
+        .tls_config(
+            TlsConfig::builder()
+                .provider(TlsProvider::Rustls)
+                .root_certs(RootCerts::PlatformVerifier)
+                .build(),
+        )
+        .build();
+
+    let agent = config.new_agent();
+
+    let raw = agent
+        .get(&format!("{nc_url}/ocs/v2.php/cloud/capabilities"))
         .header(
             "Authorization",
             &format!(
