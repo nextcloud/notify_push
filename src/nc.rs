@@ -6,7 +6,9 @@
 use crate::error::{AuthenticationError, NextCloudError};
 use crate::{Result, UserId};
 use reqwest::header::HeaderName;
-use reqwest::{Certificate, Response, StatusCode, Url};
+#[cfg(feature = "webpki-roots")]
+use reqwest::Certificate;
+use reqwest::{Response, StatusCode, Url};
 use std::fmt::Write;
 use std::net::IpAddr;
 
@@ -24,13 +26,16 @@ impl Client {
         user_agent: Option<&str>,
     ) -> Result<Self, NextCloudError> {
         let base_url = Url::parse(base_url)?;
-        let mut builder = reqwest::Client::builder()
-            .tls_certs_merge(
+        let mut builder = reqwest::Client::builder();
+        #[cfg(feature = "webpki-roots")]
+        {
+            builder = builder.tls_certs_merge(
                 webpki_root_certs::TLS_SERVER_ROOT_CERTS
                     .iter()
                     .map(|root| Certificate::from_der(root).unwrap()),
-            )
-            .tls_danger_accept_invalid_certs(allow_self_signed);
+            );
+        }
+        builder = builder.tls_danger_accept_invalid_certs(allow_self_signed);
         if let Some(user_agent) = user_agent {
             builder = builder.user_agent(user_agent);
         }

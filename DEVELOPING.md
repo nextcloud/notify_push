@@ -240,6 +240,13 @@ should be compiled in release mode for optimal performance and targeting musl li
 cargo build --release --target=x86_64-unknown-linux-musl
 ```
 
+### Cargo features
+
+The following cargo features are available:
+
+- `webpki-roots` (enabled by default), bundle the webpki root certificates with the push daemon, allowing verification of certificates in setups without `ca-certs` installed.
+- `systemd` (enabled by default), send status notifications to systemd (no effect when not using systemd).
+
 ### Cross compiling
 
 Cross compiling to other platforms can be done using two ways:
