@@ -58,6 +58,8 @@ static LOG_HANDLE: Lazy<LoggerHandle> =
 
 impl Services {
     pub async fn new() -> Self {
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
         sqlx::any::install_default_drivers();
         DEBOUNCE_ENABLE.store(false, Ordering::SeqCst);
         let redis_tcp = listen_available_port()
