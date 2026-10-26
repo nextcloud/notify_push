@@ -24,7 +24,7 @@ fn main() -> Result<()> {
         .start()
         .into_diagnostic()?;
 
-    rustls::crypto::aws_lc_rs::default_provider()
+    rustls::crypto::ring::default_provider()
         .install_default()
         .expect("Failed to setup TLS crypto provider");
 

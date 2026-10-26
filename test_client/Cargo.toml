@@ -11,9 +11,7 @@ base64 = "0.23.0"
 flexi_logger = { version = "0.31.9", features = ["colors"] }
 log = "0.4.33"
 miette = { version = "7.6.0", features = ["fancy"] }
-rustls = { version = "0.23.43", default-features = false, features = [
-  "aws-lc-rs"
-] }
+rustls = { version = "0.23.43", default-features = false, features = ["ring"] }
 serde_json = "1.0.150"
 tungstenite = { version = "0.30.0", features = [
   "rustls-tls-native-roots",
