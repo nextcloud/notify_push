@@ -6,12 +6,13 @@
 use crate::config::{Bind, TlsConfig};
 use crate::message::MessageType;
 use crate::{serve_at, Result};
+use axum::routing::get;
+use axum::{debug_handler, Router};
 use serde::{Serialize, Serializer};
 use std::fmt::Write;
 use std::future::Future;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::oneshot;
-use warp::Filter;
 
 pub static METRICS: Metrics = Metrics::new();
 
@@ -163,65 +164,68 @@ impl Metrics {
     }
 }
 
-pub fn serve_metrics(
+pub async fn serve_metrics(
     bind: Bind,
     cancel: oneshot::Receiver<()>,
     tls: Option<&TlsConfig>,
-) -> Result<impl Future<Output = ()> + Send> {
-    let metrics = warp::path!("metrics").map(|| {
-        let mut response = String::with_capacity(128);
-        let _ = writeln!(
-            &mut response,
-            "active_connection_count {}",
-            METRICS.active_connection_count()
-        );
-        let _ = writeln!(
-            &mut response,
-            "active_user_count {}",
-            METRICS.active_user_count()
-        );
-        let _ = writeln!(
-            &mut response,
-            "total_connection_count {}",
-            METRICS.total_connection_count()
-        );
-        let _ = writeln!(
-            &mut response,
-            "mapping_query_count {}",
-            METRICS.mapping_query_count()
-        );
-        let _ = writeln!(
-            &mut response,
-            "event_count_total {}",
-            METRICS.events_received()
-        );
-        let _ = writeln!(
-            &mut response,
-            "message_count_total {}",
-            METRICS.messages_sent()
-        );
-        let _ = writeln!(
-            &mut response,
-            "message_count_total{{type=\"file\"}} {}",
-            METRICS.messages_sent_file()
-        );
-        let _ = writeln!(
-            &mut response,
-            "message_count_total{{type=\"notification\"}} {}",
-            METRICS.messages_sent_notification()
-        );
-        let _ = writeln!(
-            &mut response,
-            "message_count_total{{type=\"activity\"}} {}",
-            METRICS.messages_sent_activity()
-        );
-        let _ = writeln!(
-            &mut response,
-            "message_count_total{{type=\"custom\"}} {}",
-            METRICS.messages_sent_custom()
-        );
-        response
-    });
+) -> Result<impl Future<Output = std::io::Result<()>> + Send> {
+    let router = Router::<()>::new().route("/metricds", get(metrics_handler));
 
-    serve_at(metrics, bind, cancel, tls)
+    serve_at(router, bind, cancel, tls).await
+}
+
+#[debug_handler]
+async fn metrics_handler() -> String {
+    let mut response = String::with_capacity(128);
+    let _ = writeln!(
+        &mut response,
+        "active_connection_count {}",
+        METRICS.active_connection_count()
+    );
+    let _ = writeln!(
+        &mut response,
+        "active_user_count {}",
+        METRICS.active_user_count()
+    );
+    let _ = writeln!(
+        &mut response,
+        "total_connection_count {}",
+        METRICS.total_connection_count()
+    );
+    let _ = writeln!(
+        &mut response,
+        "mapping_query_count {}",
+        METRICS.mapping_query_count()
+    );
+    let _ = writeln!(
+        &mut response,
+        "event_count_total {}",
+        METRICS.events_received()
+    );
+    let _ = writeln!(
+        &mut response,
+        "message_count_total {}",
+        METRICS.messages_sent()
+    );
+    let _ = writeln!(
+        &mut response,
+        "message_count_total{{type=\"file\"}} {}",
+        METRICS.messages_sent_file()
+    );
+    let _ = writeln!(
+        &mut response,
+        "message_count_total{{type=\"notification\"}} {}",
+        METRICS.messages_sent_notification()
+    );
+    let _ = writeln!(
+        &mut response,
+        "message_count_total{{type=\"activity\"}} {}",
+        METRICS.messages_sent_activity()
+    );
+    let _ = writeln!(
+        &mut response,
+        "message_count_total{{type=\"custom\"}} {}",
+        METRICS.messages_sent_custom()
+    );
+    response
 }

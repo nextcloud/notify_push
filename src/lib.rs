@@ -11,12 +11,19 @@ use crate::error::{SelfTestError, SocketError};
 use crate::event::{
     Activity, Custom, Event, GroupUpdate, Notification, PreAuth, ShareCreate, StorageUpdate,
 };
+use crate::extractors::{ForwardedFor, ValidatedToken};
 use crate::message::{PushMessage, UpdatedFiles};
 use crate::metrics::METRICS;
 use crate::redis::Redis;
 use crate::storage_mapping::StorageMapping;
 pub use crate::user::UserId;
 use ahash::RandomState;
+use axum::extract::{ConnectInfo, FromRequestParts, Path, State, WebSocketUpgrade};
+use axum::response::IntoResponse;
+use axum::routing::any;
+use axum::{debug_handler, Router};
+use axum_server::tls_rustls::RustlsConfig;
+use axum_server::Handle;
 use dashmap::DashMap;
 use flexi_logger::LoggerHandle;
 use futures::future::{select, Either};
@@ -24,27 +31,24 @@ use futures::StreamExt;
 use futures::{pin_mut, FutureExt};
 use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
-use std::convert::Infallible;
 use std::fs;
 use std::future::Future;
 use std::net::{IpAddr, SocketAddr};
 use std::os::unix::fs::PermissionsExt;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
-use tokio::net::UnixListener;
+use tokio::net::{TcpListener, UnixListener};
+use tokio::spawn;
 use tokio::sync::Mutex;
 use tokio::sync::{broadcast, oneshot};
 use tokio::time::sleep;
-use tokio_stream::wrappers::UnixListenerStream;
-use warp::filters::addr::remote;
-use warp::reject::custom;
-use warp::{Filter, Rejection, Reply};
-use warp_real_ip::get_forwarded_for;
+use tower_http::cors::{Any, CorsLayer};
 
 pub mod config;
 pub mod connection;
 pub mod error;
 pub mod event;
+mod extractors;
 pub mod message;
 pub mod metrics;
 pub mod nc;
@@ -67,6 +71,8 @@ pub struct App {
     redis: Redis,
     log_handle: Mutex<LoggerHandle>,
     reset_tx: broadcast::Sender<()>,
+    max_debounce_time: usize,
+    max_connection_time: usize,
     _reset_rx: broadcast::Receiver<()>,
 }
 
@@ -96,6 +102,8 @@ impl App {
             redis,
             log_handle: Mutex::new(log_handle),
             reset_tx,
+            max_debounce_time: config.max_debounce_time,
+            max_connection_time: config.max_connection_time,
             _reset_rx: reset_rx,
         })
     }
@@ -130,6 +138,8 @@ impl App {
             redis,
             log_handle: Mutex::new(log_handle),
             reset_tx,
+            max_debounce_time: config.max_debounce_time,
+            max_connection_time: config.max_connection_time,
             _reset_rx: reset_rx,
         })
     }
@@ -251,159 +261,73 @@ impl App {
     }
 }
 
-pub fn serve(
+pub async fn serve(
     app: Arc<App>,
     bind: Bind,
     cancel: oneshot::Receiver<()>,
     tls: Option<&TlsConfig>,
-    max_debounce_time: usize,
-    max_connection_time: usize,
-) -> Result<impl Future<Output = ()> + Send> {
-    let app = warp::any().map(move || app.clone());
+) -> Result<impl Future<Output = std::io::Result<()>> + Send> {
+    let cors = CorsLayer::new().allow_methods(Any).allow_origin(Any);
 
-    let cors = warp::cors().allow_any_origin();
+    let test_router = Router::new()
+        .route("/cookie", any(test_cookie))
+        .route("/reverse_cookie", any(test_reverse_cookie))
+        .route("/mapping/{storage_id}", any(test_mapping))
+        .route("/remote/{remote}", any(test_remote))
+        .route("/version", any(test_version));
 
-    // GET /ws -> websocket upgrade
-    let socket = warp::path!("ws")
-        // The `ws()` filter will prepare Websocket handshake...
-        .and(warp::ws())
-        .and(app.clone())
-        .and(remote())
-        .and(get_forwarded_for())
-        .map(
-            move |ws: warp::ws::Ws,
-                  app,
-                  remote: Option<SocketAddr>,
-                  mut forwarded_for: Vec<IpAddr>| {
-                if let Some(remote) = remote {
-                    forwarded_for.push(remote.ip());
-                }
-                log::debug!("new websocket connection from {:?}", forwarded_for.first());
-                let opts = ConnectionOptions::new(max_debounce_time, max_connection_time);
-                ws.on_upgrade(move |socket| handle_user_socket(socket, app, forwarded_for, opts))
-            },
-        )
-        .with(cors);
+    let router = Router::new()
+        .route("/ws", any(ws_handler))
+        .nest("/test", test_router);
 
-    let cookie_test = warp::path!("test" / "cookie")
-        .and(app.clone())
-        .and(test_token(app.clone()))
-        .map(|app: Arc<App>| {
-            let cookie = app.test_cookie.load(Ordering::SeqCst);
-            log::debug!("current test cookie is {cookie}");
-            cookie.to_string()
-        });
+    // also match all routes with an added "push/" prefix
+    let router = router
+        .clone()
+        .nest("/push", router)
+        .layer(cors)
+        .with_state(app);
 
-    let reverse_cookie_test = warp::path!("test" / "reverse_cookie")
-        .and(app.clone())
-        .and(test_token(app.clone()))
-        .and(warp::header("token"))
-        .and_then(|app: Arc<App>, token: String| async move {
-            let response = match app.nc_client.get_test_cookie(&token).await {
-                Ok(cookie) => {
-                    log::debug!("got remote test cookie {cookie}");
-                    cookie.to_string()
-                }
-                Err(e) => {
-                    log::warn!("Error while trying to get cookie from Nextcloud {e:#}");
-                    format!("{e:#}")
-                }
-            };
-
-            Result::<_, Infallible>::Ok(response)
-        });
-
-    let mapping_test = warp::path!("test" / "mapping" / u32)
-        .and(app.clone())
-        .and(test_token(app.clone()))
-        .and_then(|storage_id: u32, app: Arc<App>| async move {
-            let access = app
-                .storage_mapping
-                .get_users_for_storage_path(storage_id, "")
-                .await
-                .map(|access| {
-                    let count = access.count();
-                    log::debug!("storage mapping count for {storage_id} = {count}");
-                    count
-                })
-                .inspect_err(|err| {
-                    log::error!("error while getting mapping count for {storage_id}: {err:#}");
-                })
-                .unwrap_or(0);
-            Result::<_, Infallible>::Ok(access.to_string())
-        });
-
-    let remote_test = warp::path!("test" / "remote" / IpAddr)
-        .and(app.clone())
-        .and(test_token(app.clone()))
-        .and(warp::header("token"))
-        .and_then(|remote: IpAddr, app: Arc<App>, token: String| async move {
-            let result = app
-                .nc_client
-                .test_set_remote(remote, &token)
-                .await
-                .map(|remote| remote.to_string())
-                .unwrap_or_else(|e| e.to_string());
-            log::debug!("got remote {result} when trying to set remote {remote}");
-            Result::<_, Infallible>::Ok(result)
-        });
-
-    let version = warp::path!("test" / "version")
-        .and(warp::post())
-        .and(app.clone())
-        .and(test_token(app))
-        .and_then(|app: Arc<App>| async move {
-            Result::<_, Infallible>::Ok(match app.redis.connect().await {
-                Ok(mut client) => {
-                    client
-                        .set("notify_push_version", env!("NOTIFY_PUSH_VERSION"))
-                        .await
-                        .ok();
-                    "set"
-                }
-                Err(e) => {
-                    log::warn!("Failed to get redis connection for version set: {e:#}");
-                    "error"
-                }
-            })
-        });
-
-    let routes = socket
-        .or(cookie_test)
-        .or(reverse_cookie_test)
-        .or(mapping_test)
-        .or(remote_test)
-        .or(version);
-
-    let routes = routes.clone().or(warp::path!("push" / ..).and(routes));
-
-    serve_at(routes, bind, cancel, tls)
+    serve_at(router, bind, cancel, tls).await
 }
 
-fn serve_at<F, C>(
-    filter: F,
+async fn serve_at<C>(
+    router: Router,
     bind: Bind,
     cancel: C,
     tls: Option<&TlsConfig>,
-) -> Result<impl Future<Output = ()> + Send>
+) -> Result<impl Future<Output = std::io::Result<()>> + Send>
 where
     C: Future + Send + Sync + 'static,
-    F: Filter + Clone + Send + Sync + 'static,
-    F::Extract: Reply,
 {
     let cancel = cancel.map(|_| ());
-    let server = warp::serve(filter);
+
     match (bind, tls) {
         (Bind::Tcp(addr), Some(tls)) => {
-            let (_, server) = server
-                .tls()
-                .cert_path(&tls.cert)
-                .key_path(&tls.key)
-                .bind_with_graceful_shutdown(addr, cancel);
+            let handle = Handle::new();
+
+            let handle_ = handle.clone();
+            spawn(async move {
+                let _ = cancel.await;
+                handle_.graceful_shutdown(Some(Duration::from_secs(5)));
+            });
+
+            let config = RustlsConfig::from_pem_file(&tls.cert, &tls.key).await?;
+            let server = axum_server::bind_rustls(addr, config)
+                .handle(handle)
+                .serve(router.into_make_service_with_connect_info::<SocketAddr>());
             Ok(Either::Left(Either::Left(server)))
         }
         (Bind::Tcp(addr), None) => {
-            let (_, server) = server.bind_with_graceful_shutdown(addr, cancel);
+            let listener = TcpListener::bind(addr).await?;
+            let server = async move {
+                axum::serve(
+                    listener,
+                    router.into_make_service_with_connect_info::<SocketAddr>(),
+                )
+                .with_graceful_shutdown(cancel)
+                .await?;
+                Ok(())
+            };
             Ok(Either::Left(Either::Right(server)))
         }
         (Bind::Unix(socket_path, permissions), tls) => {
@@ -417,14 +341,15 @@ where
             fs::set_permissions(&socket_path, PermissionsExt::from_mode(permissions))
                 .map_err(SocketError::SocketPermissions)?;
 
-            let stream = UnixListenerStream::new(listener);
-            Ok(Either::Right(
-                server
-                    .serve_incoming_with_graceful_shutdown(stream, cancel)
-                    .map(move |_| {
-                        fs::remove_file(socket_path).ok();
-                    }),
-            ))
+            let server = async move {
+                axum::serve(listener, router.into_make_service())
+                    .with_graceful_shutdown(cancel)
+                    .await?;
+                fs::remove_file(socket_path).ok();
+                Ok(())
+            };
+
+            Ok(Either::Right(server))
         }
     }
 }
@@ -478,22 +403,106 @@ pub async fn listen(app: Arc<App>) -> Result<()> {
     Ok(())
 }
 
-fn test_token(
-    app: impl Filter<Extract = (Arc<App>,), Error = Infallible> + Clone,
-) -> impl Filter<Extract = (), Error = Rejection> + Clone {
-    app.and(warp::header("token"))
-        .and_then(|app: Arc<App>, token: String| async move {
-            validate_token(&app, &token).await.map_err(custom)
-        })
-        .untuple_one()
+#[debug_handler]
+async fn ws_handler(
+    State(app): State<Arc<App>>,
+    ws: WebSocketUpgrade,
+    ForwardedFor(mut forwarded_for): ForwardedFor,
+    remote: Result<
+        ConnectInfo<SocketAddr>,
+        <ConnectInfo<SocketAddr> as FromRequestParts<()>>::Rejection,
+    >,
+) -> impl IntoResponse {
+    if let Ok(remote) = remote {
+        forwarded_for.push(remote.ip());
+    }
+    log::debug!("new websocket connection from {:?}", forwarded_for.first());
+    let opts = ConnectionOptions::new(app.max_debounce_time, app.max_connection_time);
+    ws.on_upgrade(move |socket| handle_user_socket(socket, app, forwarded_for, opts))
 }
 
-async fn validate_token(app: &App, token: &str) -> Result<()> {
-    let mut redis = app.redis.connect().await?;
-    let expected = redis.get("test-token").await?;
-    if !token.is_empty() && token == expected {
-        Ok(())
-    } else {
-        Err(SelfTestError::Token.into())
-    }
+#[debug_handler]
+async fn test_cookie(
+    State(app): State<Arc<App>>,
+    ValidatedToken(_token): ValidatedToken,
+) -> impl IntoResponse {
+    let cookie = app.test_cookie.load(Ordering::SeqCst);
+    log::debug!("current test cookie is {cookie}");
+    cookie.to_string()
+}
+
+#[debug_handler]
+async fn test_reverse_cookie(
+    State(app): State<Arc<App>>,
+    ValidatedToken(token): ValidatedToken,
+) -> impl IntoResponse {
+    let response = match app.nc_client.get_test_cookie(&token).await {
+        Ok(cookie) => {
+            log::debug!("got remote test cookie {cookie}");
+            cookie.to_string()
+        }
+        Err(e) => {
+            log::warn!("Error while trying to get cookie from Nextcloud {e:#}");
+            format!("{e:#}")
+        }
+    };
+    response
+}
+
+#[debug_handler]
+async fn test_mapping(
+    State(app): State<Arc<App>>,
+    Path(storage_id): Path<u32>,
+    ValidatedToken(_token): ValidatedToken,
+) -> impl IntoResponse {
+    let access = app
+        .storage_mapping
+        .get_users_for_storage_path(storage_id, "")
+        .await
+        .map(|access| {
+            let count = access.count();
+            log::debug!("storage mapping count for {storage_id} = {count}");
+            count
+        })
+        .inspect_err(|err| {
+            log::error!("error while getting mapping count for {storage_id}: {err:#}");
+        })
+        .unwrap_or(0);
+    access.to_string()
+}
+
+#[debug_handler]
+async fn test_remote(
+    State(app): State<Arc<App>>,
+    Path(remote): Path<IpAddr>,
+    ValidatedToken(token): ValidatedToken,
+) -> impl IntoResponse {
+    let result = app
+        .nc_client
+        .test_set_remote(remote, &token)
+        .await
+        .map(|remote| remote.to_string());
+    log::debug!("got remote {result:?} when trying to set remote {remote}");
+    result
+}
+
+#[debug_handler]
+async fn test_version(
+    State(app): State<Arc<App>>,
+    ValidatedToken(_token): ValidatedToken,
+) -> impl IntoResponse {
+    let version = match app.redis.connect().await {
+        Ok(mut client) => {
+            client
+                .set("notify_push_version", env!("NOTIFY_PUSH_VERSION"))
+                .await
+                .ok();
+            "set"
+        }
+        Err(e) => {
+            log::warn!("Failed to get redis connection for version set: {e:#}");
+            "error"
+        }
+    };
+    version
 }

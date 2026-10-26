@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+use axum::response::{IntoResponse, Response};
 use flexi_logger::FlexiLoggerError;
 use miette::Diagnostic;
 use redis::RedisError;
@@ -10,7 +11,6 @@ use reqwest::StatusCode;
 use std::net::AddrParseError;
 use std::num::ParseIntError;
 use thiserror::Error;
-use warp::reject::Reject;
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum Error {
@@ -35,9 +35,15 @@ pub enum Error {
     #[cfg(feature = "systemd")]
     #[error("Failed to notify SystemD: {0}")]
     SystemD(#[from] std::io::Error),
+    #[error("Invalid request from client: {0}")]
+    InvalidRequest(ClientRequestError),
 }
 
-impl Reject for Error {}
+impl IntoResponse for Error {
+    fn into_response(self) -> Response {
+        (StatusCode::INTERNAL_SERVER_ERROR, "Error").into_response()
+    }
+}
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum NextCloudError {
@@ -59,6 +65,16 @@ pub enum NextCloudError {
     MalformedCookieResponse(#[source] ParseIntError),
     #[error("Invalid response when testing if the push server is a trusted proxy: {0}")]
     MalformedRemote(#[source] AddrParseError),
+}
+
+impl IntoResponse for NextCloudError {
+    fn into_response(self) -> Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Error while making request to Nextcloud instance",
+        )
+            .into_response()
+    }
 }
 
 #[derive(Debug, Error, Diagnostic)]
@@ -118,7 +134,7 @@ pub enum WebSocketError {
     #[error("Client disconnected unexpectedly")]
     Disconnected,
     #[error(transparent)]
-    Error(#[from] warp::Error),
+    Error(#[from] axum::Error),
 }
 
 #[derive(Debug, Error, Diagnostic)]
@@ -133,4 +149,16 @@ pub enum AuthenticationError {
     Invalid,
     #[error("Connection limit exceeded for user")]
     LimitExceeded,
+}
+
+#[derive(Debug, Error, Diagnostic)]
+pub enum ClientRequestError {
+    #[error("Provided forwarded header is invalid")]
+    InvalidForwardedHeader,
+}
+
+impl IntoResponse for ClientRequestError {
+    fn into_response(self) -> Response {
+        (StatusCode::BAD_REQUEST, self.to_string()).into_response()
+    }
 }

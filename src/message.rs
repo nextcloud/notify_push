@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use crate::connection::ConnectionOptions;
+use axum::extract::ws::Message;
 use parse_display::Display;
 use serde_json::Value;
 use smallvec::{smallvec, SmallVec};
@@ -11,7 +12,6 @@ use std::fmt::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 use tokio::time::Duration;
-use warp::ws::Message;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum UpdatedFiles {
