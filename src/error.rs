@@ -100,6 +100,11 @@ pub enum ConfigError {
     #[error("Error while parsing nextcloud config.php")]
     #[diagnostic(transparent)]
     Parse(#[from] nextcloud_config_parser::Error),
+    #[error("Invalid --{0} value")]
+    UrlOption(
+        &'static str,
+        #[source] Box<dyn std::error::Error + Send + Sync>,
+    ),
     #[error("Invalid {0} environment variable")]
     Env(
         &'static str,
