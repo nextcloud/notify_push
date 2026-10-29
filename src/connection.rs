@@ -9,6 +9,7 @@ use crate::metrics::METRICS;
 use crate::passthru_hasher::PassthruHasher;
 use crate::Result;
 use crate::{App, UserId};
+use axum::extract::ws::{Message, WebSocket};
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use futures::{future::select, pin_mut, SinkExt, StreamExt};
@@ -21,7 +22,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
 use tokio::time::timeout;
-use warp::filters::ws::{Message, WebSocket};
 
 const USER_CONNECTION_LIMIT: usize = 64;
 const PING_INTERVAL: Duration = Duration::from_secs(30);
@@ -185,7 +185,7 @@ pub async fn handle_user_socket(
                                 log::debug!(target: "notify_push::send", "Sending ping to {user_id}");
                                 last_send = now;
                                 user_ws_tx
-                                    .feed(Message::ping(data.to_le_bytes()))
+                                    .feed(Message::Ping(data.to_le_bytes().to_vec().into()))
                                     .await
                                     .ok();
                             }
@@ -209,15 +209,14 @@ pub async fn handle_user_socket(
         // handle messages until the client closes the connection
         while let Some(result) = user_ws_rx.next().await {
             match result {
-                Ok(msg) if msg.is_pong() => {
+                Ok(Message::Pong(pong)) => {
                     let expected = expect_pong.swap(0, Ordering::SeqCst);
-                    if msg.as_bytes() != expected.to_le_bytes() {
+                    if pong != expected.to_le_bytes().as_slice() {
                         log::info!("received wrong pong, closing");
                         break;
                     }
                 }
-                Ok(msg) if msg.is_text() => {
-                    let text = msg.to_str().unwrap_or_default();
+                Ok(Message::Text(text)) => {
                     if text == "listen notify_file_id" {
                         opts.listen_file_id.store(true, Ordering::Relaxed);
                     }
@@ -262,22 +261,18 @@ async fn socket_auth(
     forwarded_for: Vec<IpAddr>,
     app: &App,
 ) -> Result<UserId, AuthenticationError> {
-    let username_msg = read_socket_auth_message(rx).await?;
-    let username = username_msg
-        .to_str()
-        .map_err(|_| AuthenticationError::InvalidMessage)?
-        .trim();
-    let password_msg = read_socket_auth_message(rx).await?;
-    let password = password_msg
-        .to_str()
-        .map_err(|_| AuthenticationError::InvalidMessage)?
-        .trim();
+    let Message::Text(username) = read_socket_auth_message(rx).await? else {
+        return Err(AuthenticationError::InvalidMessage);
+    };
+    let Message::Text(password) = read_socket_auth_message(rx).await? else {
+        return Err(AuthenticationError::InvalidMessage);
+    };
 
     // cleanup all expired pre_auth tokens
     let cutoff = Instant::now() - PRE_AUTH_VALIDITY;
     app.pre_auth.retain(|_, (time, _)| *time > cutoff);
 
-    if let Some((_, (_, user))) = app.pre_auth.remove(password) {
+    if let Some((_, (_, user))) = app.pre_auth.remove(password.as_str()) {
         log::debug!("Authenticated socket for {user} using pre authenticated token");
         return Ok(user);
     }
@@ -285,7 +280,7 @@ async fn socket_auth(
     if !username.is_empty() {
         Ok(app
             .nc_client
-            .verify_credentials(username, password, forwarded_for)
+            .verify_credentials(username.as_str(), password.as_str(), forwarded_for)
             .await?)
     } else {
         Err(AuthenticationError::Invalid)

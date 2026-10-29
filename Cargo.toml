@@ -10,7 +10,10 @@ rust-version = "1.94.0"
 
 [dependencies]
 ahash = "0.8.12"
+axum = { version = "0.8.9", features = ["macros", "ws"] }
+axum-server = { version = "0.8", features = ["tls-rustls"] }
 clap = { version = "4.6.1", features = ["derive"] }
+comma-separated = "0.1.0"
 dashmap = "6.2.1"
 dotenvy = "0.15.7"
 flexi_logger = { version = "0.31.9", features = ["colors"] }
@@ -27,12 +30,18 @@ redis = { version = "1.3.0", default-features = false, features = [
   "cluster-async",
   "tls-rustls",
   "tls-rustls-insecure",
-  "tls-rustls-webpki-roots",
   "tokio-comp",
   "tokio-rustls-comp"
 ] }
-reqwest = { version = "0.13.4", features = ["json"] }
-rustls = { version = "0.23.43", default-features = false }
+reqwest = { version = "0.13.4", default-features = false, features = [
+  "http2",
+  "json",
+  "rustls-no-provider"
+] }
+rfc7239 = "0.1.3"
+rustls = { version = "0.23.43", default-features = false, features = [
+  "aws-lc-rs"
+] }
 sd-notify = { version = "0.5.0", optional = true }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
@@ -43,20 +52,20 @@ sqlx = { version = "0.9.0", features = [
   "postgres",
   "runtime-tokio",
   "sqlite",
-  "tls-rustls-aws-lc-rs"
+  "tls-rustls-ring-native-roots"  # untill https://github.com/transact-rs/sqlx/pull/4475 or similar is merged, since we explicitly pick a crypto provider at runtime, this doesn't actually use ring.
 ] }
 thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread", "signal"] }
 tokio-stream = { version = "0.1.18", features = ["net"] }
+tower-http = { version = "0.7.1", features = ["cors"] }
 url = "2.5.8"
-warp = { version = "0.3.7", features = ["tls"] }
-warp-real-ip = "0.2.0"
-webpki-root-certs = "1.0.8"
+warp-real-ip = "0.3.0"
+webpki-root-certs = { version = "1.0.8", optional = true }
 # https://github.com/transact-rs/sqlx/pull/4303 should be safe to remove after the next sqlx release
 whoami = { version = "2.0.2", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-http-auth-basic = "0.3.7"
+axum-extra = { version = "0.12.6", features = ["typed-header"] }
 mini-redis = "0.4.1"
 test_client = { path = "test_client" }
 tokio-tungstenite = "0.30.0"
@@ -65,8 +74,9 @@ tokio-tungstenite = "0.30.0"
 nextcloud_appinfo = "0.6.0"
 
 [features]
-default = ["systemd"]
+default = ["systemd", "webpki-roots"]
 systemd = ["dep:sd-notify"]
+webpki-roots = ["dep:webpki-root-certs", "redis/tls-rustls-webpki-roots"]
 
 [profile.dev.package.backtrace]
 opt-level = 3

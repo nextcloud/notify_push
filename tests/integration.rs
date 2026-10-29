@@ -3,12 +3,18 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+use axum::extract::State;
+use axum::response::IntoResponse;
+use axum::routing::get;
+use axum::{debug_handler, Router};
+use axum_extra::headers::authorization::Basic;
+use axum_extra::headers::Authorization;
+use axum_extra::TypedHeader;
 use dashmap::DashMap;
 use flexi_logger::{Logger, LoggerHandle};
 use futures::future::select;
 use futures::{pin_mut, FutureExt};
 use futures::{SinkExt, StreamExt};
-use http_auth_basic::Credentials;
 use nextcloud_config_parser::{RedisConfig, RedisConnectionAddr, RedisConnectionInfo};
 use notify_push::config::{Bind, Config};
 use notify_push::message::DEBOUNCE_ENABLE;
@@ -16,6 +22,7 @@ use notify_push::redis::open_single;
 use notify_push::{listen_loop, serve, App};
 use once_cell::sync::Lazy;
 use redis::AsyncCommands;
+use reqwest::StatusCode;
 use smallvec::alloc::sync::Arc;
 use sqlx::AnyPool;
 use std::net::SocketAddr;
@@ -25,11 +32,8 @@ use tokio::sync::oneshot;
 use tokio::task::spawn;
 use tokio::time::timeout;
 use tokio::time::{sleep, Duration};
-use tokio_stream::wrappers::TcpListenerStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
-use warp::http::StatusCode;
-use warp::{Filter, Reply};
 
 static LAST_PORT: AtomicU16 = AtomicU16::new(1024);
 
@@ -58,6 +62,8 @@ static LOG_HANDLE: Lazy<LoggerHandle> =
 
 impl Services {
     pub async fn new() -> Self {
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
         sqlx::any::install_default_drivers();
         DEBOUNCE_ENABLE.store(false, Ordering::SeqCst);
         let redis_tcp = listen_available_port()
@@ -105,35 +111,18 @@ impl Services {
 
         let users: Arc<DashMap<String, String>> = Arc::default();
 
-        let users_filter = users.clone();
-        let users_filter = warp::any().map(move || users_filter.clone());
-
-        let uid = warp::any()
-            .and(warp::header::<String>("authorization"))
-            .and(users_filter)
-            .map(|auth, users: Arc<DashMap<String, String>>| {
-                let credentials = match Credentials::from_header(auth) {
-                    Ok(credentials) => credentials,
-                    Err(_) => return Box::new(StatusCode::BAD_REQUEST) as Box<dyn Reply>,
-                };
-                match users.get(&credentials.user_id) {
-                    Some(pass) if pass.value() == &credentials.password => {
-                        Box::new(credentials.user_id)
-                    }
-                    _ => Box::new(StatusCode::UNAUTHORIZED),
-                }
-            });
+        let users_router = Router::new()
+            .route("/index.php/apps/notify_push/uid", get(mock_users))
+            .with_state(users.clone());
 
         let (redis_shutdown, redis_shutdown_rx) = oneshot::channel();
         let (nextcloud_shutdown, nextcloud_shutdown_rx) = oneshot::channel();
 
         spawn(async move {
-            warp::serve(uid)
-                .serve_incoming_with_graceful_shutdown(
-                    TcpListenerStream::new(nextcloud_tcp),
-                    nextcloud_shutdown_rx.map(|_| ()),
-                )
-                .await;
+            axum::serve(nextcloud_tcp, users_router)
+                .with_graceful_shutdown(nextcloud_shutdown_rx.map(|_| ()))
+                .await
+                .unwrap();
         });
         spawn(async move {
             mini_redis::server::run(redis_tcp, redis_shutdown_rx)
@@ -200,7 +189,7 @@ impl Services {
 
         let bind = Bind::Tcp(addr);
         spawn(async move {
-            let serve = serve(app.clone(), bind, serve_rx, None, 15, 0).unwrap();
+            let serve = serve(app.clone(), bind, serve_rx, None).await.unwrap();
             let listen = listen_loop(app.clone(), listen_rx);
 
             pin_mut!(serve);
@@ -244,6 +233,22 @@ impl Services {
             .execute(&self.db)
             .await
             .unwrap();
+    }
+}
+
+#[debug_handler]
+async fn mock_users(
+    State(users): State<Arc<DashMap<String, String>>>,
+    TypedHeader(auth): TypedHeader<Authorization<Basic>>,
+) -> impl IntoResponse {
+    match users.get(auth.username()) {
+        Some(pass) if pass.value() == auth.password() => {
+            (StatusCode::OK, auth.username().to_string())
+        }
+        _ => (
+            StatusCode::UNAUTHORIZED,
+            "Unknown user or invalid password".to_string(),
+        ),
     }
 }
 
